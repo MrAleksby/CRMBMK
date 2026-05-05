@@ -83,6 +83,15 @@ export default function Finance() {
     return balance < 0 ? sum + Math.abs(balance) : sum
   }, 0)
 
+  // Должны клиентам — сумма положительных балансов (предоплаты)
+  const totalOwedToClients = clientIds.reduce((sum, clientId) => {
+    const ps = payments.filter(p => p.clientId === clientId)
+    const income = ps.filter(p => p.type === 'income').reduce((s, p) => s + (p.amount || 0), 0)
+    const sessions = ps.filter(p => p.type === 'session').reduce((s, p) => s + (p.amount || 0), 0)
+    const balance = income - sessions
+    return balance > 0 ? sum + balance : sum
+  }, 0)
+
   // Объединённая лента для вкладки "все"
   const allItems = [
     ...filteredPayments.map(p => ({ ...p, _kind: 'payment' })),
@@ -117,7 +126,7 @@ export default function Finance() {
       </div>
 
       {/* Summary cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px', marginBottom: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '12px', marginBottom: '24px' }}>
         <div style={card}>
           <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Оплаты клиентов</p>
           <p style={{ fontSize: '18px', fontWeight: '700', color: '#34d399', margin: 0 }}>{totalIncome.toLocaleString()} сум</p>
@@ -142,6 +151,16 @@ export default function Finance() {
           <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Долги клиентов</p>
           <p style={{ fontSize: '18px', fontWeight: '700', color: totalClientDebt > 0 ? '#f87171' : '#6b6b80', margin: 0 }}>
             {totalClientDebt.toLocaleString()} сум
+          </p>
+        </div>
+        <div style={{
+          ...card,
+          background: totalOwedToClients > 0 ? '#0d1f12' : '#1a1a24',
+          border: `1px solid ${totalOwedToClients > 0 ? '#14532d' : '#2a2a35'}`,
+        }}>
+          <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Должны клиентам</p>
+          <p style={{ fontSize: '18px', fontWeight: '700', color: totalOwedToClients > 0 ? '#34d399' : '#6b6b80', margin: 0 }}>
+            {totalOwedToClients.toLocaleString()} сум
           </p>
         </div>
         {(() => {
