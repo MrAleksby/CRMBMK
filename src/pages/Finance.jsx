@@ -40,10 +40,14 @@ export default function Finance() {
 
   useEffect(() => {
     const fetchAll = async () => {
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
       try {
-        const [ps, es] = await Promise.all([
-          getDocs(collection(db, 'payments')),
-          getDocs(collection(db, 'expenses')),
+        const [ps, es] = await Promise.race([
+          Promise.all([
+            getDocs(collection(db, 'payments')),
+            getDocs(collection(db, 'expenses')),
+          ]),
+          timeout,
         ])
         setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })))
         setExpenses(es.docs.map(d => ({ id: d.id, ...d.data() })))

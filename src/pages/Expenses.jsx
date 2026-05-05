@@ -44,8 +44,12 @@ export default function Expenses() {
   const [filterCat, setFilterCat] = useState('all')
 
   const fetchExpenses = async () => {
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
     try {
-      const snap = await getDocs(collection(db, 'expenses'))
+      const snap = await Promise.race([
+        getDocs(collection(db, 'expenses')),
+        timeout,
+      ])
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       data.sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0))
       setExpenses(data)
