@@ -164,7 +164,7 @@ export default function Finance() {
           </p>
         </div>
         {(() => {
-          const realized = totalSessions - totalClientDebt - totalExpenses
+          const realized = totalSessions - totalExpenses
           return (
             <div style={{
               ...card,
