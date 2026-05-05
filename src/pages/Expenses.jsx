@@ -44,11 +44,16 @@ export default function Expenses() {
   const [filterCat, setFilterCat] = useState('all')
 
   const fetchExpenses = async () => {
-    const snap = await getDocs(collection(db, 'expenses'))
-    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-    data.sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0))
-    setExpenses(data)
-    setLoading(false)
+    try {
+      const snap = await getDocs(collection(db, 'expenses'))
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      data.sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0))
+      setExpenses(data)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchExpenses() }, [])

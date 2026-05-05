@@ -48,13 +48,18 @@ export default function Clients() {
   const [paymentForm, setPaymentForm] = useState({})
 
   const fetchData = async () => {
-    const [cs, ps] = await Promise.all([
-      getDocs(collection(db, 'clients')),
-      getDocs(collection(db, 'payments')),
-    ])
-    setClients(cs.docs.map(d => ({ id: d.id, ...d.data() })))
-    setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })))
-    setLoading(false)
+    try {
+      const [cs, ps] = await Promise.all([
+        getDocs(collection(db, 'clients')),
+        getDocs(collection(db, 'payments')),
+      ])
+      setClients(cs.docs.map(d => ({ id: d.id, ...d.data() })))
+      setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })))
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { fetchData() }, [])

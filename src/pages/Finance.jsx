@@ -40,13 +40,18 @@ export default function Finance() {
 
   useEffect(() => {
     const fetchAll = async () => {
-      const [ps, es] = await Promise.all([
-        getDocs(collection(db, 'payments')),
-        getDocs(collection(db, 'expenses')),
-      ])
-      setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })))
-      setExpenses(es.docs.map(d => ({ id: d.id, ...d.data() })))
-      setLoading(false)
+      try {
+        const [ps, es] = await Promise.all([
+          getDocs(collection(db, 'payments')),
+          getDocs(collection(db, 'expenses')),
+        ])
+        setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })))
+        setExpenses(es.docs.map(d => ({ id: d.id, ...d.data() })))
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setLoading(false)
+      }
     }
     fetchAll()
   }, [])
