@@ -73,6 +73,10 @@ export default function Finance() {
   const netProfit = totalIncome - totalExpenses
   const totalSessionsCount = filteredPayments.filter(p => p.type === 'session').reduce((s, p) => s + (p.sessions || 0), 0)
 
+  // Баланс компании — все оплаты минус все расходы за всё время
+  const companyBalance = payments.filter(p => p.type === 'income').reduce((s, p) => s + (p.amount || 0), 0)
+    - expenses.reduce((s, e) => s + (e.amount || 0), 0)
+
   // Долги клиентов — сумма отрицательных балансов (по всем платежам, не фильтруя по периоду)
   const clientIds = [...new Set(payments.map(p => p.clientId).filter(Boolean))]
   const totalClientDebt = clientIds.reduce((sum, clientId) => {
@@ -126,7 +130,7 @@ export default function Finance() {
       </div>
 
       {/* Summary cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '12px', marginBottom: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
         <div style={card}>
           <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Оплаты клиентов</p>
           <p style={{ fontSize: '18px', fontWeight: '700', color: '#34d399', margin: 0 }}>{totalIncome.toLocaleString()} сум</p>
@@ -161,6 +165,16 @@ export default function Finance() {
           <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Должны клиентам</p>
           <p style={{ fontSize: '18px', fontWeight: '700', color: totalOwedToClients > 0 ? '#34d399' : '#6b6b80', margin: 0 }}>
             {totalOwedToClients.toLocaleString()} сум
+          </p>
+        </div>
+        <div style={{
+          ...card,
+          background: companyBalance >= 0 ? '#0d1f2b' : '#2b0d0d',
+          border: `1px solid ${companyBalance >= 0 ? '#1e3a5f' : '#450a0a'}`,
+        }}>
+          <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Баланс компании</p>
+          <p style={{ fontSize: '18px', fontWeight: '700', color: companyBalance >= 0 ? '#60a5fa' : '#f87171', margin: 0 }}>
+            {companyBalance.toLocaleString()} сум
           </p>
         </div>
         {(() => {
