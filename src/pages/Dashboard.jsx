@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 
+const card = {
+  background: '#1a1a24',
+  border: '1px solid #2a2a35',
+  borderRadius: '16px',
+  padding: '20px',
+}
+
 export default function Dashboard() {
   const [clients, setClients] = useState([])
   const [payments, setPayments] = useState([])
@@ -10,8 +17,10 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const clientsSnap = await getDocs(collection(db, 'clients'))
-        const paymentsSnap = await getDocs(collection(db, 'payments'))
+        const [clientsSnap, paymentsSnap] = await Promise.all([
+          getDocs(collection(db, 'clients')),
+          getDocs(collection(db, 'payments')),
+        ])
         setClients(clientsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
         setPayments(paymentsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       } catch (e) {
@@ -23,76 +32,104 @@ export default function Dashboard() {
     fetchData()
   }, [])
 
-  const totalRevenue = payments
-    .filter(p => p.type === 'income')
-    .reduce((sum, p) => sum + (p.amount || 0), 0)
+  // Баланс конкретного клиента
+  const getClientBalance = (clientId) => {
+    const ps = payments.filter(p => p.clientId === clientId)
+    const income = ps.filter(p => p.type === 'income').reduce((s, p) => s + (p.amount || 0), 0)
+    const sessions = ps.filter(p => p.type === 'session').reduce((s, p) => s + (p.amount || 0), 0)
+    return income - sessions
+  }
 
-  const totalDebt = payments
-    .filter(p => p.type === 'debt')
-    .reduce((sum, p) => sum + (p.amount || 0), 0)
+  // Общие доходы (все оплаты клиентов)
+  const totalIncome = payments
+    .filter(p => p.type === 'income')
+    .reduce((s, p) => s + (p.amount || 0), 0)
+
+  // Долги = сумма отрицательных балансов клиентов
+  const totalDebt = clients.reduce((sum, c) => {
+    const balance = getClientBalance(c.id)
+    return balance < 0 ? sum + Math.abs(balance) : sum
+  }, 0)
+
+  // Должники
+  const debtors = clients.filter(c => getClientBalance(c.id) < 0)
 
   const recentPayments = [...payments]
     .sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0))
-    .slice(0, 5)
+    .slice(0, 6)
 
-  if (loading) return <div className="text-gray-500">Загрузка...</div>
+  if (loading) return <div style={{ color: '#6b6b80', padding: '32px' }}>Загрузка...</div>
 
   return (
-    <div>
-      <h2 className="text-3xl font-bold text-gray-800 mb-6">Дашборд</h2>
+    <div style={{ maxWidth: '960px' }}>
+      {/* Header */}
+      <div style={{ marginBottom: '24px' }}>
+        <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#fff', margin: 0 }}>📊 Дашборд</h2>
+        <p style={{ fontSize: '14px', color: '#6b6b80', marginTop: '4px' }}>Общая статистика центра</p>
+      </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-          <p className="text-sm text-gray-500 mb-1">Всего клиентов</p>
-          <p className="text-4xl font-bold text-indigo-600">{clients.length}</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+        <div style={card}>
+          <p style={{ fontSize: '13px', color: '#6b6b80', marginBottom: '8px' }}>Клиентов</p>
+          <p style={{ fontSize: '36px', fontWeight: '700', color: '#a78bfa', margin: 0 }}>{clients.length}</p>
         </div>
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-          <p className="text-sm text-gray-500 mb-1">Общий доход</p>
-          <p className="text-4xl font-bold text-green-600">{totalRevenue.toLocaleString()} ₽</p>
+        <div style={card}>
+          <p style={{ fontSize: '13px', color: '#6b6b80', marginBottom: '8px' }}>Получено</p>
+          <p style={{ fontSize: '28px', fontWeight: '700', color: '#34d399', margin: 0 }}>{totalIncome.toLocaleString()} сум</p>
         </div>
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-          <p className="text-sm text-gray-500 mb-1">Задолженности</p>
-          <p className="text-4xl font-bold text-red-500">{totalDebt.toLocaleString()} ₽</p>
+        <div style={{
+          ...card,
+          border: totalDebt > 0 ? '1px solid #450a0a' : '1px solid #2a2a35',
+          background: totalDebt > 0 ? '#1f1010' : '#1a1a24',
+        }}>
+          <p style={{ fontSize: '13px', color: '#6b6b80', marginBottom: '8px' }}>
+            Долги {debtors.length > 0 && <span style={{ color: '#f87171' }}>({debtors.length} клиент{debtors.length > 1 ? 'а' : ''})</span>}
+          </p>
+          <p style={{ fontSize: '28px', fontWeight: '700', color: totalDebt > 0 ? '#f87171' : '#6b6b80', margin: 0 }}>
+            {totalDebt.toLocaleString()} сум
+          </p>
         </div>
       </div>
 
       {/* Recent payments */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-700 mb-4">Последние платежи</h3>
+      <div style={card}>
+        <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '16px' }}>Последние платежи</h3>
         {recentPayments.length === 0 ? (
-          <p className="text-gray-400 text-sm">Нет платежей</p>
+          <p style={{ color: '#6b6b80', fontSize: '14px' }}>Нет платежей — добавьте клиентов и финансы</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-gray-400 border-b">
-                <th className="pb-2">Клиент</th>
-                <th className="pb-2">Сумма</th>
-                <th className="pb-2">Тип</th>
-                <th className="pb-2">Дата</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentPayments.map(p => (
-                <tr key={p.id} className="border-b last:border-0">
-                  <td className="py-3">{p.clientName || '—'}</td>
-                  <td className="py-3 font-medium">{(p.amount || 0).toLocaleString()} ₽</td>
-                  <td className="py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      p.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                    }`}>
-                      {p.type === 'income' ? 'Оплата' : 'Долг'}
-                    </span>
-                  </td>
-                  <td className="py-3 text-gray-400">
-                    {p.date?.seconds
-                      ? new Date(p.date.seconds * 1000).toLocaleDateString('ru')
-                      : '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div>
+            {recentPayments.map((p, i) => (
+              <div key={p.id} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '12px 0',
+                borderBottom: i < recentPayments.length - 1 ? '1px solid #2a2a35' : 'none'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '36px', height: '36px', borderRadius: '50%',
+                    background: p.type === 'income' ? '#14532d' : '#2a2a3e',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px'
+                  }}>
+                    {p.type === 'income' ? '💰' : '🏃'}
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '14px', fontWeight: '600', color: '#fff', margin: 0 }}>{p.clientName || '—'}</p>
+                    <p style={{ fontSize: '12px', color: '#6b6b80', margin: 0 }}>
+                      {p.date?.seconds ? new Date(p.date.seconds * 1000).toLocaleDateString('ru') : '—'}
+                      {p.type === 'session' && p.sessions > 0 && ` · ${p.sessions} зан.`}
+                    </p>
+                  </div>
+                </div>
+                <span style={{
+                  fontWeight: '700', fontSize: '15px',
+                  color: p.type === 'income' ? '#34d399' : '#f87171'
+                }}>
+                  {p.type === 'income' ? '+' : '-'}{(p.amount || 0).toLocaleString()} сум
+                </span>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

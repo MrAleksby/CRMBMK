@@ -1,197 +1,236 @@
 import { useEffect, useState } from 'react'
-import { collection, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore'
+import { collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 
-const emptyForm = {
-  clientName: '',
-  amount: '',
-  type: 'income',
-  description: '',
+const card = {
+  background: '#1a1a24',
+  border: '1px solid #2a2a35',
+  borderRadius: '16px',
+  padding: '20px',
+}
+
+const MONTHS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
+
+const CATEGORIES = {
+  rent:     '🏢 Аренда',
+  salary:   '👥 Зарплата',
+  ads:      '📣 Реклама',
+  supplies: '🛒 Инвентарь',
+  utils:    '⚡ Коммунальные',
+  other:    '📦 Прочее',
 }
 
 export default function Finance() {
   const [payments, setPayments] = useState([])
+  const [expenses, setExpenses] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState(emptyForm)
-  const [saving, setSaving] = useState(false)
+  const [filterMonth, setFilterMonth] = useState('all')
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear())
+  const [tab, setTab] = useState('all') // 'all' | 'income' | 'expense'
 
-  const fetchPayments = async () => {
-    const snap = await getDocs(collection(db, 'payments'))
-    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-    data.sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0))
-    setPayments(data)
-    setLoading(false)
+  const inputStyle = {
+    background: '#0f0f13',
+    border: '1px solid #2a2a35',
+    borderRadius: '10px',
+    padding: '8px 12px',
+    color: '#fff',
+    fontSize: '14px',
+    outline: 'none',
   }
 
-  useEffect(() => { fetchPayments() }, [])
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setSaving(true)
-    try {
-      await addDoc(collection(db, 'payments'), {
-        ...form,
-        amount: Number(form.amount),
-        date: new Date(),
-      })
-      setForm(emptyForm)
-      setShowForm(false)
-      fetchPayments()
-    } finally {
-      setSaving(false)
+  useEffect(() => {
+    const fetchAll = async () => {
+      const [ps, es] = await Promise.all([
+        getDocs(collection(db, 'payments')),
+        getDocs(collection(db, 'expenses')),
+      ])
+      setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })))
+      setExpenses(es.docs.map(d => ({ id: d.id, ...d.data() })))
+      setLoading(false)
     }
-  }
+    fetchAll()
+  }, [])
 
-  const handleDelete = async (id) => {
-    if (!confirm('Удалить запись?')) return
-    await deleteDoc(doc(db, 'payments', id))
-    fetchPayments()
-  }
+  const filterByPeriod = (list) => list.filter(item => {
+    if (filterMonth === 'all') return true
+    if (!item.date?.seconds) return false
+    const d = new Date(item.date.seconds * 1000)
+    return d.getMonth() === parseInt(filterMonth) && d.getFullYear() === filterYear
+  })
 
-  const totalIncome = payments.filter(p => p.type === 'income').reduce((s, p) => s + p.amount, 0)
-  const totalDebt = payments.filter(p => p.type === 'debt').reduce((s, p) => s + p.amount, 0)
+  const filteredPayments = filterByPeriod(payments)
+  const filteredExpenses = filterByPeriod(expenses)
+
+  const totalIncome = filteredPayments.filter(p => p.type === 'income').reduce((s, p) => s + (p.amount || 0), 0)
+  const totalSessions = filteredPayments.filter(p => p.type === 'session').reduce((s, p) => s + (p.amount || 0), 0)
+  const totalExpenses = filteredExpenses.reduce((s, e) => s + (e.amount || 0), 0)
+  const netProfit = totalIncome - totalExpenses
+  const totalSessionsCount = filteredPayments.filter(p => p.type === 'session').reduce((s, p) => s + (p.sessions || 0), 0)
+
+  // Долги клиентов — сумма отрицательных балансов (по всем платежам, не фильтруя по периоду)
+  const clientIds = [...new Set(payments.map(p => p.clientId).filter(Boolean))]
+  const totalClientDebt = clientIds.reduce((sum, clientId) => {
+    const ps = payments.filter(p => p.clientId === clientId)
+    const income = ps.filter(p => p.type === 'income').reduce((s, p) => s + (p.amount || 0), 0)
+    const sessions = ps.filter(p => p.type === 'session').reduce((s, p) => s + (p.amount || 0), 0)
+    const balance = income - sessions
+    return balance < 0 ? sum + Math.abs(balance) : sum
+  }, 0)
+
+  // Объединённая лента для вкладки "все"
+  const allItems = [
+    ...filteredPayments.map(p => ({ ...p, _kind: 'payment' })),
+    ...filteredExpenses.map(e => ({ ...e, _kind: 'expense' })),
+  ].sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0))
+
+  const years = [...new Set([
+    ...payments.map(p => p.date?.seconds ? new Date(p.date.seconds * 1000).getFullYear() : null),
+    ...expenses.map(e => e.date?.seconds ? new Date(e.date.seconds * 1000).getFullYear() : null),
+  ].filter(Boolean))]
+  if (!years.includes(new Date().getFullYear())) years.push(new Date().getFullYear())
+
+  if (loading) return <div style={{ color: '#6b6b80', padding: '32px' }}>Загрузка...</div>
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-3xl font-bold text-gray-800">Финансы</h2>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 transition"
-        >
-          + Добавить запись
-        </button>
+    <div style={{ maxWidth: '900px' }}>
+      {/* Header */}
+      <div style={{ marginBottom: '24px' }}>
+        <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#fff', margin: 0 }}>💰 Финансы</h2>
+        <p style={{ fontSize: '14px', color: '#6b6b80', marginTop: '4px' }}>Общая сводка</p>
       </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-2 gap-6 mb-6">
-        <div className="bg-green-50 border border-green-100 rounded-2xl p-5">
-          <p className="text-sm text-green-600 mb-1">Общий доход</p>
-          <p className="text-3xl font-bold text-green-700">{totalIncome.toLocaleString()} ₽</p>
-        </div>
-        <div className="bg-red-50 border border-red-100 rounded-2xl p-5">
-          <p className="text-sm text-red-500 mb-1">Задолженности</p>
-          <p className="text-3xl font-bold text-red-600">{totalDebt.toLocaleString()} ₽</p>
-        </div>
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+        <select style={{ ...inputStyle, width: '140px' }} value={filterMonth} onChange={e => setFilterMonth(e.target.value)}>
+          <option value="all">Все месяцы</option>
+          {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+        </select>
+        <select style={{ ...inputStyle, width: '100px' }} value={filterYear} onChange={e => setFilterYear(Number(e.target.value))}>
+          {years.sort().map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
       </div>
 
-      {/* Add form */}
-      {showForm && (
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-6">
-          <h3 className="text-lg font-semibold mb-4 text-gray-700">Новая запись</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm text-gray-500 block mb-1">Имя клиента *</label>
-              <input
-                required
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                value={form.clientName}
-                onChange={e => setForm({ ...form, clientName: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-sm text-gray-500 block mb-1">Сумма (₽) *</label>
-              <input
-                required
-                type="number"
-                min="0"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                value={form.amount}
-                onChange={e => setForm({ ...form, amount: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-sm text-gray-500 block mb-1">Тип</label>
-              <select
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                value={form.type}
-                onChange={e => setForm({ ...form, type: e.target.value })}
-              >
-                <option value="income">Оплата</option>
-                <option value="debt">Задолженность</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-sm text-gray-500 block mb-1">Описание</label>
-              <input
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                value={form.description}
-                onChange={e => setForm({ ...form, description: e.target.value })}
-              />
-            </div>
-          </div>
-          <div className="flex gap-3 mt-4">
-            <button
-              type="submit"
-              disabled={saving}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50 transition"
-            >
-              {saving ? 'Сохраняем...' : 'Сохранить'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowForm(false)}
-              className="px-4 py-2 rounded-lg text-sm border border-gray-200 hover:bg-gray-50 transition"
-            >
-              Отмена
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* Payments list */}
-      {loading ? (
-        <div className="text-gray-500">Загрузка...</div>
-      ) : payments.length === 0 ? (
-        <div className="text-gray-400 text-sm">Записей нет</div>
-      ) : (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr className="text-left text-gray-400 border-b">
-                <th className="px-5 py-3">Клиент</th>
-                <th className="px-5 py-3">Сумма</th>
-                <th className="px-5 py-3">Тип</th>
-                <th className="px-5 py-3">Описание</th>
-                <th className="px-5 py-3">Дата</th>
-                <th className="px-5 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {payments.map(p => (
-                <tr key={p.id} className="border-b last:border-0 hover:bg-gray-50">
-                  <td className="px-5 py-4 font-medium">{p.clientName}</td>
-                  <td className="px-5 py-4 font-semibold">
-                    {p.amount.toLocaleString()} ₽
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      p.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                    }`}>
-                      {p.type === 'income' ? 'Оплата' : 'Долг'}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-gray-400">{p.description || '—'}</td>
-                  <td className="px-5 py-4 text-gray-400">
-                    {p.date?.seconds
-                      ? new Date(p.date.seconds * 1000).toLocaleDateString('ru')
-                      : '—'}
-                  </td>
-                  <td className="px-5 py-4">
-                    <button
-                      onClick={() => handleDelete(p.id)}
-                      className="text-red-400 hover:text-red-600 transition"
-                    >
-                      Удалить
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Summary cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px', marginBottom: '24px' }}>
+        <div style={card}>
+          <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Оплаты клиентов</p>
+          <p style={{ fontSize: '18px', fontWeight: '700', color: '#34d399', margin: 0 }}>{totalIncome.toLocaleString()} сум</p>
         </div>
-      )}
+        <div style={card}>
+          <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Списано (занятия)</p>
+          <p style={{ fontSize: '18px', fontWeight: '700', color: '#fb923c', margin: 0 }}>{totalSessions.toLocaleString()} сум</p>
+        </div>
+        <div style={card}>
+          <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Расходы компании</p>
+          <p style={{ fontSize: '18px', fontWeight: '700', color: '#f87171', margin: 0 }}>{totalExpenses.toLocaleString()} сум</p>
+        </div>
+        <div style={card}>
+          <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Занятий</p>
+          <p style={{ fontSize: '18px', fontWeight: '700', color: '#a78bfa', margin: 0 }}>{totalSessionsCount}</p>
+        </div>
+        <div style={{
+          ...card,
+          background: totalClientDebt > 0 ? '#1f1010' : '#1a1a24',
+          border: `1px solid ${totalClientDebt > 0 ? '#450a0a' : '#2a2a35'}`,
+        }}>
+          <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Долги клиентов</p>
+          <p style={{ fontSize: '18px', fontWeight: '700', color: totalClientDebt > 0 ? '#f87171' : '#6b6b80', margin: 0 }}>
+            {totalClientDebt.toLocaleString()} сум
+          </p>
+        </div>
+        {(() => {
+          const realized = totalSessions - totalClientDebt - totalExpenses
+          return (
+            <div style={{
+              ...card,
+              background: realized >= 0 ? '#0d1f2b' : '#2b0d0d',
+              border: `1px solid ${realized >= 0 ? '#1e3a5f' : '#450a0a'}`,
+            }}>
+              <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Реализованная прибыль</p>
+              <p style={{ fontSize: '18px', fontWeight: '700', color: realized >= 0 ? '#60a5fa' : '#f87171', margin: 0 }}>
+                {realized.toLocaleString()} сум
+              </p>
+            </div>
+          )
+        })()}
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', background: '#1a1a24', padding: '4px', borderRadius: '12px', width: 'fit-content' }}>
+        {[
+          { value: 'all', label: 'Все' },
+          { value: 'income', label: '💰 Оплаты' },
+          { value: 'expense', label: '📉 Расходы' },
+        ].map(t => (
+          <button key={t.value} onClick={() => setTab(t.value)} style={{
+            background: tab === t.value ? '#2a2a3e' : 'transparent',
+            color: tab === t.value ? '#a78bfa' : '#6b6b80',
+            border: 'none', padding: '8px 16px', borderRadius: '8px',
+            fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.15s'
+          }}>{t.label}</button>
+        ))}
+      </div>
+
+      {/* Transactions */}
+      {(() => {
+        const items = tab === 'all' ? allItems
+          : tab === 'income' ? filteredPayments.map(p => ({ ...p, _kind: 'payment' }))
+          : filteredExpenses.map(e => ({ ...e, _kind: 'expense' }))
+
+        if (items.length === 0) return (
+          <div style={{ ...card, textAlign: 'center', padding: '40px' }}>
+            <p style={{ color: '#6b6b80', fontSize: '14px' }}>Нет записей за выбранный период</p>
+          </div>
+        )
+
+        return (
+          <div style={card}>
+            {items.map((item, i) => {
+              const isIncome = item._kind === 'payment' && item.type === 'income'
+              const isSession = item._kind === 'payment' && item.type === 'session'
+              const isExpense = item._kind === 'expense'
+
+              const icon = isIncome ? '💰' : isSession ? '🏃' : CATEGORIES[item.category]?.split(' ')[0] || '📦'
+              const label = isIncome ? 'Оплата' : isSession ? `${item.sessions} зан.` : CATEGORIES[item.category]?.split(' ').slice(1).join(' ') || 'Расход'
+              const name = isExpense ? (CATEGORIES[item.category]?.split(' ').slice(1).join(' ') || 'Расход') : item.clientName
+              const amount = item.amount || 0
+              const color = isIncome ? '#34d399' : isSession ? '#fb923c' : '#f87171'
+              const sign = isIncome ? '+' : '-'
+
+              return (
+                <div key={item.id} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 0',
+                  borderBottom: i < items.length - 1 ? '1px solid #2a2a35' : 'none'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                      width: '36px', height: '36px', borderRadius: '50%',
+                      background: isIncome ? '#14532d' : isSession ? '#2a2a3e' : '#2a1515',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px'
+                    }}>{icon}</div>
+                    <div>
+                      <p style={{ fontSize: '14px', fontWeight: '600', color: '#fff', margin: 0 }}>{name}</p>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px' }}>
+                        <span style={{ fontSize: '12px', color: '#6b6b80' }}>
+                          {item.date?.seconds ? new Date(item.date.seconds * 1000).toLocaleDateString('ru') : '—'}
+                        </span>
+                        <span style={{
+                          fontSize: '11px', padding: '1px 7px', borderRadius: '20px',
+                          background: isIncome ? '#14532d' : isSession ? '#2a2a3e' : '#2a1515',
+                          color
+                        }}>{label}</span>
+                        {item.description && <span style={{ fontSize: '12px', color: '#6b6b80' }}>{item.description}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '15px', fontWeight: '700', color }}>{sign}{amount.toLocaleString()} сум</span>
+                </div>
+              )
+            })}
+          </div>
+        )
+      })()}
     </div>
   )
 }
