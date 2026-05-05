@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore'
-import { db } from '../firebase'
+import { db, auth } from '../firebase'
 
 const card = {
   background: '#1a1a24',
@@ -48,14 +48,11 @@ export default function Clients() {
   const [paymentForm, setPaymentForm] = useState({})
 
   const fetchData = async () => {
-    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
     try {
-      const [cs, ps] = await Promise.race([
-        Promise.all([
-          getDocs(collection(db, 'clients')),
-          getDocs(collection(db, 'payments')),
-        ]),
-        timeout,
+      if (auth.currentUser) await auth.currentUser.getIdToken()
+      const [cs, ps] = await Promise.all([
+        getDocs(collection(db, 'clients')),
+        getDocs(collection(db, 'payments')),
       ])
       setClients(cs.docs.map(d => ({ id: d.id, ...d.data() })))
       setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })))

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore'
-import { db } from '../firebase'
+import { db, auth } from '../firebase'
 
 const card = {
   background: '#1a1a24',
@@ -44,12 +44,9 @@ export default function Expenses() {
   const [filterCat, setFilterCat] = useState('all')
 
   const fetchExpenses = async () => {
-    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
     try {
-      const snap = await Promise.race([
-        getDocs(collection(db, 'expenses')),
-        timeout,
-      ])
+      if (auth.currentUser) await auth.currentUser.getIdToken()
+      const snap = await getDocs(collection(db, 'expenses'))
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       data.sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0))
       setExpenses(data)

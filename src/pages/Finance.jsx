@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
-import { db } from '../firebase'
+import { db, auth } from '../firebase'
 
 const card = {
   background: '#1a1a24',
@@ -40,14 +40,11 @@ export default function Finance() {
 
   useEffect(() => {
     const fetchAll = async () => {
-      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))
       try {
-        const [ps, es] = await Promise.race([
-          Promise.all([
-            getDocs(collection(db, 'payments')),
-            getDocs(collection(db, 'expenses')),
-          ]),
-          timeout,
+        if (auth.currentUser) await auth.currentUser.getIdToken()
+        const [ps, es] = await Promise.all([
+          getDocs(collection(db, 'payments')),
+          getDocs(collection(db, 'expenses')),
         ])
         setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })))
         setExpenses(es.docs.map(d => ({ id: d.id, ...d.data() })))
