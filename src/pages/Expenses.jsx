@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore'
 import { db, auth } from '../firebase'
+import { toAmount } from '../lib/amount'
 
 const card = {
   background: '#1a1a24',
@@ -61,11 +62,16 @@ export default function Expenses() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    const amount = toAmount(form.amount)
+    if (amount === null) {
+      alert('Введите корректную сумму — неотрицательное число')
+      return
+    }
     setSaving(true)
     try {
       await addDoc(collection(db, 'expenses'), {
         ...form,
-        amount: Number(form.amount),
+        amount,
         date: new Date(),
       })
       setForm(emptyForm)

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore'
 import { db, auth } from '../firebase'
+import { toAmount, toCount } from '../lib/amount'
 
 const card = {
   background: '#1a1a24',
@@ -109,15 +110,19 @@ export default function Clients() {
 
   const handlePayment = async (clientId, clientName) => {
     const f = paymentForm[clientId]
-    if (!f?.amount) return
+    const amount = toAmount(f?.amount)
+    if (amount === null) {
+      alert('Введите корректную сумму — неотрицательное число')
+      return
+    }
     setSaving(true)
     try {
       await addDoc(collection(db, 'payments'), {
         clientId,
         clientName,
-        amount: Number(f.amount),
+        amount,
         type: f.type, // 'income' | 'session'
-        sessions: f.type === 'session' ? (Number(f.sessions) || 1) : 0,
+        sessions: f.type === 'session' ? (toCount(f.sessions, 1) ?? 1) : 0,
         description: f.description || '',
         date: new Date(),
       })
@@ -134,7 +139,7 @@ export default function Clients() {
     try {
       await addDoc(collection(db, 'clients'), {
         ...clientForm,
-        childAge: Number(clientForm.childAge),
+        childAge: clientForm.childAge ? (toCount(clientForm.childAge) ?? null) : null,
         createdAt: new Date(),
       })
       setClientForm({ childName: '', childAge: '', parentName: '', phone: '', email: '', notes: '' })
@@ -372,7 +377,7 @@ export default function Clients() {
                     </div>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                       <span style={{ fontWeight: '700', fontSize: '14px', color: p.type === 'income' ? '#34d399' : '#f87171' }}>
-                        {p.type === 'income' ? '+' : '-'}{p.amount.toLocaleString()} сум
+                        {p.type === 'income' ? '+' : '-'}{(p.amount || 0).toLocaleString()} сум
                       </span>
                       <button onClick={() => handleDeletePayment(p.id)} style={{
                         background: 'transparent', color: '#4b4b60', border: 'none',

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
-import { db } from '../firebase'
+import { db, auth } from '../firebase'
 
 const card = {
   background: '#1a1a24',
@@ -17,6 +17,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        if (auth.currentUser) await auth.currentUser.getIdToken()
         const [clientsSnap, paymentsSnap] = await Promise.all([
           getDocs(collection(db, 'clients')),
           getDocs(collection(db, 'payments')),

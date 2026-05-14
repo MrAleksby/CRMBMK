@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Доступ разрешён только пользователям из whitelist.
+    // ВАЖНО: замени ВСТАВЬ_UID_ВЛАДЕЛЬЦА на реальный UID
+    // (Firebase Console → Authentication → Users → колонка User UID).
+    // Для нескольких сотрудников — добавь их UID в этот список через запятую.
+    function isAllowed() {
+      return request.auth != null
+        && request.auth.uid in ['XqJUnm47gIPjQPJfKUTvgWnS0un2'];
+    }
+
+    // --- clients ---
+    match /clients/{id} {
+      allow read, delete: if isAllowed();
+      allow create, update: if isAllowed()
+        && request.resource.data.childName is string
+        && request.resource.data.childName.size() > 0
+        && request.resource.data.childName.size() <= 100
+        && request.resource.data.parentName is string
+        && request.resource.data.parentName.size() <= 100;
+    }
+
+    // --- payments ---
+    match /payments/{id} {
+      allow read, delete: if isAllowed();
+      allow create, update: if isAllowed()
+        && request.resource.data.amount is number
+        && request.resource.data.amount >= 0
+        && request.resource.data.type in ['income', 'session']
+        && request.resource.data.clientId is string;
+    }
+
+    // --- expenses ---
+    match /expenses/{id} {
+      allow read, delete: if isAllowed();
+      allow create, update: if isAllowed()
+        && request.resource.data.amount is number
+        && request.resource.data.amount >= 0
+        && request.resource.data.category is string;
+    }
+
+    // Всё остальное — запрещено.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
