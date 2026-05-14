@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from './firebase'
 import { useAuth } from './AuthContext'
+import { downloadBackup } from './lib/backup'
 import Dashboard from './pages/Dashboard'
 import Clients from './pages/Clients'
 import Finance from './pages/Finance'
@@ -19,6 +21,19 @@ const navItem = (isActive) => ({
 
 function App() {
   const user = useAuth()
+  const [backingUp, setBackingUp] = useState(false)
+
+  const handleBackup = async () => {
+    setBackingUp(true)
+    try {
+      await downloadBackup()
+    } catch (e) {
+      console.error(e)
+      alert('Не удалось создать резервную копию. Проверьте интернет и попробуйте снова.')
+    } finally {
+      setBackingUp(false)
+    }
+  }
 
   // Загрузка
   if (user === undefined) {
@@ -65,8 +80,25 @@ function App() {
             </NavLink>
           ))}
 
-          {/* Logout */}
-          <div style={{ marginTop: 'auto' }}>
+          {/* Backup + Logout */}
+          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button
+              onClick={handleBackup}
+              disabled={backingUp}
+              style={{
+                width: '100%', background: 'transparent',
+                border: '1px solid #2a2a35', borderRadius: '10px',
+                padding: '10px 12px', color: '#6b6b80',
+                fontSize: '14px', cursor: backingUp ? 'not-allowed' : 'pointer',
+                opacity: backingUp ? 0.6 : 1,
+                display: 'flex', alignItems: 'center', gap: '8px',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { if (!backingUp) { e.currentTarget.style.borderColor = '#a78bfa'; e.currentTarget.style.color = '#a78bfa' } }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#2a2a35'; e.currentTarget.style.color = '#6b6b80' }}
+            >
+              💾 {backingUp ? 'Сохраняем...' : 'Резервная копия'}
+            </button>
             <button
               onClick={() => signOut(auth)}
               style={{
