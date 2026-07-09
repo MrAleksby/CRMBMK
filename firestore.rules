@@ -43,6 +43,25 @@ service cloud.firestore {
         && request.resource.data.category is string;
     }
 
+    // --- группы (серии занятий) ---
+    match /groups/{id} {
+      allow read, delete: if isAllowed();
+      allow create, update: if isAllowed()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 200;
+    }
+
+    // --- занятия ---
+    // Дата хранится строкой 'YYYY-MM-DD', статус ограничен списком.
+    match /lessons/{id} {
+      allow read, delete: if isAllowed();
+      allow create, update: if isAllowed()
+        && request.resource.data.date is string
+        && request.resource.data.date.size() == 10
+        && request.resource.data.status in ['planned', 'conducted', 'cancelled'];
+    }
+
     // --- справочники ---
     // Педагоги, предметы, тарифы, кассы, статьи, юр. лица.
     // Состав полей меняется по ходу работы, поэтому проверяем только непустое название.

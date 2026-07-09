@@ -7,6 +7,7 @@ import { downloadBackup } from './lib/backup'
 import Dashboard from './pages/Dashboard'
 import Clients from './pages/Clients'
 import ClientCard from './pages/ClientCard'
+import Groups from './pages/Groups'
 import Finance from './pages/Finance'
 import Expenses from './pages/Expenses'
 import Settings from './pages/Settings'
@@ -15,6 +16,7 @@ import Login from './pages/Login'
 const NAV_ITEMS = [
   { to: '/', label: 'Дашборд', icon: '📊', end: true },
   { to: '/clients', label: 'Клиенты', icon: '👶' },
+  { to: '/groups', label: 'Группы', icon: '👥' },
   { to: '/finance', label: 'Финансы', icon: '💰' },
   { to: '/expenses', label: 'Расходы', icon: '📉' },
   { to: '/settings', label: 'Настройки', icon: '⚙️' },
@@ -128,6 +130,7 @@ function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/clients" element={<Clients />} />
             <Route path="/clients/:id" element={<ClientCard />} />
+            <Route path="/groups" element={<Groups />} />
             <Route path="/finance" element={<Finance />} />
             <Route path="/expenses" element={<Expenses />} />
             <Route path="/settings" element={<Settings />} />
