@@ -328,7 +328,7 @@ export default function DirectoryTable({ dir }) {
                   <tr key={item.id} style={{ opacity: inactive ? 0.45 : 1 }}>
                     {columns.map(key => (
                       <td key={key} style={{
-                        padding: '12px 16px', color: key === 'name' ? '#fff' : '#4b5563',
+                        padding: '12px 16px', color: key === 'name' ? '#111827' : '#4b5563',
                         fontWeight: key === 'name' ? '600' : '400',
                         borderBottom: i < items.length - 1 ? '1px solid #f3f4f6' : 'none',
                         whiteSpace: 'nowrap',
