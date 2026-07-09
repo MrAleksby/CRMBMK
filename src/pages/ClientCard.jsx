@@ -6,6 +6,7 @@ import { toAmount, toCount } from '../lib/amount'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import ClientForm from '../components/ClientForm'
 import ErrorBanner from '../components/ErrorBanner'
+import AttendanceWidget from '../components/AttendanceWidget'
 import {
   getAge, ageLabel, formatBirthday, contactRows, sourceInfo, genderInfo, statusInfo,
   clientToForm, instagramUrl, telegramUrl, phoneUrl, parentPhones,
@@ -90,6 +91,7 @@ export default function ClientCard() {
   const [client, setClient] = useState(null)
   const [payments, setPayments] = useState([])
   const [legalEntities, setLegalEntities] = useState([])
+  const [lessons, setLessons] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -102,14 +104,16 @@ export default function ClientCard() {
     setLoadError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [snap, ps, les] = await withTimeout(Promise.all([
+      const [snap, ps, les, ls] = await withTimeout(Promise.all([
         getDoc(doc(db, 'clients', id)),
         getDocs(collection(db, 'payments')),
         getDocs(collection(db, 'legalEntities')),
+        getDocs(collection(db, 'lessons')),
       ]))
       setClient(snap.exists() ? { id: snap.id, ...snap.data() } : null)
       setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.clientId === id))
       setLegalEntities(les.docs.map(d => ({ id: d.id, ...d.data() })))
+      setLessons(ls.docs.map(d => ({ id: d.id, ...d.data() })))
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -136,6 +140,8 @@ export default function ClientCard() {
   const periodPayments = sorted.filter(inPeriod)
   const incomeCount = sorted.filter(p => p.type === 'income').length
   const lessonsDone = sum(sorted, 'session', 'sessions')
+  const myLessons = lessons.filter(l => (l.studentIds || []).includes(id))
+  const lessonsPlanned = myLessons.filter(l => l.status === 'planned').length
 
   const handlePayment = async () => {
     const amount = toAmount(form.amount)
@@ -234,6 +240,8 @@ export default function ClientCard() {
   const mainParent = contacts.find(r => r.name) || contacts[0] || null
   const mainPhone = mainParent ? parentPhones(mainParent)[0] : null
 
+  const myGroupNames = [...new Set(myLessons.map(l => l.groupName).filter(Boolean))]
+
   const years = [...new Set(sorted.map(p => p.date?.seconds
     ? new Date(p.date.seconds * 1000).getFullYear() : null).filter(Boolean))]
   if (!years.includes(new Date().getFullYear())) years.push(new Date().getFullYear())
@@ -286,13 +294,7 @@ export default function ClientCard() {
             <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#111827', margin: '0 0 12px' }}>
               Виджет посещений
             </h3>
-            <div style={{
-              padding: '24px', background: '#f7f8fa', borderRadius: '12px',
-              textAlign: 'center', color: '#6b7280', fontSize: '13px',
-            }}>
-              Появится вместе с уроками и расписанием.<br />
-              Плитки с датами, цвет — оплата, значок — посещение.
-            </div>
+            <AttendanceWidget lessons={lessons} clientId={id} />
           </div>
 
           {/* Уроки и оплаты */}
@@ -412,7 +414,7 @@ export default function ClientCard() {
           <div style={{ borderTop: '1px solid #f3f4f6', marginTop: '12px', paddingTop: '4px' }}>
             <SummaryRow label="ID">#{client.id.slice(0, 6)}</SummaryRow>
             <SummaryRow label="Платежи">{incomeCount} шт</SummaryRow>
-            <SummaryRow label="Уроки">ф {lessonsDone}</SummaryRow>
+            <SummaryRow label="Уроки">п {lessonsPlanned} / ф {lessonsDone}</SummaryRow>
             {Number.isFinite(client.lessonPrice) && (
               <SummaryRow label="Цена занятия">{client.lessonPrice.toLocaleString()} сум</SummaryRow>
             )}
@@ -476,7 +478,11 @@ export default function ClientCard() {
           </SummaryBlock>
 
           <SummaryBlock title="Группы">
-            <span style={notSet}>(не задано)</span>
+            {myGroupNames.length === 0
+              ? <span style={notSet}>(не задано)</span>
+              : myGroupNames.map(name => (
+                  <div key={name} style={{ fontSize: '13px', color: '#111827' }}>👥 {name}</div>
+                ))}
           </SummaryBlock>
         </aside>
       </div>

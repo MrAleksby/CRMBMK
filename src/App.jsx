@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard'
 import Clients from './pages/Clients'
 import ClientCard from './pages/ClientCard'
 import Groups from './pages/Groups'
+import Lessons from './pages/Lessons'
 import Finance from './pages/Finance'
 import Expenses from './pages/Expenses'
 import Settings from './pages/Settings'
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
   { to: '/', label: 'Дашборд', icon: '📊', end: true },
   { to: '/clients', label: 'Клиенты', icon: '👶' },
   { to: '/groups', label: 'Группы', icon: '👥' },
+  { to: '/lessons', label: 'Уроки', icon: '📅' },
   { to: '/finance', label: 'Финансы', icon: '💰' },
   { to: '/expenses', label: 'Расходы', icon: '📉' },
   { to: '/settings', label: 'Настройки', icon: '⚙️' },
@@ -131,6 +133,7 @@ function App() {
             <Route path="/clients" element={<Clients />} />
             <Route path="/clients/:id" element={<ClientCard />} />
             <Route path="/groups" element={<Groups />} />
+            <Route path="/lessons" element={<Lessons />} />
             <Route path="/finance" element={<Finance />} />
             <Route path="/expenses" element={<Expenses />} />
             <Route path="/settings" element={<Settings />} />
