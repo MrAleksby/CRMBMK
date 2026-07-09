@@ -294,7 +294,7 @@ export default function Clients() {
                     <div key={r.role} style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', fontSize: '13px', color: '#9ca3af' }}>
                       <span style={{ color: '#6b6b80' }}>{r.icon} {r.role}</span>
                       {r.name && <span style={{ color: '#e5e7eb' }}>{r.name}</span>}
-                      {r.phone && <a href={phoneUrl(r.phone)} style={link}>📞 {r.phone}</a>}
+                      {r.phones.map((p, i) => <a key={`${p}-${i}`} href={phoneUrl(p)} style={link}>📞 {p}</a>)}
                       {r.instagram && <a href={instagramUrl(r.instagram)} target="_blank" rel="noreferrer" style={link}>📸 @{r.instagram}</a>}
                       {r.telegram && <a href={telegramUrl(r.telegram)} target="_blank" rel="noreferrer" style={link}>✈️ @{r.telegram}</a>}
                       {r.email && <span>✉️ {r.email}</span>}

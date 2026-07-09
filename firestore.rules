@@ -16,11 +16,14 @@ service cloud.firestore {
       return value is string && value.size() <= maxLen;
     }
 
-    // Блок контактов родителя: map с полями name/phone/instagram/telegram.
+    // Блок контактов родителя. phones — список номеров (до 4).
+    // Поле phone оставлено для документов, созданных до появления списка.
     function validParent(p) {
       return p is map
         && str(p.get('name', ''), 100)
         && str(p.get('phone', ''), 50)
+        && p.get('phones', []) is list
+        && p.get('phones', []).size() <= 4
         && str(p.get('instagram', ''), 100)
         && str(p.get('telegram', ''), 100);
     }

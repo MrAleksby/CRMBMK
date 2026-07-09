@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  GENDERS, SOURCES, emptyClientForm, formToDoc, validateClientForm,
+  GENDERS, SOURCES, MAX_PHONES, emptyClientForm, formToDoc, validateClientForm,
 } from '../lib/client'
 
 const inputStyle = {
@@ -44,6 +44,40 @@ function Field({ label, children }) {
   )
 }
 
+const iconBtn = {
+  background: 'transparent', border: '1px solid #2a2a35', color: '#6b6b80',
+  borderRadius: '8px', width: '32px', flexShrink: 0, cursor: 'pointer', fontSize: '14px',
+}
+
+function PhoneList({ phones, onChange }) {
+  const update = (i, v) => onChange(phones.map((p, idx) => (idx === i ? v : p)))
+  const remove = (i) => onChange(phones.filter((_, idx) => idx !== i))
+  const add = () => onChange([...phones, ''])
+
+  return (
+    <div>
+      <label style={labelStyle}>Телефоны</label>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        {phones.map((phone, i) => (
+          <div key={i} style={{ display: 'flex', gap: '6px' }}>
+            <input type="tel" style={inputStyle} value={phone} placeholder="+998 90 123-45-67"
+              onChange={e => update(i, e.target.value)} />
+            {phones.length > 1 && (
+              <button type="button" style={iconBtn} onClick={() => remove(i)} title="Удалить номер">✕</button>
+            )}
+          </div>
+        ))}
+      </div>
+      {phones.length < MAX_PHONES && (
+        <button type="button" onClick={add} style={{
+          background: 'transparent', border: 'none', color: '#a78bfa',
+          fontSize: '12px', cursor: 'pointer', padding: '6px 0 0',
+        }}>+ ещё телефон</button>
+      )}
+    </div>
+  )
+}
+
 function ParentFields({ title, icon, value, onChange }) {
   const set = (key) => (e) => onChange({ ...value, [key]: e.target.value })
   return (
@@ -53,9 +87,7 @@ function ParentFields({ title, icon, value, onChange }) {
         <Field label="ФИО">
           <input style={inputStyle} value={value.name} onChange={set('name')} placeholder="Фамилия Имя Отчество" />
         </Field>
-        <Field label="Телефон">
-          <input type="tel" style={inputStyle} value={value.phone} onChange={set('phone')} placeholder="+998 90 123-45-67" />
-        </Field>
+        <PhoneList phones={value.phones} onChange={phones => onChange({ ...value, phones })} />
         <Field label="Instagram">
           <input style={inputStyle} value={value.instagram} onChange={set('instagram')} placeholder="@nickname" />
         </Field>

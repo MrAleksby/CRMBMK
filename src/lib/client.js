@@ -15,7 +15,17 @@ export const SOURCES = [
 const MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
   'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
 
-const emptyParent = () => ({ name: '', phone: '', instagram: '', telegram: '' })
+export const MAX_PHONES = 4
+
+const emptyParent = () => ({ name: '', phones: [''], instagram: '', telegram: '' })
+
+// Телефоны хранятся списком. У родителей, заведённых до этого,
+// был один номер в поле phone — читаем его как список из одного элемента.
+export function parentPhones(parent) {
+  if (!parent) return []
+  if (Array.isArray(parent.phones)) return parent.phones.filter(Boolean)
+  return parent.phone ? [parent.phone] : []
+}
 
 export const emptyClientForm = () => ({
   childName: '',
@@ -82,20 +92,23 @@ export const instagramUrl = (handle) => `https://instagram.com/${handle}`
 export const telegramUrl = (handle) => `https://t.me/${handle}`
 export const phoneUrl = (phone) => `tel:${phone.replace(/[^\d+]/g, '')}`
 
-const hasAnyContact = (p) => Boolean(p && (p.name || p.phone || p.instagram || p.telegram))
+const hasAnyContact = (p) => Boolean(p && (p.name || parentPhones(p).length || p.instagram || p.telegram))
 
 // Строки контактов для карточки. У клиентов, заведённых до этой формы,
 // был один безымянный родитель в parentName/phone/email — показываем его как есть.
 export function contactRows(client) {
   const rows = []
-  if (hasAnyContact(client.mother)) rows.push({ role: 'Мама', icon: '👩', ...client.mother })
-  if (hasAnyContact(client.father)) rows.push({ role: 'Папа', icon: '👨', ...client.father })
+  const push = (role, icon, parent) => {
+    if (hasAnyContact(parent)) rows.push({ role, icon, ...parent, phones: parentPhones(parent) })
+  }
+  push('Мама', '👩', client.mother)
+  push('Папа', '👨', client.father)
   if (rows.length === 0 && (client.parentName || client.phone || client.email)) {
     rows.push({
       role: 'Родитель',
       icon: '👤',
       name: client.parentName || '',
-      phone: client.phone || '',
+      phones: client.phone ? [client.phone] : [],
       email: client.email || '',
       instagram: '',
       telegram: '',
@@ -122,7 +135,7 @@ export function searchText(client) {
   const parts = [client.childName, client.childContacts, client.notes, client.allergies, client.email]
   for (const p of parents) {
     if (!p) continue
-    parts.push(p.name, p.phone, p.instagram, p.telegram)
+    parts.push(p.name, p.instagram, p.telegram, ...parentPhones(p))
   }
   return parts.filter(Boolean).join(' ').toLowerCase()
 }
@@ -140,18 +153,24 @@ export function clientToForm(client) {
   form.allergies = client.allergies || ''
   form.notes = client.notes || ''
 
+  // В форме всегда есть хотя бы одно поле для телефона, пусть и пустое.
+  const toFormParent = (parent) => {
+    const phones = parentPhones(parent)
+    return { ...emptyParent(), ...parent, phones: phones.length ? phones : [''] }
+  }
+
   if (hasAnyContact(client.mother) || hasAnyContact(client.father)) {
-    form.mother = { ...emptyParent(), ...client.mother }
-    form.father = { ...emptyParent(), ...client.father }
+    form.mother = toFormParent(client.mother)
+    form.father = toFormParent(client.father)
   } else if (client.parentName || client.phone) {
-    form.mother = { ...emptyParent(), name: client.parentName || '', phone: client.phone || '' }
+    form.mother = toFormParent({ name: client.parentName || '', phone: client.phone || '' })
   }
   return form
 }
 
 const cleanParent = (p) => ({
   name: p.name.trim(),
-  phone: p.phone.trim(),
+  phones: (p.phones || []).map(s => s.trim()).filter(Boolean).slice(0, MAX_PHONES),
   instagram: normalizeHandle(p.instagram),
   telegram: normalizeHandle(p.telegram),
 })
