@@ -52,7 +52,7 @@ function App() {
 
   // Авторизован
   return (
-    <BrowserRouter basename="/CRMBMK">
+    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <div style={{ minHeight: '100vh', background: '#0f0f13' }}>
 
         {/* Desktop sidebar */}
