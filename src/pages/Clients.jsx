@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { toAmount, toCount } from '../lib/amount'
+import { withTimeout, describeError } from '../lib/withTimeout'
 import ClientForm from '../components/ClientForm'
+import ErrorBanner from '../components/ErrorBanner'
 import {
   getAge, ageLabel, formatBirthday, contactRows, sourceInfo, genderInfo,
   searchText, clientToForm, instagramUrl, telegramUrl, phoneUrl,
@@ -50,6 +52,7 @@ export default function Clients() {
   const [clients, setClients] = useState([])
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [showAddClient, setShowAddClient] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -60,16 +63,18 @@ export default function Clients() {
   const [paymentForm, setPaymentForm] = useState({})
 
   const fetchData = async () => {
+    setLoadError('')
     try {
-      if (auth.currentUser) await auth.currentUser.getIdToken()
-      const [cs, ps] = await Promise.all([
+      if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
+      const [cs, ps] = await withTimeout(Promise.all([
         getDocs(collection(db, 'clients')),
         getDocs(collection(db, 'payments')),
-      ])
+      ]))
       setClients(cs.docs.map(d => ({ id: d.id, ...d.data() })))
       setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })))
     } catch (e) {
       console.error(e)
+      setLoadError(describeError(e))
     } finally {
       setLoading(false)
     }
@@ -210,6 +215,8 @@ export default function Clients() {
           + Добавить клиента
         </button>
       </div>
+
+      <ErrorBanner message={loadError} onRetry={fetchData} />
 
       {/* Add client form */}
       {showAddClient && (

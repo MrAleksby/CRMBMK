@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import { db, auth } from '../firebase'
+import { withTimeout, describeError } from '../lib/withTimeout'
+import ErrorBanner from '../components/ErrorBanner'
 
 const card = {
   background: '#1a1a24',
@@ -13,25 +15,27 @@ export default function Dashboard() {
   const [clients, setClients] = useState([])
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        if (auth.currentUser) await auth.currentUser.getIdToken()
-        const [clientsSnap, paymentsSnap] = await Promise.all([
-          getDocs(collection(db, 'clients')),
-          getDocs(collection(db, 'payments')),
-        ])
-        setClients(clientsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-        setPayments(paymentsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-      } catch (e) {
-        console.error(e)
-      } finally {
-        setLoading(false)
-      }
+  const fetchData = async () => {
+    setLoadError('')
+    try {
+      if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
+      const [clientsSnap, paymentsSnap] = await withTimeout(Promise.all([
+        getDocs(collection(db, 'clients')),
+        getDocs(collection(db, 'payments')),
+      ]))
+      setClients(clientsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setPayments(paymentsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    } finally {
+      setLoading(false)
     }
-    fetchData()
-  }, [])
+  }
+
+  useEffect(() => { fetchData() }, [])
 
   // Баланс конкретного клиента
   const getClientBalance = (clientId) => {
@@ -68,6 +72,8 @@ export default function Dashboard() {
         <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#fff', margin: 0 }}>📊 Дашборд</h2>
         <p style={{ fontSize: '14px', color: '#6b6b80', marginTop: '4px' }}>Общая статистика центра</p>
       </div>
+
+      <ErrorBanner message={loadError} onRetry={fetchData} />
 
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import { db, auth } from '../firebase'
+import { withTimeout, describeError } from '../lib/withTimeout'
+import ErrorBanner from '../components/ErrorBanner'
 
 const card = {
   background: '#1a1a24',
@@ -24,6 +26,7 @@ export default function Finance() {
   const [payments, setPayments] = useState([])
   const [expenses, setExpenses] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [filterMonth, setFilterMonth] = useState('all')
   const [filterYear, setFilterYear] = useState(new Date().getFullYear())
   const [tab, setTab] = useState('all') // 'all' | 'income' | 'expense'
@@ -38,24 +41,25 @@ export default function Finance() {
     outline: 'none',
   }
 
-  useEffect(() => {
-    const fetchAll = async () => {
-      try {
-        if (auth.currentUser) await auth.currentUser.getIdToken()
-        const [ps, es] = await Promise.all([
-          getDocs(collection(db, 'payments')),
-          getDocs(collection(db, 'expenses')),
-        ])
-        setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })))
-        setExpenses(es.docs.map(d => ({ id: d.id, ...d.data() })))
-      } catch (e) {
-        console.error(e)
-      } finally {
-        setLoading(false)
-      }
+  const fetchAll = async () => {
+    setLoadError('')
+    try {
+      if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
+      const [ps, es] = await withTimeout(Promise.all([
+        getDocs(collection(db, 'payments')),
+        getDocs(collection(db, 'expenses')),
+      ]))
+      setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })))
+      setExpenses(es.docs.map(d => ({ id: d.id, ...d.data() })))
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    } finally {
+      setLoading(false)
     }
-    fetchAll()
-  }, [])
+  }
+
+  useEffect(() => { fetchAll() }, [])
 
   const filterByPeriod = (list) => list.filter(item => {
     if (filterMonth === 'all') return true
@@ -117,6 +121,8 @@ export default function Finance() {
         <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#fff', margin: 0 }}>💰 Финансы</h2>
         <p style={{ fontSize: '14px', color: '#6b6b80', marginTop: '4px' }}>Общая сводка</p>
       </div>
+
+      <ErrorBanner message={loadError} onRetry={fetchAll} />
 
       {/* Filters */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>

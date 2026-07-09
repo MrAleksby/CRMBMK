@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app'
-import { getFirestore } from 'firebase/firestore'
+import { initializeFirestore } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 
 const firebaseConfig = {
@@ -12,5 +12,12 @@ const firebaseConfig = {
 }
 
 const app = initializeApp(firebaseConfig)
-export const db = getFirestore(app)
+
+// По умолчанию Firestore ходит через WebChannel. Если сеть, провайдер или расширение
+// браузера его режут, SDK не падает с ошибкой, а молча ждёт — страница висит на «Загрузка...».
+// autoDetectLongPolling распознаёт такую сеть и переключается на long-polling.
+export const db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true,
+})
+
 export const auth = getAuth(app)

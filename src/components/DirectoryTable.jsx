@@ -3,6 +3,7 @@ import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase
 import { db, auth } from '../firebase'
 import { toAmount, toCount } from '../lib/amount'
 import { normalizeHandle } from '../lib/client'
+import { withTimeout, describeError } from '../lib/withTimeout'
 import {
   FIELD_AMOUNT, FIELD_COUNT, FIELD_SELECT, FIELD_HANDLE,
   emptyItem, optionLabel, perLessonPrice,
@@ -89,15 +90,16 @@ export default function DirectoryTable({ dir }) {
 
   const fetchItems = async () => {
     setLoading(true)
+    setError('')
     try {
-      if (auth.currentUser) await auth.currentUser.getIdToken()
-      const snap = await getDocs(collection(db, dir.key))
+      if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
+      const snap = await withTimeout(getDocs(collection(db, dir.key)))
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       data.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ru'))
       setItems(data)
     } catch (e) {
       console.error(e)
-      setError('Не удалось загрузить справочник. Проверьте интернет.')
+      setError(describeError(e))
     } finally {
       setLoading(false)
     }
@@ -225,10 +227,16 @@ export default function DirectoryTable({ dir }) {
       </div>
 
       {error && (
-        <p style={{
+        <div style={{
           background: '#450a0a', color: '#f87171', border: '1px solid #7f1d1d',
-          borderRadius: '10px', padding: '8px 12px', fontSize: '13px', marginBottom: '12px',
-        }}>⚠️ {error}</p>
+          borderRadius: '10px', padding: '10px 12px', fontSize: '13px', marginBottom: '12px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+        }}>
+          <span>⚠️ {error}</span>
+          <button onClick={fetchItems} style={{
+            ...ghostBtn, borderColor: '#7f1d1d', color: '#fca5a5', flexShrink: 0,
+          }}>Повторить</button>
+        </div>
       )}
 
       {showForm && (

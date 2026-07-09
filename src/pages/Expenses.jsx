@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { collection, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { toAmount } from '../lib/amount'
+import { withTimeout, describeError } from '../lib/withTimeout'
+import ErrorBanner from '../components/ErrorBanner'
 
 const card = {
   background: '#1a1a24',
@@ -37,6 +39,7 @@ const emptyForm = { amount: '', category: 'rent', description: '' }
 export default function Expenses() {
   const [expenses, setExpenses] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
@@ -45,14 +48,16 @@ export default function Expenses() {
   const [filterCat, setFilterCat] = useState('all')
 
   const fetchExpenses = async () => {
+    setLoadError('')
     try {
-      if (auth.currentUser) await auth.currentUser.getIdToken()
-      const snap = await getDocs(collection(db, 'expenses'))
+      if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
+      const snap = await withTimeout(getDocs(collection(db, 'expenses')))
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       data.sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0))
       setExpenses(data)
     } catch (e) {
       console.error(e)
+      setLoadError(describeError(e))
     } finally {
       setLoading(false)
     }
@@ -125,6 +130,8 @@ export default function Expenses() {
           + Добавить расход
         </button>
       </div>
+
+      <ErrorBanner message={loadError} onRetry={fetchExpenses} />
 
       {/* Add form */}
       {showForm && (
