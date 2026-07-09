@@ -5,6 +5,7 @@ import { withTimeout, describeError } from '../lib/withTimeout'
 import ErrorBanner from '../components/ErrorBanner'
 import LessonJournal from '../components/LessonJournal'
 import LessonForm from '../components/LessonForm'
+import StudentChecklist from '../components/StudentChecklist'
 import { LESSON_STATUSES, todayISO } from '../lib/group'
 import { buildJournal, journalToAttendance, lessonTypeLabel, formatLessonDate } from '../lib/lesson'
 
@@ -53,6 +54,8 @@ export default function Lessons() {
   const [tab, setTab] = useState('upcoming')
   const [journalId, setJournalId] = useState(null)
   const [creating, setCreating] = useState(false)
+  const [studentsId, setStudentsId] = useState(null)
+  const [draftStudents, setDraftStudents] = useState([])
   const [search, setSearch] = useState('')
 
   const fetchData = async () => {
@@ -183,6 +186,34 @@ export default function Lessons() {
     await fetchData()
   }
 
+  const openStudents = (lesson) => {
+    setJournalId(null)
+    setStudentsId(lesson.id)
+    setDraftStudents(lesson.studentIds || [])
+  }
+
+  const toggleDraftStudent = (clientId) => {
+    setDraftStudents(prev => prev.includes(clientId)
+      ? prev.filter(s => s !== clientId)
+      : [...prev, clientId])
+  }
+
+  // Состав правится только у запланированного занятия: у проведённого
+  // за учениками уже стоят списания.
+  const handleSaveStudents = async (lesson) => {
+    setSaving(true)
+    try {
+      await updateDoc(doc(db, 'lessons', lesson.id), { studentIds: draftStudents })
+      setStudentsId(null)
+      await fetchData()
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleCreate = async (data) => {
     setSaving(true)
     try {
@@ -286,6 +317,7 @@ export default function Lessons() {
           const isOverdue = lesson.status === 'planned' && lesson.date < today
           const teacher = teacherName(lesson.teacherId)
           const open = journalId === lesson.id
+          const studentsOpen = studentsId === lesson.id
           const conductedSum = (lesson.attendance || [])
             .reduce((s, a) => s + (a.amountCharged || 0), 0)
           const presentCount = (lesson.attendance || []).filter(a => a.status === 'present').length
@@ -325,6 +357,9 @@ export default function Lessons() {
                       <button onClick={() => setJournalId(open ? null : lesson.id)} style={btn('#059669')}>
                         {open ? 'Закрыть журнал' : 'Провести'}
                       </button>
+                      <button onClick={() => studentsOpen ? setStudentsId(null) : openStudents(lesson)} style={secondaryBtn}>
+                        {studentsOpen ? 'Скрыть учеников' : 'Ученики'}
+                      </button>
                       <button onClick={() => handleCancel(lesson)} style={secondaryBtn}>Отменить</button>
                       <button onClick={() => handleDelete(lesson)} style={secondaryBtn}>Удалить</button>
                     </>
@@ -342,6 +377,25 @@ export default function Lessons() {
                   )}
                 </div>
               </div>
+
+              {studentsOpen && (
+                <div style={{ marginTop: '14px', background: '#f7f8fa', borderRadius: '12px', padding: '14px' }}>
+                  <p style={{ fontSize: '13px', color: '#4b5563', marginBottom: '10px' }}>
+                    Кто занимается на этом занятии ({draftStudents.length})
+                  </p>
+                  <StudentChecklist clients={clients} selected={draftStudents} onToggle={toggleDraftStudent} />
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+                    <button onClick={() => handleSaveStudents(lesson)} disabled={saving}
+                      style={{ ...btn(), opacity: saving ? 0.6 : 1 }}>
+                      {saving ? 'Сохраняем...' : 'Сохранить состав'}
+                    </button>
+                    <button onClick={() => setStudentsId(null)} style={{
+                      background: 'transparent', color: '#6b7280', border: '1px solid #e5e7eb',
+                      padding: '8px 14px', borderRadius: '10px', fontSize: '13px', cursor: 'pointer',
+                    }}>Отмена</button>
+                  </div>
+                </div>
+              )}
 
               {open && (
                 <div style={{ marginTop: '14px' }}>

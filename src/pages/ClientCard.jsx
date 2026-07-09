@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore'
+import { collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { toAmount, toCount } from '../lib/amount'
 import { withTimeout, describeError } from '../lib/withTimeout'
@@ -92,6 +92,9 @@ export default function ClientCard() {
   const [payments, setPayments] = useState([])
   const [legalEntities, setLegalEntities] = useState([])
   const [lessons, setLessons] = useState([])
+  const [groups, setGroups] = useState([])
+  const [pickGroup, setPickGroup] = useState('')
+  const [pickLesson, setPickLesson] = useState('')
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -104,16 +107,18 @@ export default function ClientCard() {
     setLoadError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [snap, ps, les, ls] = await withTimeout(Promise.all([
+      const [snap, ps, les, ls, gs] = await withTimeout(Promise.all([
         getDoc(doc(db, 'clients', id)),
         getDocs(collection(db, 'payments')),
         getDocs(collection(db, 'legalEntities')),
         getDocs(collection(db, 'lessons')),
+        getDocs(collection(db, 'groups')),
       ]))
       setClient(snap.exists() ? { id: snap.id, ...snap.data() } : null)
       setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.clientId === id))
       setLegalEntities(les.docs.map(d => ({ id: d.id, ...d.data() })))
       setLessons(ls.docs.map(d => ({ id: d.id, ...d.data() })))
+      setGroups(gs.docs.map(d => ({ id: d.id, ...d.data() })))
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -191,6 +196,96 @@ export default function ClientCard() {
     navigate('/clients')
   }
 
+  // Запись в группу: ученик добавляется в состав группы и во все её
+  // запланированные занятия. Проведённые не трогаем — там уже есть списания.
+  const handleJoinGroup = async (groupId) => {
+    const group = groups.find(g => g.id === groupId)
+    if (!group) return
+    setSaving(true)
+    try {
+      const batch = writeBatch(db)
+      batch.update(doc(db, 'groups', groupId), {
+        studentIds: [...new Set([...(group.studentIds || []), id])],
+      })
+      for (const lesson of lessons) {
+        if (lesson.groupId !== groupId || lesson.status !== 'planned') continue
+        if ((lesson.studentIds || []).includes(id)) continue
+        batch.update(doc(db, 'lessons', lesson.id), {
+          studentIds: [...(lesson.studentIds || []), id],
+        })
+      }
+      await batch.commit()
+      setPickGroup('')
+      await fetchData()
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleLeaveGroup = async (groupId) => {
+    const group = groups.find(g => g.id === groupId)
+    if (!group) return
+    if (!confirm(`Убрать ученика из группы «${group.name}»?\n\nОн исчезнет из запланированных занятий. Проведённые останутся как есть.`)) return
+    setSaving(true)
+    try {
+      const batch = writeBatch(db)
+      batch.update(doc(db, 'groups', groupId), {
+        studentIds: (group.studentIds || []).filter(s => s !== id),
+      })
+      for (const lesson of lessons) {
+        if (lesson.groupId !== groupId || lesson.status !== 'planned') continue
+        if (!(lesson.studentIds || []).includes(id)) continue
+        batch.update(doc(db, 'lessons', lesson.id), {
+          studentIds: lesson.studentIds.filter(s => s !== id),
+        })
+      }
+      await batch.commit()
+      await fetchData()
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleJoinLesson = async (lessonId) => {
+    const lesson = lessons.find(l => l.id === lessonId)
+    if (!lesson) return
+    setSaving(true)
+    try {
+      await updateDoc(doc(db, 'lessons', lessonId), {
+        studentIds: [...new Set([...(lesson.studentIds || []), id])],
+      })
+      setPickLesson('')
+      await fetchData()
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleLeaveLesson = async (lesson) => {
+    if (!confirm(`Снять ученика с занятия ${new Date(lesson.date).toLocaleDateString('ru')}?`)) return
+    setSaving(true)
+    try {
+      await updateDoc(doc(db, 'lessons', lesson.id), {
+        studentIds: (lesson.studentIds || []).filter(s => s !== id),
+      })
+      await fetchData()
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleDeletePayment = async (paymentId) => {
     await deleteDoc(doc(db, 'payments', paymentId))
     await fetchData()
@@ -240,7 +335,18 @@ export default function ClientCard() {
   const mainParent = contacts.find(r => r.name) || contacts[0] || null
   const mainPhone = mainParent ? parentPhones(mainParent)[0] : null
 
-  const myGroupNames = [...new Set(myLessons.map(l => l.groupName).filter(Boolean))]
+  const myGroups = groups.filter(g => (g.studentIds || []).includes(id))
+  const availableGroups = groups.filter(g => !(g.studentIds || []).includes(id))
+
+  // Занятия, куда можно записать: запланированные, где ученика ещё нет.
+  const today = new Date().toISOString().slice(0, 10)
+  const joinableLessons = lessons
+    .filter(l => l.status === 'planned' && l.date >= today && !(l.studentIds || []).includes(id))
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  const myUpcoming = myLessons
+    .filter(l => l.status === 'planned' && l.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date))
 
   const years = [...new Set(sorted.map(p => p.date?.seconds
     ? new Date(p.date.seconds * 1000).getFullYear() : null).filter(Boolean))]
@@ -478,11 +584,65 @@ export default function ClientCard() {
           </SummaryBlock>
 
           <SummaryBlock title="Группы">
-            {myGroupNames.length === 0
-              ? <span style={notSet}>(не задано)</span>
-              : myGroupNames.map(name => (
-                  <div key={name} style={{ fontSize: '13px', color: '#111827' }}>👥 {name}</div>
-                ))}
+            {myGroups.length === 0 && <span style={notSet}>(не задано)</span>}
+            {myGroups.map(group => (
+              <div key={group.id} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                fontSize: '13px', color: '#111827', marginBottom: '4px', gap: '8px',
+              }}>
+                <span>👥 {group.name}</span>
+                <button onClick={() => handleLeaveGroup(group.id)} disabled={saving} title="Убрать из группы"
+                  style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>✕</button>
+              </div>
+            ))}
+
+            {availableGroups.length > 0 && (
+              <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                <select style={{ ...inputStyle, fontSize: '13px', padding: '6px 8px' }}
+                  value={pickGroup} onChange={e => setPickGroup(e.target.value)}>
+                  <option value="">Добавить в группу…</option>
+                  {availableGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+                <button onClick={() => handleJoinGroup(pickGroup)} disabled={!pickGroup || saving}
+                  style={{ ...btn(), padding: '6px 12px', opacity: (!pickGroup || saving) ? 0.5 : 1 }}>+</button>
+              </div>
+            )}
+          </SummaryBlock>
+
+          <SummaryBlock title="Ближайшие занятия">
+            {myUpcoming.length === 0 && <span style={notSet}>(не записан)</span>}
+            {myUpcoming.slice(0, 5).map(lesson => (
+              <div key={lesson.id} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                fontSize: '13px', color: '#111827', marginBottom: '4px', gap: '8px',
+              }}>
+                <span>
+                  {new Date(lesson.date).toLocaleDateString('ru')}
+                  <span style={{ color: '#6b7280' }}> {lesson.timeFrom}</span>
+                </span>
+                <button onClick={() => handleLeaveLesson(lesson)} disabled={saving} title="Снять с занятия"
+                  style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>✕</button>
+              </div>
+            ))}
+            {myUpcoming.length > 5 && (
+              <div style={{ fontSize: '12px', color: '#6b7280' }}>…и ещё {myUpcoming.length - 5}</div>
+            )}
+
+            {joinableLessons.length > 0 && (
+              <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                <select style={{ ...inputStyle, fontSize: '13px', padding: '6px 8px' }}
+                  value={pickLesson} onChange={e => setPickLesson(e.target.value)}>
+                  <option value="">Записать на занятие…</option>
+                  {joinableLessons.slice(0, 30).map(l => (
+                    <option key={l.id} value={l.id}>
+                      {new Date(l.date).toLocaleDateString('ru')} {l.timeFrom} {l.groupName ? `· ${l.groupName}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <button onClick={() => handleJoinLesson(pickLesson)} disabled={!pickLesson || saving}
+                  style={{ ...btn(), padding: '6px 12px', opacity: (!pickLesson || saving) ? 0.5 : 1 }}>+</button>
+              </div>
+            )}
           </SummaryBlock>
         </aside>
       </div>
