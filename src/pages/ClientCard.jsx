@@ -465,7 +465,7 @@ export default function ClientCard() {
             )}
           </SummaryBlock>
 
-          <SummaryBlock title="Счета и абонементы">
+          <SummaryBlock title="Абонементы">
             <span style={notSet}>(не задано)</span>
           </SummaryBlock>
 
