@@ -5,8 +5,8 @@ import { withTimeout, describeError } from '../lib/withTimeout'
 import ErrorBanner from '../components/ErrorBanner'
 
 const card = {
-  background: '#1a1a24',
-  border: '1px solid #2a2a35',
+  background: '#ffffff',
+  border: '1px solid #e5e7eb',
   borderRadius: '16px',
   padding: '20px',
 }
@@ -32,11 +32,11 @@ export default function Finance() {
   const [tab, setTab] = useState('all') // 'all' | 'income' | 'expense'
 
   const inputStyle = {
-    background: '#0f0f13',
-    border: '1px solid #2a2a35',
+    background: '#f7f8fa',
+    border: '1px solid #e5e7eb',
     borderRadius: '10px',
     padding: '8px 12px',
-    color: '#fff',
+    color: '#111827',
     fontSize: '14px',
     outline: 'none',
   }
@@ -112,14 +112,14 @@ export default function Finance() {
   ].filter(Boolean))]
   if (!years.includes(new Date().getFullYear())) years.push(new Date().getFullYear())
 
-  if (loading) return <div style={{ color: '#6b6b80', padding: '32px' }}>Загрузка...</div>
+  if (loading) return <div style={{ color: '#6b7280', padding: '32px' }}>Загрузка...</div>
 
   return (
     <div style={{ maxWidth: '900px' }}>
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#fff', margin: 0 }}>💰 Финансы</h2>
-        <p style={{ fontSize: '14px', color: '#6b6b80', marginTop: '4px' }}>Общая сводка</p>
+        <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: 0 }}>💰 Финансы</h2>
+        <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>Общая сводка</p>
       </div>
 
       <ErrorBanner message={loadError} onRetry={fetchAll} />
@@ -138,48 +138,48 @@ export default function Finance() {
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '24px' }}>
         <div style={card}>
-          <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Оплаты клиентов</p>
-          <p style={{ fontSize: '18px', fontWeight: '700', color: '#34d399', margin: 0 }}>{totalIncome.toLocaleString()} сум</p>
+          <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>Оплаты клиентов</p>
+          <p style={{ fontSize: '18px', fontWeight: '700', color: '#059669', margin: 0 }}>{totalIncome.toLocaleString()} сум</p>
         </div>
         <div style={card}>
-          <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Списано (занятия)</p>
-          <p style={{ fontSize: '18px', fontWeight: '700', color: '#fb923c', margin: 0 }}>{totalSessions.toLocaleString()} сум</p>
+          <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>Списано (занятия)</p>
+          <p style={{ fontSize: '18px', fontWeight: '700', color: '#ea580c', margin: 0 }}>{totalSessions.toLocaleString()} сум</p>
         </div>
         <div style={card}>
-          <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Расходы компании</p>
-          <p style={{ fontSize: '18px', fontWeight: '700', color: '#f87171', margin: 0 }}>{totalExpenses.toLocaleString()} сум</p>
+          <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>Расходы компании</p>
+          <p style={{ fontSize: '18px', fontWeight: '700', color: '#dc2626', margin: 0 }}>{totalExpenses.toLocaleString()} сум</p>
         </div>
         <div style={card}>
-          <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Занятий</p>
-          <p style={{ fontSize: '18px', fontWeight: '700', color: '#a78bfa', margin: 0 }}>{totalSessionsCount}</p>
+          <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>Занятий</p>
+          <p style={{ fontSize: '18px', fontWeight: '700', color: '#7c3aed', margin: 0 }}>{totalSessionsCount}</p>
         </div>
         <div style={{
           ...card,
-          background: totalClientDebt > 0 ? '#1f1010' : '#1a1a24',
-          border: `1px solid ${totalClientDebt > 0 ? '#450a0a' : '#2a2a35'}`,
+          background: totalClientDebt > 0 ? '#fef2f2' : '#ffffff',
+          border: `1px solid ${totalClientDebt > 0 ? '#fee2e2' : '#e5e7eb'}`,
         }}>
-          <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Долги клиентов</p>
-          <p style={{ fontSize: '18px', fontWeight: '700', color: totalClientDebt > 0 ? '#f87171' : '#6b6b80', margin: 0 }}>
+          <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>Долги клиентов</p>
+          <p style={{ fontSize: '18px', fontWeight: '700', color: totalClientDebt > 0 ? '#dc2626' : '#6b7280', margin: 0 }}>
             {totalClientDebt.toLocaleString()} сум
           </p>
         </div>
         <div style={{
           ...card,
-          background: totalOwedToClients > 0 ? '#0d1f12' : '#1a1a24',
-          border: `1px solid ${totalOwedToClients > 0 ? '#14532d' : '#2a2a35'}`,
+          background: totalOwedToClients > 0 ? '#f0fdf4' : '#ffffff',
+          border: `1px solid ${totalOwedToClients > 0 ? '#dcfce7' : '#e5e7eb'}`,
         }}>
-          <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Должны клиентам</p>
-          <p style={{ fontSize: '18px', fontWeight: '700', color: totalOwedToClients > 0 ? '#34d399' : '#6b6b80', margin: 0 }}>
+          <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>Должны клиентам</p>
+          <p style={{ fontSize: '18px', fontWeight: '700', color: totalOwedToClients > 0 ? '#059669' : '#6b7280', margin: 0 }}>
             {totalOwedToClients.toLocaleString()} сум
           </p>
         </div>
         <div style={{
           ...card,
           background: companyBalance >= 0 ? '#0d1f2b' : '#2b0d0d',
-          border: `1px solid ${companyBalance >= 0 ? '#1e3a5f' : '#450a0a'}`,
+          border: `1px solid ${companyBalance >= 0 ? '#1e3a5f' : '#fee2e2'}`,
         }}>
-          <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Баланс компании</p>
-          <p style={{ fontSize: '18px', fontWeight: '700', color: companyBalance >= 0 ? '#60a5fa' : '#f87171', margin: 0 }}>
+          <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>Баланс компании</p>
+          <p style={{ fontSize: '18px', fontWeight: '700', color: companyBalance >= 0 ? '#60a5fa' : '#dc2626', margin: 0 }}>
             {companyBalance.toLocaleString()} сум
           </p>
         </div>
@@ -189,10 +189,10 @@ export default function Finance() {
             <div style={{
               ...card,
               background: realized >= 0 ? '#0d1f2b' : '#2b0d0d',
-              border: `1px solid ${realized >= 0 ? '#1e3a5f' : '#450a0a'}`,
+              border: `1px solid ${realized >= 0 ? '#1e3a5f' : '#fee2e2'}`,
             }}>
-              <p style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '6px' }}>Реализованная прибыль</p>
-              <p style={{ fontSize: '18px', fontWeight: '700', color: realized >= 0 ? '#60a5fa' : '#f87171', margin: 0 }}>
+              <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>Реализованная прибыль</p>
+              <p style={{ fontSize: '18px', fontWeight: '700', color: realized >= 0 ? '#60a5fa' : '#dc2626', margin: 0 }}>
                 {realized.toLocaleString()} сум
               </p>
             </div>
@@ -201,15 +201,15 @@ export default function Finance() {
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', background: '#1a1a24', padding: '4px', borderRadius: '12px', width: 'fit-content' }}>
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', background: '#ffffff', padding: '4px', borderRadius: '12px', width: 'fit-content' }}>
         {[
           { value: 'all', label: 'Все' },
           { value: 'income', label: '💰 Оплаты' },
           { value: 'expense', label: '📉 Расходы' },
         ].map(t => (
           <button key={t.value} onClick={() => setTab(t.value)} style={{
-            background: tab === t.value ? '#2a2a3e' : 'transparent',
-            color: tab === t.value ? '#a78bfa' : '#6b6b80',
+            background: tab === t.value ? '#ede9fe' : 'transparent',
+            color: tab === t.value ? '#7c3aed' : '#6b7280',
             border: 'none', padding: '8px 16px', borderRadius: '8px',
             fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.15s'
           }}>{t.label}</button>
@@ -224,7 +224,7 @@ export default function Finance() {
 
         if (items.length === 0) return (
           <div style={{ ...card, textAlign: 'center', padding: '40px' }}>
-            <p style={{ color: '#6b6b80', fontSize: '14px' }}>Нет записей за выбранный период</p>
+            <p style={{ color: '#6b7280', fontSize: '14px' }}>Нет записей за выбранный период</p>
           </div>
         )
 
@@ -239,33 +239,33 @@ export default function Finance() {
               const label = isIncome ? 'Оплата' : isSession ? `${item.sessions} зан.` : CATEGORIES[item.category]?.split(' ').slice(1).join(' ') || 'Расход'
               const name = isExpense ? (CATEGORIES[item.category]?.split(' ').slice(1).join(' ') || 'Расход') : item.clientName
               const amount = item.amount || 0
-              const color = isIncome ? '#34d399' : isSession ? '#fb923c' : '#f87171'
+              const color = isIncome ? '#059669' : isSession ? '#ea580c' : '#dc2626'
               const sign = isIncome ? '+' : '-'
 
               return (
                 <div key={item.id} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '12px 0',
-                  borderBottom: i < items.length - 1 ? '1px solid #2a2a35' : 'none'
+                  borderBottom: i < items.length - 1 ? '1px solid #e5e7eb' : 'none'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{
                       width: '36px', height: '36px', borderRadius: '50%',
-                      background: isIncome ? '#14532d' : isSession ? '#2a2a3e' : '#2a1515',
+                      background: isIncome ? '#dcfce7' : isSession ? '#ede9fe' : '#fee2e2',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px'
                     }}>{icon}</div>
                     <div>
-                      <p style={{ fontSize: '14px', fontWeight: '600', color: '#fff', margin: 0 }}>{name}</p>
+                      <p style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: 0 }}>{name}</p>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px' }}>
-                        <span style={{ fontSize: '12px', color: '#6b6b80' }}>
+                        <span style={{ fontSize: '12px', color: '#6b7280' }}>
                           {item.date?.seconds ? new Date(item.date.seconds * 1000).toLocaleDateString('ru') : '—'}
                         </span>
                         <span style={{
                           fontSize: '11px', padding: '1px 7px', borderRadius: '20px',
-                          background: isIncome ? '#14532d' : isSession ? '#2a2a3e' : '#2a1515',
+                          background: isIncome ? '#dcfce7' : isSession ? '#ede9fe' : '#fee2e2',
                           color
                         }}>{label}</span>
-                        {item.description && <span style={{ fontSize: '12px', color: '#6b6b80' }}>{item.description}</span>}
+                        {item.description && <span style={{ fontSize: '12px', color: '#6b7280' }}>{item.description}</span>}
                       </div>
                     </div>
                   </div>

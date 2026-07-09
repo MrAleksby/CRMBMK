@@ -27,6 +27,11 @@ export function parentPhones(parent) {
   return parent.phone ? [parent.phone] : []
 }
 
+export const PAYER_TYPES = [
+  { value: 'parent', label: '👤 Родители' },
+  { value: 'legal', label: '🏛️ Юр. лицо' },
+]
+
 export const emptyClientForm = () => ({
   childName: '',
   birthDate: '',
@@ -38,6 +43,9 @@ export const emptyClientForm = () => ({
   sourceNote: '',
   allergies: '',
   notes: '',
+  lessonPrice: '',
+  payerType: 'parent',
+  legalEntityId: '',
 })
 
 // Дата рождения хранится строкой 'YYYY-MM-DD' — так её отдаёт <input type="date">
@@ -152,6 +160,9 @@ export function clientToForm(client) {
   form.sourceNote = client.sourceNote || ''
   form.allergies = client.allergies || ''
   form.notes = client.notes || ''
+  form.lessonPrice = Number.isFinite(client.lessonPrice) ? String(client.lessonPrice) : ''
+  form.payerType = client.payerType || 'parent'
+  form.legalEntityId = client.legalEntityId || ''
 
   // В форме всегда есть хотя бы одно поле для телефона, пусть и пустое.
   const toFormParent = (parent) => {
@@ -176,6 +187,8 @@ const cleanParent = (p) => ({
 })
 
 export function formToDoc(form) {
+  const price = form.lessonPrice === '' ? null : Number(form.lessonPrice)
+  const isLegal = form.payerType === 'legal'
   return {
     childName: form.childName.trim(),
     birthDate: form.birthDate,
@@ -187,6 +200,9 @@ export function formToDoc(form) {
     sourceNote: form.source === 'other' ? form.sourceNote.trim() : '',
     allergies: form.allergies.trim(),
     notes: form.notes.trim(),
+    lessonPrice: Number.isFinite(price) ? price : null,
+    payerType: form.payerType,
+    legalEntityId: isLegal ? form.legalEntityId : '',
   }
 }
 
@@ -201,6 +217,13 @@ export function validateClientForm(form) {
     if (Number.isNaN(birth.getTime())) return 'Некорректная дата рождения'
     if (birth > new Date()) return 'Дата рождения не может быть в будущем'
     if (calcAge(form.birthDate) === null) return 'Проверьте дату рождения'
+  }
+  if (form.lessonPrice !== '') {
+    const price = Number(form.lessonPrice)
+    if (!Number.isFinite(price) || price < 0) return 'Цена занятия — неотрицательное число'
+  }
+  if (form.payerType === 'legal' && !form.legalEntityId) {
+    return 'Выберите юр. лицо или верните плательщика на родителей'
   }
   return null
 }

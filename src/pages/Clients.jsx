@@ -11,19 +11,19 @@ import {
 } from '../lib/client'
 
 const card = {
-  background: '#1a1a24',
-  border: '1px solid #2a2a35',
+  background: '#ffffff',
+  border: '1px solid #e5e7eb',
   borderRadius: '16px',
   padding: '20px',
   marginBottom: '16px',
 }
 
 const inputStyle = {
-  background: '#0f0f13',
-  border: '1px solid #2a2a35',
+  background: '#f7f8fa',
+  border: '1px solid #e5e7eb',
   borderRadius: '10px',
   padding: '8px 12px',
-  color: '#fff',
+  color: '#111827',
   fontSize: '14px',
   outline: 'none',
   width: '100%',
@@ -44,13 +44,14 @@ const chip = (background, color) => ({
   fontSize: '12px', background, color, padding: '3px 10px', borderRadius: '20px', whiteSpace: 'nowrap',
 })
 
-const link = { color: '#9ca3af', textDecoration: 'none', borderBottom: '1px dotted #4b4b60' }
+const link = { color: '#4b5563', textDecoration: 'none', borderBottom: '1px dotted #9ca3af' }
 
 const MONTHS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
 
 export default function Clients() {
   const [clients, setClients] = useState([])
   const [payments, setPayments] = useState([])
+  const [legalEntities, setLegalEntities] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [showAddClient, setShowAddClient] = useState(false)
@@ -66,12 +67,14 @@ export default function Clients() {
     setLoadError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [cs, ps] = await withTimeout(Promise.all([
+      const [cs, ps, les] = await withTimeout(Promise.all([
         getDocs(collection(db, 'clients')),
         getDocs(collection(db, 'payments')),
+        getDocs(collection(db, 'legalEntities')),
       ]))
       setClients(cs.docs.map(d => ({ id: d.id, ...d.data() })))
       setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })))
+      setLegalEntities(les.docs.map(d => ({ id: d.id, ...d.data() })))
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -201,15 +204,15 @@ export default function Clients() {
   const years = [...new Set(payments.map(p => p.date?.seconds ? new Date(p.date.seconds * 1000).getFullYear() : null).filter(Boolean))]
   if (!years.includes(new Date().getFullYear())) years.push(new Date().getFullYear())
 
-  if (loading) return <div style={{ color: '#6b6b80', padding: '32px' }}>Загрузка...</div>
+  if (loading) return <div style={{ color: '#6b7280', padding: '32px' }}>Загрузка...</div>
 
   return (
     <div style={{ maxWidth: '900px' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div>
-          <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#fff', margin: 0 }}>👶 Клиенты</h2>
-          <p style={{ fontSize: '14px', color: '#6b6b80', marginTop: '4px' }}>{clients.length} клиентов</p>
+          <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: 0 }}>👶 Клиенты</h2>
+          <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>{clients.length} клиентов</p>
         </div>
         <button onClick={() => { setEditingId(null); setShowAddClient(!showAddClient) }} style={btn()}>
           + Добавить клиента
@@ -222,6 +225,7 @@ export default function Clients() {
       {showAddClient && (
         <ClientForm
           saving={saving}
+          legalEntities={legalEntities}
           onSubmit={handleAddClient}
           onCancel={() => setShowAddClient(false)}
         />
@@ -247,7 +251,7 @@ export default function Clients() {
 
       {/* Clients */}
       {filtered.length === 0 ? (
-        <p style={{ color: '#6b6b80', fontSize: '14px' }}>Клиентов нет</p>
+        <p style={{ color: '#6b7280', fontSize: '14px' }}>Клиентов нет</p>
       ) : filtered.map(c => {
         const balance = getTotalBalance(c.id)
         const { income, sessions, sessionsCost } = getPeriodStats(c.id)
@@ -262,6 +266,7 @@ export default function Clients() {
               key={c.id}
               initial={clientToForm(c)}
               saving={saving}
+              legalEntities={legalEntities}
               onSubmit={data => handleUpdateClient(c.id, data)}
               onCancel={() => setEditingId(null)}
             />
@@ -273,8 +278,11 @@ export default function Clients() {
         const source = sourceInfo(c)
         const birthday = formatBirthday(c.birthDate)
         const contacts = contactRows(c)
+        const payer = c.payerType === 'legal'
+          ? legalEntities.find(e => e.id === c.legalEntityId)
+          : null
         const secondaryBtn = {
-          background: 'transparent', color: '#6b6b80', border: '1px solid #2a2a35',
+          background: 'transparent', color: '#6b7280', border: '1px solid #e5e7eb',
           padding: '5px 10px', borderRadius: '8px', fontSize: '12px', cursor: 'pointer',
         }
 
@@ -285,12 +293,12 @@ export default function Clients() {
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
                   {gender && <span title={gender.label}>{gender.icon}</span>}
-                  <span style={{ fontSize: '18px', fontWeight: '700', color: '#fff' }}>{c.childName}</span>
-                  {age !== null && <span style={{ color: '#6b6b80', fontSize: '14px' }}>{ageLabel(age)}</span>}
+                  <span style={{ fontSize: '18px', fontWeight: '700', color: '#111827' }}>{c.childName}</span>
+                  {age !== null && <span style={{ color: '#6b7280', fontSize: '14px' }}>{ageLabel(age)}</span>}
                   <span style={{
                     fontSize: '11px', fontWeight: '700', padding: '3px 10px', borderRadius: '20px',
-                    background: isPaid ? '#14532d' : '#450a0a',
-                    color: isPaid ? '#34d399' : '#f87171'
+                    background: isPaid ? '#dcfce7' : '#fee2e2',
+                    color: isPaid ? '#059669' : '#dc2626'
                   }}>
                     {isPaid ? '✅ ОПЛАЧЕНО' : '🔴 ДОЛГ'}
                   </span>
@@ -298,9 +306,9 @@ export default function Clients() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
                   {contacts.map(r => (
-                    <div key={r.role} style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', fontSize: '13px', color: '#9ca3af' }}>
-                      <span style={{ color: '#6b6b80' }}>{r.icon} {r.role}</span>
-                      {r.name && <span style={{ color: '#e5e7eb' }}>{r.name}</span>}
+                    <div key={r.role} style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', fontSize: '13px', color: '#4b5563' }}>
+                      <span style={{ color: '#6b7280' }}>{r.icon} {r.role}</span>
+                      {r.name && <span style={{ color: '#111827' }}>{r.name}</span>}
                       {r.phones.map((p, i) => <a key={`${p}-${i}`} href={phoneUrl(p)} style={link}>📞 {p}</a>)}
                       {r.instagram && <a href={instagramUrl(r.instagram)} target="_blank" rel="noreferrer" style={link}>📸 @{r.instagram}</a>}
                       {r.telegram && <a href={telegramUrl(r.telegram)} target="_blank" rel="noreferrer" style={link}>✈️ @{r.telegram}</a>}
@@ -308,17 +316,21 @@ export default function Clients() {
                     </div>
                   ))}
                   {c.childContacts && (
-                    <div style={{ fontSize: '13px', color: '#9ca3af' }}>
-                      <span style={{ color: '#6b6b80' }}>🧒 Ребёнок</span> <span>{c.childContacts}</span>
+                    <div style={{ fontSize: '13px', color: '#4b5563' }}>
+                      <span style={{ color: '#6b7280' }}>🧒 Ребёнок</span> <span>{c.childContacts}</span>
                     </div>
                   )}
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {birthday && <span style={chip('#1f1f2e', '#9ca3af')}>🎂 {birthday}</span>}
-                  {source && <span style={chip('#1e1b4b', '#a5b4fc')}>{source.icon} {source.label}</span>}
-                  {c.allergies && <span style={chip('#450a0a', '#fca5a5')}>⚠️ {c.allergies}</span>}
-                  {c.notes && <span style={chip('#1f1f2e', '#9ca3af')}>📝 {c.notes}</span>}
+                  {birthday && <span style={chip('#f3f4f6', '#4b5563')}>🎂 {birthday}</span>}
+                  {source && <span style={chip('#ede9fe', '#5b21b6')}>{source.icon} {source.label}</span>}
+                  {Number.isFinite(c.lessonPrice) && (
+                    <span style={chip('#dcfce7', '#047857')}>💳 {c.lessonPrice.toLocaleString()} сум / занятие</span>
+                  )}
+                  {payer && <span style={chip('#f3f4f6', '#4b5563')}>🏛️ Платит {payer.name}</span>}
+                  {c.allergies && <span style={chip('#fee2e2', '#b91c1c')}>⚠️ {c.allergies}</span>}
+                  {c.notes && <span style={chip('#f3f4f6', '#4b5563')}>📝 {c.notes}</span>}
                 </div>
               </div>
 
@@ -329,24 +341,24 @@ export default function Clients() {
             </div>
 
             {/* Stats */}
-            <div style={{ display: 'flex', gap: '0', marginBottom: '14px', background: '#0f0f13', borderRadius: '12px', overflow: 'hidden' }}>
-              <div style={{ flex: 1, padding: '12px 16px', borderRight: '1px solid #2a2a35' }}>
-                <div style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '4px' }}>Баланс</div>
-                <div style={{ fontSize: '20px', fontWeight: '700', color: balance >= 0 ? '#34d399' : '#f87171' }}>
+            <div style={{ display: 'flex', gap: '0', marginBottom: '14px', background: '#f7f8fa', borderRadius: '12px', overflow: 'hidden' }}>
+              <div style={{ flex: 1, padding: '12px 16px', borderRight: '1px solid #e5e7eb' }}>
+                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Баланс</div>
+                <div style={{ fontSize: '20px', fontWeight: '700', color: balance >= 0 ? '#059669' : '#dc2626' }}>
                   {balance.toLocaleString()} сум
                 </div>
               </div>
-              <div style={{ flex: 1, padding: '12px 16px', borderRight: '1px solid #2a2a35' }}>
-                <div style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '4px' }}>Оплачено ({periodLabel})</div>
-                <div style={{ fontSize: '20px', fontWeight: '700', color: '#34d399' }}>{income.toLocaleString()} сум</div>
+              <div style={{ flex: 1, padding: '12px 16px', borderRight: '1px solid #e5e7eb' }}>
+                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Оплачено ({periodLabel})</div>
+                <div style={{ fontSize: '20px', fontWeight: '700', color: '#059669' }}>{income.toLocaleString()} сум</div>
               </div>
-              <div style={{ flex: 1, padding: '12px 16px', borderRight: '1px solid #2a2a35' }}>
-                <div style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '4px' }}>Занятий ({periodLabel})</div>
-                <div style={{ fontSize: '20px', fontWeight: '700', color: '#a78bfa' }}>{sessions}</div>
+              <div style={{ flex: 1, padding: '12px 16px', borderRight: '1px solid #e5e7eb' }}>
+                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Занятий ({periodLabel})</div>
+                <div style={{ fontSize: '20px', fontWeight: '700', color: '#7c3aed' }}>{sessions}</div>
               </div>
               <div style={{ flex: 1, padding: '12px 16px' }}>
-                <div style={{ fontSize: '11px', color: '#6b6b80', marginBottom: '4px' }}>Списано ({periodLabel})</div>
-                <div style={{ fontSize: '20px', fontWeight: '700', color: '#fb923c' }}>{sessionsCost.toLocaleString()} сум</div>
+                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Списано ({periodLabel})</div>
+                <div style={{ fontSize: '20px', fontWeight: '700', color: '#ea580c' }}>{sessionsCost.toLocaleString()} сум</div>
               </div>
             </div>
 
@@ -364,13 +376,13 @@ export default function Clients() {
 
             {/* Inline form */}
             {pf.open && (
-              <div style={{ background: '#0f0f13', borderRadius: '12px', padding: '14px', marginBottom: '14px' }}>
-                <p style={{ fontWeight: '600', fontSize: '14px', marginBottom: '12px', color: pf.type === 'income' ? '#34d399' : '#a78bfa' }}>
+              <div style={{ background: '#f7f8fa', borderRadius: '12px', padding: '14px', marginBottom: '14px' }}>
+                <p style={{ fontWeight: '600', fontSize: '14px', marginBottom: '12px', color: pf.type === 'income' ? '#059669' : '#7c3aed' }}>
                   {pf.type === 'income' ? '💰 Принять оплату' : '🏃 Записать занятие'}
                 </p>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                   <div>
-                    <label style={{ fontSize: '11px', color: '#6b6b80', display: 'block', marginBottom: '4px' }}>
+                    <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
                       {pf.type === 'income' ? 'Сумма оплаты (сум) *' : 'Стоимость занятия (сум) *'}
                     </label>
                     <input type="number" min="0" placeholder="0" style={{ ...inputStyle, width: '140px' }}
@@ -379,14 +391,14 @@ export default function Clients() {
                   </div>
                   {pf.type === 'session' && (
                     <div>
-                      <label style={{ fontSize: '11px', color: '#6b6b80', display: 'block', marginBottom: '4px' }}>Кол-во занятий</label>
+                      <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Кол-во занятий</label>
                       <input type="number" min="1" placeholder="1" style={{ ...inputStyle, width: '100px' }}
                         value={pf.sessions}
                         onChange={e => setPaymentForm(prev => ({ ...prev, [c.id]: { ...prev[c.id], sessions: e.target.value } }))} />
                     </div>
                   )}
                   <div style={{ flex: 1 }}>
-                    <label style={{ fontSize: '11px', color: '#6b6b80', display: 'block', marginBottom: '4px' }}>Комментарий</label>
+                    <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Комментарий</label>
                     <input placeholder="Необязательно" style={inputStyle}
                       value={pf.description}
                       onChange={e => setPaymentForm(prev => ({ ...prev, [c.id]: { ...prev[c.id], description: e.target.value } }))} />
@@ -396,7 +408,7 @@ export default function Clients() {
                     Сохранить
                   </button>
                   <button onClick={() => closeForm(c.id)} style={{
-                    background: 'transparent', color: '#6b6b80', border: '1px solid #2a2a35',
+                    background: 'transparent', color: '#6b7280', border: '1px solid #e5e7eb',
                     padding: '8px 14px', borderRadius: '10px', fontSize: '13px', cursor: 'pointer'
                   }}>✕</button>
                 </div>
@@ -405,35 +417,35 @@ export default function Clients() {
 
             {/* History */}
             {historyPayments.length > 0 && (
-              <div style={{ borderTop: '1px solid #2a2a35', paddingTop: '12px' }}>
-                <p style={{ fontSize: '12px', color: '#6b6b80', marginBottom: '8px' }}>История {periodLabel}</p>
+              <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
+                <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>История {periodLabel}</p>
                 {historyPayments.map((p, i) => (
                   <div key={p.id} style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '8px 0',
-                    borderBottom: i < historyPayments.length - 1 ? '1px solid #1f1f2e' : 'none'
+                    borderBottom: i < historyPayments.length - 1 ? '1px solid #f3f4f6' : 'none'
                   }}>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                      <span style={{ fontSize: '13px', color: '#6b6b80' }}>
+                      <span style={{ fontSize: '13px', color: '#6b7280' }}>
                         {p.date?.seconds ? new Date(p.date.seconds * 1000).toLocaleDateString('ru') : '—'}
                       </span>
                       {p.type === 'income' ? (
-                        <span style={{ fontSize: '12px', background: '#14532d', color: '#34d399', padding: '2px 8px', borderRadius: '20px' }}>
+                        <span style={{ fontSize: '12px', background: '#dcfce7', color: '#059669', padding: '2px 8px', borderRadius: '20px' }}>
                           💰 Оплата
                         </span>
                       ) : (
-                        <span style={{ fontSize: '12px', background: '#2a2a3e', color: '#a78bfa', padding: '2px 8px', borderRadius: '20px' }}>
+                        <span style={{ fontSize: '12px', background: '#ede9fe', color: '#7c3aed', padding: '2px 8px', borderRadius: '20px' }}>
                           🏃 {p.sessions} зан.
                         </span>
                       )}
-                      {p.description && <span style={{ fontSize: '12px', color: '#6b6b80' }}>{p.description}</span>}
+                      {p.description && <span style={{ fontSize: '12px', color: '#6b7280' }}>{p.description}</span>}
                     </div>
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                      <span style={{ fontWeight: '700', fontSize: '14px', color: p.type === 'income' ? '#34d399' : '#f87171' }}>
+                      <span style={{ fontWeight: '700', fontSize: '14px', color: p.type === 'income' ? '#059669' : '#dc2626' }}>
                         {p.type === 'income' ? '+' : '-'}{(p.amount || 0).toLocaleString()} сум
                       </span>
                       <button onClick={() => handleDeletePayment(p.id)} style={{
-                        background: 'transparent', color: '#4b4b60', border: 'none',
+                        background: 'transparent', color: '#9ca3af', border: 'none',
                         cursor: 'pointer', fontSize: '14px', padding: '2px 6px'
                       }}>✕</button>
                     </div>

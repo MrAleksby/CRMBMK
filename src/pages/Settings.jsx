@@ -3,9 +3,9 @@ import { DIRECTORIES } from '../lib/directories'
 import DirectoryTable from '../components/DirectoryTable'
 
 const tab = (isActive) => ({
-  background: isActive ? '#2a2a3e' : 'transparent',
-  color: isActive ? '#a78bfa' : '#9ca3af',
-  border: `1px solid ${isActive ? '#3b3b52' : '#2a2a35'}`,
+  background: isActive ? '#ede9fe' : 'transparent',
+  color: isActive ? '#7c3aed' : '#4b5563',
+  border: `1px solid ${isActive ? '#ddd6fe' : '#e5e7eb'}`,
   padding: '8px 14px',
   borderRadius: '10px',
   fontSize: '13px',
@@ -21,8 +21,8 @@ export default function Settings() {
   return (
     <div style={{ maxWidth: '900px' }}>
       <div style={{ marginBottom: '20px' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#fff', margin: 0 }}>⚙️ Настройки</h2>
-        <p style={{ fontSize: '14px', color: '#6b6b80', marginTop: '4px' }}>
+        <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: 0 }}>⚙️ Настройки</h2>
+        <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>
           Справочники: на них опираются уроки, абонементы и финансы
         </p>
       </div>

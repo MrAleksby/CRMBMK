@@ -6,18 +6,18 @@ import { withTimeout, describeError } from '../lib/withTimeout'
 import ErrorBanner from '../components/ErrorBanner'
 
 const card = {
-  background: '#1a1a24',
-  border: '1px solid #2a2a35',
+  background: '#ffffff',
+  border: '1px solid #e5e7eb',
   borderRadius: '16px',
   padding: '20px',
 }
 
 const inputStyle = {
-  background: '#0f0f13',
-  border: '1px solid #2a2a35',
+  background: '#f7f8fa',
+  border: '1px solid #e5e7eb',
   borderRadius: '10px',
   padding: '8px 12px',
-  color: '#fff',
+  color: '#111827',
   fontSize: '14px',
   outline: 'none',
   width: '100%',
@@ -112,15 +112,15 @@ export default function Expenses() {
   const years = [...new Set(expenses.map(e => e.date?.seconds ? new Date(e.date.seconds * 1000).getFullYear() : null).filter(Boolean))]
   if (!years.includes(new Date().getFullYear())) years.push(new Date().getFullYear())
 
-  if (loading) return <div style={{ color: '#6b6b80', padding: '32px' }}>Загрузка...</div>
+  if (loading) return <div style={{ color: '#6b7280', padding: '32px' }}>Загрузка...</div>
 
   return (
     <div style={{ maxWidth: '900px' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
         <div>
-          <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#fff', margin: 0 }}>📉 Расходы</h2>
-          <p style={{ fontSize: '14px', color: '#6b6b80', marginTop: '4px' }}>Расходы компании</p>
+          <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: 0 }}>📉 Расходы</h2>
+          <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>Расходы компании</p>
         </div>
         <button onClick={() => setShowForm(!showForm)} style={{
           background: '#dc2626', color: '#fff', border: 'none',
@@ -136,21 +136,21 @@ export default function Expenses() {
       {/* Add form */}
       {showForm && (
         <form onSubmit={handleSubmit} style={{ ...card, marginBottom: '20px' }}>
-          <h3 style={{ color: '#fff', fontSize: '16px', fontWeight: '600', marginBottom: '16px' }}>Новый расход</h3>
+          <h3 style={{ color: '#111827', fontSize: '16px', fontWeight: '600', marginBottom: '16px' }}>Новый расход</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
             <div>
-              <label style={{ fontSize: '12px', color: '#6b6b80', display: 'block', marginBottom: '4px' }}>Сумма (сум) *</label>
+              <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Сумма (сум) *</label>
               <input required type="number" min="0" placeholder="0" style={inputStyle}
                 value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
             </div>
             <div>
-              <label style={{ fontSize: '12px', color: '#6b6b80', display: 'block', marginBottom: '4px' }}>Категория</label>
+              <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Категория</label>
               <select style={inputStyle} value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
                 {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </div>
             <div>
-              <label style={{ fontSize: '12px', color: '#6b6b80', display: 'block', marginBottom: '4px' }}>Описание</label>
+              <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Описание</label>
               <input placeholder="Необязательно" style={inputStyle}
                 value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
             </div>
@@ -164,7 +164,7 @@ export default function Expenses() {
               {saving ? 'Сохраняем...' : 'Сохранить'}
             </button>
             <button type="button" onClick={() => setShowForm(false)} style={{
-              background: 'transparent', color: '#6b6b80', border: '1px solid #2a2a35',
+              background: 'transparent', color: '#6b7280', border: '1px solid #e5e7eb',
               padding: '8px 16px', borderRadius: '10px', fontSize: '13px', cursor: 'pointer'
             }}>Отмена</button>
           </div>
@@ -189,23 +189,23 @@ export default function Expenses() {
       {/* Total + by category */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
         <div style={card}>
-          <p style={{ fontSize: '12px', color: '#6b6b80', marginBottom: '8px' }}>
+          <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
             Итого расходов {filterMonth !== 'all' ? `(${MONTHS[filterMonth]} ${filterYear})` : ''}
           </p>
-          <p style={{ fontSize: '28px', fontWeight: '700', color: '#f87171', margin: 0 }}>
+          <p style={{ fontSize: '28px', fontWeight: '700', color: '#dc2626', margin: 0 }}>
             {total.toLocaleString()} сум
           </p>
         </div>
         <div style={card}>
-          <p style={{ fontSize: '12px', color: '#6b6b80', marginBottom: '10px' }}>По категориям</p>
+          <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>По категориям</p>
           {byCategory.length === 0 ? (
-            <p style={{ color: '#6b6b80', fontSize: '13px' }}>Нет данных</p>
+            <p style={{ color: '#6b7280', fontSize: '13px' }}>Нет данных</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {byCategory.map(c => (
                 <div key={c.value} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                  <span style={{ color: '#9ca3af' }}>{c.label}</span>
-                  <span style={{ color: '#f87171', fontWeight: '600' }}>{c.total.toLocaleString()} сум</span>
+                  <span style={{ color: '#4b5563' }}>{c.label}</span>
+                  <span style={{ color: '#dc2626', fontWeight: '600' }}>{c.total.toLocaleString()} сум</span>
                 </div>
               ))}
             </div>
@@ -216,7 +216,7 @@ export default function Expenses() {
       {/* List */}
       {filtered.length === 0 ? (
         <div style={{ ...card, textAlign: 'center', padding: '40px' }}>
-          <p style={{ color: '#6b6b80', fontSize: '14px' }}>Расходов нет</p>
+          <p style={{ color: '#6b7280', fontSize: '14px' }}>Расходов нет</p>
         </div>
       ) : (
         <div style={card}>
@@ -226,34 +226,34 @@ export default function Expenses() {
               <div key={e.id} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '12px 0',
-                borderBottom: i < filtered.length - 1 ? '1px solid #2a2a35' : 'none'
+                borderBottom: i < filtered.length - 1 ? '1px solid #e5e7eb' : 'none'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{
                     width: '36px', height: '36px', borderRadius: '50%',
-                    background: '#2a1515', display: 'flex', alignItems: 'center',
+                    background: '#fee2e2', display: 'flex', alignItems: 'center',
                     justifyContent: 'center', fontSize: '16px'
                   }}>
                     {cat?.label.split(' ')[0] || '📦'}
                   </div>
                   <div>
-                    <p style={{ fontSize: '14px', fontWeight: '600', color: '#fff', margin: 0 }}>
+                    <p style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: 0 }}>
                       {cat?.label.split(' ').slice(1).join(' ') || 'Прочее'}
                     </p>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '2px' }}>
-                      <span style={{ fontSize: '12px', color: '#6b6b80' }}>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>
                         {e.date?.seconds ? new Date(e.date.seconds * 1000).toLocaleDateString('ru') : '—'}
                       </span>
-                      {e.description && <span style={{ fontSize: '12px', color: '#6b6b80' }}>· {e.description}</span>}
+                      {e.description && <span style={{ fontSize: '12px', color: '#6b7280' }}>· {e.description}</span>}
                     </div>
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '15px', fontWeight: '700', color: '#f87171' }}>
+                  <span style={{ fontSize: '15px', fontWeight: '700', color: '#dc2626' }}>
                     -{(e.amount || 0).toLocaleString()} сум
                   </span>
                   <button onClick={() => handleDelete(e.id)} style={{
-                    background: 'transparent', color: '#4b4b60', border: 'none',
+                    background: 'transparent', color: '#9ca3af', border: 'none',
                     cursor: 'pointer', fontSize: '16px', padding: '2px 6px'
                   }}>✕</button>
                 </div>

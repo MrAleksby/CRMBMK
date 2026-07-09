@@ -24,8 +24,8 @@ const navItem = (isActive) => ({
   padding: '10px 12px', borderRadius: '10px',
   fontSize: '14px', fontWeight: '500',
   textDecoration: 'none', transition: 'all 0.15s',
-  background: isActive ? '#2a2a3e' : 'transparent',
-  color: isActive ? '#a78bfa' : '#9ca3af',
+  background: isActive ? '#ede9fe' : 'transparent',
+  color: isActive ? '#7c3aed' : '#4b5563',
 })
 
 function App() {
@@ -48,10 +48,10 @@ function App() {
   if (user === undefined) {
     return (
       <div style={{
-        minHeight: '100vh', background: '#0f0f13',
+        minHeight: '100vh', background: '#f1f2f4',
         display: 'flex', alignItems: 'center', justifyContent: 'center'
       }}>
-        <div style={{ color: '#6b6b80', fontSize: '14px' }}>Загрузка...</div>
+        <div style={{ color: '#6b7280', fontSize: '14px' }}>Загрузка...</div>
       </div>
     )
   }
@@ -62,19 +62,19 @@ function App() {
   // Авторизован
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-      <div style={{ minHeight: '100vh', background: '#0f0f13' }}>
+      <div style={{ minHeight: '100vh', background: '#f1f2f4' }}>
 
         {/* Desktop sidebar */}
         <aside style={{
-          width: '220px', background: '#16161e',
-          borderRight: '1px solid #2a2a35',
+          width: '220px', background: '#ffffff',
+          borderRight: '1px solid #e5e7eb',
           position: 'fixed', top: 0, left: 0, bottom: 0,
           display: 'flex', flexDirection: 'column',
           padding: '20px 12px',
         }} className="hidden-mobile">
           <div style={{ padding: '0 8px', marginBottom: '28px' }}>
-            <h1 style={{ fontSize: '18px', fontWeight: '700', color: '#fff', margin: 0 }}>🎠 FinGam CRM</h1>
-            <p style={{ fontSize: '12px', color: '#6b6b80', marginTop: '4px', wordBreak: 'break-all' }}>{user.email}</p>
+            <h1 style={{ fontSize: '18px', fontWeight: '700', color: '#111827', margin: 0 }}>🎠 FinGam CRM</h1>
+            <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px', wordBreak: 'break-all' }}>{user.email}</p>
           </div>
 
           {NAV_ITEMS.map(({ to, label, icon, end }) => (
@@ -91,15 +91,15 @@ function App() {
               disabled={backingUp}
               style={{
                 width: '100%', background: 'transparent',
-                border: '1px solid #2a2a35', borderRadius: '10px',
-                padding: '10px 12px', color: '#6b6b80',
+                border: '1px solid #e5e7eb', borderRadius: '10px',
+                padding: '10px 12px', color: '#6b7280',
                 fontSize: '14px', cursor: backingUp ? 'not-allowed' : 'pointer',
                 opacity: backingUp ? 0.6 : 1,
                 display: 'flex', alignItems: 'center', gap: '8px',
                 transition: 'all 0.15s',
               }}
-              onMouseEnter={e => { if (!backingUp) { e.currentTarget.style.borderColor = '#a78bfa'; e.currentTarget.style.color = '#a78bfa' } }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = '#2a2a35'; e.currentTarget.style.color = '#6b6b80' }}
+              onMouseEnter={e => { if (!backingUp) { e.currentTarget.style.borderColor = '#7c3aed'; e.currentTarget.style.color = '#7c3aed' } }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#6b7280' }}
             >
               💾 {backingUp ? 'Сохраняем...' : 'Резервная копия'}
             </button>
@@ -107,14 +107,14 @@ function App() {
               onClick={() => signOut(auth)}
               style={{
                 width: '100%', background: 'transparent',
-                border: '1px solid #2a2a35', borderRadius: '10px',
-                padding: '10px 12px', color: '#6b6b80',
+                border: '1px solid #e5e7eb', borderRadius: '10px',
+                padding: '10px 12px', color: '#6b7280',
                 fontSize: '14px', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: '8px',
                 transition: 'all 0.15s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = '#f87171'; e.currentTarget.style.color = '#f87171' }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = '#2a2a35'; e.currentTarget.style.color = '#6b6b80' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.color = '#dc2626' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#6b7280' }}
             >
               🚪 Выйти
             </button>
@@ -136,7 +136,7 @@ function App() {
         <nav style={{
           display: 'none',
           position: 'fixed', bottom: 0, left: 0, right: 0,
-          background: '#16161e', borderTop: '1px solid #2a2a35',
+          background: '#ffffff', borderTop: '1px solid #e5e7eb',
           padding: '8px 0', zIndex: 50,
         }} className="mobile-nav">
           {[
@@ -144,12 +144,12 @@ function App() {
             { label: 'Выйти', icon: '🚪', onClick: () => signOut(auth) },
           ].map(({ to, label, icon, end, onClick }) => (
             to ? (
-              <NavLink key={to} to={to} end={end} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', textDecoration: 'none', fontSize: '10px', fontWeight: '600', color: '#6b6b80' }}>
+              <NavLink key={to} to={to} end={end} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', textDecoration: 'none', fontSize: '10px', fontWeight: '600', color: '#6b7280' }}>
                 <span style={{ fontSize: '20px' }}>{icon}</span>
                 {label}
               </NavLink>
             ) : (
-              <button key={label} onClick={onClick} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', background: 'none', border: 'none', fontSize: '10px', fontWeight: '600', color: '#6b6b80', cursor: 'pointer' }}>
+              <button key={label} onClick={onClick} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', background: 'none', border: 'none', fontSize: '10px', fontWeight: '600', color: '#6b7280', cursor: 'pointer' }}>
                 <span style={{ fontSize: '20px' }}>{icon}</span>
                 {label}
               </button>

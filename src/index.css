@@ -8,6 +8,14 @@
 
 body {
   font-family: system-ui, -apple-system, sans-serif;
-  background-color: #0f0f13;
-  color: #ffffff;
+  background-color: #f1f2f4;
+  color: #111827;
+}
+
+/* Поля ввода в тёмной теме не нуждались в видимом фокусе — на светлом он обязателен. */
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #7c3aed !important;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
 }

@@ -1,33 +1,34 @@
 import { useState } from 'react'
 import {
-  GENDERS, SOURCES, MAX_PHONES, emptyClientForm, formToDoc, validateClientForm,
+  GENDERS, SOURCES, MAX_PHONES, PAYER_TYPES,
+  emptyClientForm, formToDoc, validateClientForm,
 } from '../lib/client'
 
 const inputStyle = {
-  background: '#0f0f13',
-  border: '1px solid #2a2a35',
+  background: '#f7f8fa',
+  border: '1px solid #e5e7eb',
   borderRadius: '10px',
   padding: '8px 12px',
-  color: '#fff',
+  color: '#111827',
   fontSize: '14px',
   outline: 'none',
   width: '100%',
 }
 
-const labelStyle = { fontSize: '12px', color: '#6b6b80', display: 'block', marginBottom: '4px' }
+const labelStyle = { fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }
 
 const sectionTitle = {
   fontSize: '12px',
   fontWeight: '700',
-  color: '#a78bfa',
+  color: '#7c3aed',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   marginBottom: '10px',
 }
 
 const section = {
-  background: '#0f0f13',
-  border: '1px solid #1f1f2e',
+  background: '#f7f8fa',
+  border: '1px solid #f3f4f6',
   borderRadius: '12px',
   padding: '14px',
   marginBottom: '12px',
@@ -45,7 +46,7 @@ function Field({ label, children }) {
 }
 
 const iconBtn = {
-  background: 'transparent', border: '1px solid #2a2a35', color: '#6b6b80',
+  background: 'transparent', border: '1px solid #e5e7eb', color: '#6b7280',
   borderRadius: '8px', width: '32px', flexShrink: 0, cursor: 'pointer', fontSize: '14px',
 }
 
@@ -70,7 +71,7 @@ function PhoneList({ phones, onChange }) {
       </div>
       {phones.length < MAX_PHONES && (
         <button type="button" onClick={add} style={{
-          background: 'transparent', border: 'none', color: '#a78bfa',
+          background: 'transparent', border: 'none', color: '#7c3aed',
           fontSize: '12px', cursor: 'pointer', padding: '6px 0 0',
         }}>+ ещё телефон</button>
       )}
@@ -99,7 +100,7 @@ function ParentFields({ title, icon, value, onChange }) {
   )
 }
 
-export default function ClientForm({ initial, saving, onSubmit, onCancel }) {
+export default function ClientForm({ initial, saving, onSubmit, onCancel, legalEntities = [] }) {
   const [form, setForm] = useState(initial || emptyClientForm())
   const [error, setError] = useState('')
 
@@ -119,10 +120,10 @@ export default function ClientForm({ initial, saving, onSubmit, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit} style={{
-      background: '#1a1a24', border: '1px solid #2a2a35',
+      background: '#ffffff', border: '1px solid #e5e7eb',
       borderRadius: '16px', padding: '20px', marginBottom: '16px',
     }}>
-      <h3 style={{ color: '#fff', fontSize: '16px', fontWeight: '600', marginBottom: '16px' }}>
+      <h3 style={{ color: '#111827', fontSize: '16px', fontWeight: '600', marginBottom: '16px' }}>
         {initial ? 'Редактирование клиента' : 'Новый клиент'}
       </h3>
 
@@ -155,6 +156,32 @@ export default function ClientForm({ initial, saving, onSubmit, onCancel }) {
         onChange={father => setForm({ ...form, father })} />
 
       <div style={section}>
+        <p style={sectionTitle}>💳 Оплата</p>
+        <div style={grid}>
+          <Field label="Цена занятия (сум)">
+            <input type="number" min="0" style={inputStyle} value={form.lessonPrice}
+              onChange={set('lessonPrice')} placeholder="Своя цена ребёнка" />
+          </Field>
+          <Field label="Плательщик">
+            <select style={inputStyle} value={form.payerType} onChange={set('payerType')}>
+              {PAYER_TYPES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+            </select>
+          </Field>
+          {form.payerType === 'legal' && (
+            <Field label="Организация">
+              <select style={inputStyle} value={form.legalEntityId} onChange={set('legalEntityId')}>
+                <option value="">Выберите юр. лицо</option>
+                {legalEntities.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+              </select>
+            </Field>
+          )}
+        </div>
+        <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '10px' }}>
+          Цена подставится в журнал занятий. Если не задана — сумму введёт менеджер вручную.
+        </p>
+      </div>
+
+      <div style={section}>
         <p style={sectionTitle}>📋 Дополнительно</p>
         <div style={grid}>
           <Field label="Источник">
@@ -182,7 +209,7 @@ export default function ClientForm({ initial, saving, onSubmit, onCancel }) {
 
       {error && (
         <p style={{
-          background: '#450a0a', color: '#f87171', border: '1px solid #7f1d1d',
+          background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca',
           borderRadius: '10px', padding: '8px 12px', fontSize: '13px', marginBottom: '12px',
         }}>⚠️ {error}</p>
       )}
@@ -194,7 +221,7 @@ export default function ClientForm({ initial, saving, onSubmit, onCancel }) {
           cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.6 : 1,
         }}>{saving ? 'Сохраняем...' : 'Сохранить'}</button>
         <button type="button" onClick={onCancel} style={{
-          background: 'transparent', color: '#6b6b80', border: '1px solid #2a2a35',
+          background: 'transparent', color: '#6b7280', border: '1px solid #e5e7eb',
           padding: '8px 16px', borderRadius: '10px', fontSize: '13px', cursor: 'pointer',
         }}>Отмена</button>
       </div>

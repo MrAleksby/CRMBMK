@@ -5,8 +5,8 @@ import { withTimeout, describeError } from '../lib/withTimeout'
 import ErrorBanner from '../components/ErrorBanner'
 
 const card = {
-  background: '#1a1a24',
-  border: '1px solid #2a2a35',
+  background: '#ffffff',
+  border: '1px solid #e5e7eb',
   borderRadius: '16px',
   padding: '20px',
 }
@@ -63,14 +63,14 @@ export default function Dashboard() {
     .sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0))
     .slice(0, 6)
 
-  if (loading) return <div style={{ color: '#6b6b80', padding: '32px' }}>Загрузка...</div>
+  if (loading) return <div style={{ color: '#6b7280', padding: '32px' }}>Загрузка...</div>
 
   return (
     <div style={{ maxWidth: '960px' }}>
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#fff', margin: 0 }}>📊 Дашборд</h2>
-        <p style={{ fontSize: '14px', color: '#6b6b80', marginTop: '4px' }}>Общая статистика центра</p>
+        <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: 0 }}>📊 Дашборд</h2>
+        <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>Общая статистика центра</p>
       </div>
 
       <ErrorBanner message={loadError} onRetry={fetchData} />
@@ -78,22 +78,22 @@ export default function Dashboard() {
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
         <div style={card}>
-          <p style={{ fontSize: '13px', color: '#6b6b80', marginBottom: '8px' }}>Клиентов</p>
-          <p style={{ fontSize: '36px', fontWeight: '700', color: '#a78bfa', margin: 0 }}>{clients.length}</p>
+          <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '8px' }}>Клиентов</p>
+          <p style={{ fontSize: '36px', fontWeight: '700', color: '#7c3aed', margin: 0 }}>{clients.length}</p>
         </div>
         <div style={card}>
-          <p style={{ fontSize: '13px', color: '#6b6b80', marginBottom: '8px' }}>Получено</p>
-          <p style={{ fontSize: '28px', fontWeight: '700', color: '#34d399', margin: 0 }}>{totalIncome.toLocaleString()} сум</p>
+          <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '8px' }}>Получено</p>
+          <p style={{ fontSize: '28px', fontWeight: '700', color: '#059669', margin: 0 }}>{totalIncome.toLocaleString()} сум</p>
         </div>
         <div style={{
           ...card,
-          border: totalDebt > 0 ? '1px solid #450a0a' : '1px solid #2a2a35',
-          background: totalDebt > 0 ? '#1f1010' : '#1a1a24',
+          border: totalDebt > 0 ? '1px solid #fee2e2' : '1px solid #e5e7eb',
+          background: totalDebt > 0 ? '#fef2f2' : '#ffffff',
         }}>
-          <p style={{ fontSize: '13px', color: '#6b6b80', marginBottom: '8px' }}>
-            Долги {debtors.length > 0 && <span style={{ color: '#f87171' }}>({debtors.length} клиент{debtors.length > 1 ? 'а' : ''})</span>}
+          <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '8px' }}>
+            Долги {debtors.length > 0 && <span style={{ color: '#dc2626' }}>({debtors.length} клиент{debtors.length > 1 ? 'а' : ''})</span>}
           </p>
-          <p style={{ fontSize: '28px', fontWeight: '700', color: totalDebt > 0 ? '#f87171' : '#6b6b80', margin: 0 }}>
+          <p style={{ fontSize: '28px', fontWeight: '700', color: totalDebt > 0 ? '#dc2626' : '#6b7280', margin: 0 }}>
             {totalDebt.toLocaleString()} сум
           </p>
         </div>
@@ -101,28 +101,28 @@ export default function Dashboard() {
 
       {/* Recent payments */}
       <div style={card}>
-        <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '16px' }}>Последние платежи</h3>
+        <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>Последние платежи</h3>
         {recentPayments.length === 0 ? (
-          <p style={{ color: '#6b6b80', fontSize: '14px' }}>Нет платежей — добавьте клиентов и финансы</p>
+          <p style={{ color: '#6b7280', fontSize: '14px' }}>Нет платежей — добавьте клиентов и финансы</p>
         ) : (
           <div>
             {recentPayments.map((p, i) => (
               <div key={p.id} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '12px 0',
-                borderBottom: i < recentPayments.length - 1 ? '1px solid #2a2a35' : 'none'
+                borderBottom: i < recentPayments.length - 1 ? '1px solid #e5e7eb' : 'none'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{
                     width: '36px', height: '36px', borderRadius: '50%',
-                    background: p.type === 'income' ? '#14532d' : '#2a2a3e',
+                    background: p.type === 'income' ? '#dcfce7' : '#ede9fe',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px'
                   }}>
                     {p.type === 'income' ? '💰' : '🏃'}
                   </div>
                   <div>
-                    <p style={{ fontSize: '14px', fontWeight: '600', color: '#fff', margin: 0 }}>{p.clientName || '—'}</p>
-                    <p style={{ fontSize: '12px', color: '#6b6b80', margin: 0 }}>
+                    <p style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: 0 }}>{p.clientName || '—'}</p>
+                    <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>
                       {p.date?.seconds ? new Date(p.date.seconds * 1000).toLocaleDateString('ru') : '—'}
                       {p.type === 'session' && p.sessions > 0 && ` · ${p.sessions} зан.`}
                     </p>
@@ -130,7 +130,7 @@ export default function Dashboard() {
                 </div>
                 <span style={{
                   fontWeight: '700', fontSize: '15px',
-                  color: p.type === 'income' ? '#34d399' : '#f87171'
+                  color: p.type === 'income' ? '#059669' : '#dc2626'
                 }}>
                   {p.type === 'income' ? '+' : '-'}{(p.amount || 0).toLocaleString()} сум
                 </span>

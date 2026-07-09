@@ -23,22 +23,22 @@ export default function Login() {
 
   return (
     <div style={{
-      minHeight: '100vh', background: '#0f0f13',
+      minHeight: '100vh', background: '#f1f2f4',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <div style={{
-        background: '#1a1a24', border: '1px solid #2a2a35',
+        background: '#ffffff', border: '1px solid #e5e7eb',
         borderRadius: '20px', padding: '40px', width: '100%', maxWidth: '400px',
       }}>
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <div style={{ fontSize: '48px', marginBottom: '12px' }}>🎠</div>
-          <h1 style={{ fontSize: '22px', fontWeight: '700', color: '#fff', margin: 0 }}>FinGam CRM</h1>
-          <p style={{ fontSize: '14px', color: '#6b6b80', marginTop: '6px' }}>Войдите в систему</p>
+          <h1 style={{ fontSize: '22px', fontWeight: '700', color: '#111827', margin: 0 }}>FinGam CRM</h1>
+          <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '6px' }}>Войдите в систему</p>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ fontSize: '13px', color: '#6b6b80', display: 'block', marginBottom: '6px' }}>Email</label>
+            <label style={{ fontSize: '13px', color: '#6b7280', display: 'block', marginBottom: '6px' }}>Email</label>
             <input
               type="email"
               required
@@ -47,15 +47,15 @@ export default function Login() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               style={{
-                width: '100%', background: '#0f0f13', border: '1px solid #2a2a35',
-                borderRadius: '10px', padding: '12px 14px', color: '#fff',
+                width: '100%', background: '#f7f8fa', border: '1px solid #e5e7eb',
+                borderRadius: '10px', padding: '12px 14px', color: '#111827',
                 fontSize: '14px', outline: 'none', boxSizing: 'border-box',
               }}
             />
           </div>
 
           <div style={{ marginBottom: '24px' }}>
-            <label style={{ fontSize: '13px', color: '#6b6b80', display: 'block', marginBottom: '6px' }}>Пароль</label>
+            <label style={{ fontSize: '13px', color: '#6b7280', display: 'block', marginBottom: '6px' }}>Пароль</label>
             <input
               type="password"
               required
@@ -63,8 +63,8 @@ export default function Login() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               style={{
-                width: '100%', background: '#0f0f13', border: '1px solid #2a2a35',
-                borderRadius: '10px', padding: '12px 14px', color: '#fff',
+                width: '100%', background: '#f7f8fa', border: '1px solid #e5e7eb',
+                borderRadius: '10px', padding: '12px 14px', color: '#111827',
                 fontSize: '14px', outline: 'none', boxSizing: 'border-box',
               }}
             />
@@ -72,9 +72,9 @@ export default function Login() {
 
           {error && (
             <div style={{
-              background: '#450a0a', border: '1px solid #7f1d1d',
+              background: '#fee2e2', border: '1px solid #fecaca',
               borderRadius: '10px', padding: '10px 14px',
-              color: '#f87171', fontSize: '13px', marginBottom: '16px',
+              color: '#dc2626', fontSize: '13px', marginBottom: '16px',
             }}>
               ❌ {error}
             </div>
