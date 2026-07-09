@@ -94,6 +94,7 @@ export default function ClientCard() {
   const [lessons, setLessons] = useState([])
   const [groups, setGroups] = useState([])
   const [pickGroup, setPickGroup] = useState('')
+  const [filterGroup, setFilterGroup] = useState('')
   const [pickedLessons, setPickedLessons] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -221,6 +222,42 @@ export default function ClientCard() {
     }
   }
 
+  // Членство в группе — это принадлежность, а не подписка на все занятия.
+  // На конкретные занятия ученик записывается отдельно, ниже.
+  const handleJoinGroup = async (groupId) => {
+    const group = groups.find(g => g.id === groupId)
+    if (!group) return
+    setSaving(true)
+    try {
+      await updateDoc(doc(db, 'groups', groupId), {
+        studentIds: [...new Set([...(group.studentIds || []), id])],
+      })
+      setPickGroup('')
+      await fetchData()
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleLeaveGroup = async (group) => {
+    if (!confirm(`Убрать ученика из группы «${group.name}»?\n\nЗаписи на уже назначенные занятия останутся — снимите их отдельно, если нужно.`)) return
+    setSaving(true)
+    try {
+      await updateDoc(doc(db, 'groups', group.id), {
+        studentIds: (group.studentIds || []).filter(s => s !== id),
+      })
+      await fetchData()
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const togglePickedLesson = (lessonId) =>
     setPickedLessons(prev => prev.includes(lessonId)
       ? prev.filter(l => l !== lessonId)
@@ -293,14 +330,17 @@ export default function ClientCard() {
 
   const today = new Date().toISOString().slice(0, 10)
 
-  // Группы ученика — те, где он записан хотя бы на одно занятие.
-  const myGroupNames = [...new Set(myLessons.map(l => l.groupName).filter(Boolean))]
+  // Группы ученика: где он в составе, плюс те, куда он записан на занятия.
+  const myGroups = groups.filter(g => (g.studentIds || []).includes(id))
+  const lessonGroupIds = new Set(myLessons.map(l => l.groupId).filter(Boolean))
+  const extraGroups = groups.filter(g => !myGroups.includes(g) && lessonGroupIds.has(g.id))
+  const availableGroups = groups.filter(g => !(g.studentIds || []).includes(id))
 
   // Занятия, куда можно записать: запланированные, где ученика ещё нет.
   // Селект группы просто сужает список.
   const joinableLessons = lessons
     .filter(l => l.status === 'planned' && l.date >= today && !(l.studentIds || []).includes(id))
-    .filter(l => !pickGroup || l.groupId === pickGroup)
+    .filter(l => !filterGroup || l.groupId === filterGroup)
     .sort((a, b) => a.date.localeCompare(b.date) || String(a.timeFrom).localeCompare(String(b.timeFrom)))
 
   const myUpcoming = myLessons
@@ -543,11 +583,39 @@ export default function ClientCard() {
           </SummaryBlock>
 
           <SummaryBlock title="Группы">
-            {myGroupNames.length === 0
-              ? <span style={notSet}>(не записан)</span>
-              : myGroupNames.map(name => (
-                  <div key={name} style={{ fontSize: '13px', color: '#111827' }}>👥 {name}</div>
-                ))}
+            {myGroups.length === 0 && extraGroups.length === 0 && (
+              <span style={notSet}>(не задано)</span>
+            )}
+
+            {myGroups.map(group => (
+              <div key={group.id} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                fontSize: '13px', marginBottom: '4px', gap: '8px',
+              }}>
+                <Link to={`/groups?open=${group.id}`} style={link}>👥 {group.name}</Link>
+                <button onClick={() => handleLeaveGroup(group)} disabled={saving} title="Убрать из группы"
+                  style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>✕</button>
+              </div>
+            ))}
+
+            {extraGroups.map(group => (
+              <div key={group.id} style={{ fontSize: '13px', marginBottom: '4px' }}>
+                <Link to={`/groups?open=${group.id}`} style={link}>👥 {group.name}</Link>
+                <span style={{ fontSize: '11px', color: '#6b7280' }}> — только занятия</span>
+              </div>
+            ))}
+
+            {availableGroups.length > 0 && (
+              <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                <select style={{ ...inputStyle, fontSize: '13px', padding: '6px 8px' }}
+                  value={pickGroup} onChange={e => setPickGroup(e.target.value)}>
+                  <option value="">Добавить в группу…</option>
+                  {availableGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+                <button onClick={() => handleJoinGroup(pickGroup)} disabled={!pickGroup || saving}
+                  style={{ ...btn(), padding: '6px 12px', opacity: (!pickGroup || saving) ? 0.5 : 1 }}>+</button>
+              </div>
+            )}
           </SummaryBlock>
 
           <SummaryBlock title="Ближайшие занятия">
@@ -572,7 +640,7 @@ export default function ClientCard() {
 
           <SummaryBlock title="Записать на занятия">
             <select style={{ ...inputStyle, fontSize: '13px', padding: '6px 8px', marginBottom: '8px' }}
-              value={pickGroup} onChange={e => { setPickGroup(e.target.value); setPickedLessons([]) }}>
+              value={filterGroup} onChange={e => { setFilterGroup(e.target.value); setPickedLessons([]) }}>
               <option value="">Все занятия</option>
               {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>

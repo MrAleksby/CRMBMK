@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { collection, getDocs, doc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
@@ -42,6 +43,7 @@ export default function Groups() {
   const [creating, setCreating] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [expandedId, setExpandedId] = useState(null)
+  const [searchParams] = useSearchParams()
 
   const fetchData = async () => {
     setLoadError('')
@@ -66,6 +68,12 @@ export default function Groups() {
   }
 
   useEffect(() => { fetchData() }, [])
+
+  // Переход из карточки клиента: /groups?open=<id> раскрывает нужную группу.
+  useEffect(() => {
+    const open = searchParams.get('open')
+    if (open) setExpandedId(open)
+  }, [searchParams])
 
   const groupLessons = (groupId) =>
     lessons.filter(l => l.groupId === groupId).sort((a, b) => a.date.localeCompare(b.date))
