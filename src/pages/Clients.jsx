@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react'
-import { collection, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore'
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { toAmount, toCount } from '../lib/amount'
+import ClientForm from '../components/ClientForm'
+import {
+  getAge, ageLabel, formatBirthday, contactRows, sourceInfo, genderInfo,
+  searchText, clientToForm, instagramUrl, telegramUrl, phoneUrl,
+} from '../lib/client'
 
 const card = {
   background: '#1a1a24',
@@ -33,6 +38,12 @@ const btn = (color = '#7c3aed') => ({
   cursor: 'pointer',
 })
 
+const chip = (background, color) => ({
+  fontSize: '12px', background, color, padding: '3px 10px', borderRadius: '20px', whiteSpace: 'nowrap',
+})
+
+const link = { color: '#9ca3af', textDecoration: 'none', borderBottom: '1px dotted #4b4b60' }
+
 const MONTHS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
 
 export default function Clients() {
@@ -40,7 +51,7 @@ export default function Clients() {
   const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAddClient, setShowAddClient] = useState(false)
-  const [clientForm, setClientForm] = useState({ childName: '', childAge: '', parentName: '', phone: '', email: '', notes: '' })
+  const [editingId, setEditingId] = useState(null)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
@@ -133,16 +144,10 @@ export default function Clients() {
     }
   }
 
-  const handleAddClient = async (e) => {
-    e.preventDefault()
+  const handleAddClient = async (data) => {
     setSaving(true)
     try {
-      await addDoc(collection(db, 'clients'), {
-        ...clientForm,
-        childAge: clientForm.childAge ? (toCount(clientForm.childAge) ?? null) : null,
-        createdAt: new Date(),
-      })
-      setClientForm({ childName: '', childAge: '', parentName: '', phone: '', email: '', notes: '' })
+      await addDoc(collection(db, 'clients'), { ...data, createdAt: new Date() })
       setShowAddClient(false)
       fetchData()
     } finally {
@@ -150,8 +155,25 @@ export default function Clients() {
     }
   }
 
+  const handleUpdateClient = async (id, data) => {
+    setSaving(true)
+    try {
+      await updateDoc(doc(db, 'clients', id), data)
+      setEditingId(null)
+      fetchData()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const startEdit = (id) => {
+    setShowAddClient(false)
+    setEditingId(id)
+  }
+
   const handleDeleteClient = async (id) => {
     if (!confirm('Удалить клиента и все его платежи?')) return
+    if (editingId === id) setEditingId(null)
     await deleteDoc(doc(db, 'clients', id))
     await Promise.all(payments.filter(p => p.clientId === id).map(p => deleteDoc(doc(db, 'payments', p.id))))
     fetchData()
@@ -162,8 +184,9 @@ export default function Clients() {
     fetchData()
   }
 
+  const query = search.trim().toLowerCase()
   const filtered = clients.filter(c => {
-    const matchSearch = `${c.childName} ${c.parentName} ${c.phone}`.toLowerCase().includes(search.toLowerCase())
+    const matchSearch = !query || searchText(c).includes(query)
     const balance = getTotalBalance(c.id)
     if (filterStatus === 'debt') return matchSearch && balance < 0
     if (filterStatus === 'paid') return matchSearch && balance >= 0
@@ -183,39 +206,18 @@ export default function Clients() {
           <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#fff', margin: 0 }}>👶 Клиенты</h2>
           <p style={{ fontSize: '14px', color: '#6b6b80', marginTop: '4px' }}>{clients.length} клиентов</p>
         </div>
-        <button onClick={() => setShowAddClient(!showAddClient)} style={btn()}>+ Добавить клиента</button>
+        <button onClick={() => { setEditingId(null); setShowAddClient(!showAddClient) }} style={btn()}>
+          + Добавить клиента
+        </button>
       </div>
 
       {/* Add client form */}
       {showAddClient && (
-        <form onSubmit={handleAddClient} style={{ ...card, marginBottom: '20px' }}>
-          <h3 style={{ color: '#fff', fontSize: '16px', fontWeight: '600', marginBottom: '16px' }}>Новый клиент</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            {[
-              { label: 'Имя ребёнка *', key: 'childName', required: true },
-              { label: 'Возраст', key: 'childAge', type: 'number' },
-              { label: 'Имя родителя *', key: 'parentName', required: true },
-              { label: 'Телефон', key: 'phone' },
-              { label: 'Email', key: 'email', type: 'email' },
-              { label: 'Заметки', key: 'notes' },
-            ].map(({ label, key, type = 'text', required }) => (
-              <div key={key}>
-                <label style={{ fontSize: '12px', color: '#6b6b80', display: 'block', marginBottom: '4px' }}>{label}</label>
-                <input required={required} type={type} style={inputStyle}
-                  value={clientForm[key]} onChange={e => setClientForm({ ...clientForm, [key]: e.target.value })} />
-              </div>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-            <button type="submit" disabled={saving} style={{ ...btn(), opacity: saving ? 0.6 : 1 }}>
-              {saving ? 'Сохраняем...' : 'Сохранить'}
-            </button>
-            <button type="button" onClick={() => setShowAddClient(false)} style={{
-              background: 'transparent', color: '#6b6b80', border: '1px solid #2a2a35',
-              padding: '8px 16px', borderRadius: '10px', fontSize: '13px', cursor: 'pointer'
-            }}>Отмена</button>
-          </div>
-        </form>
+        <ClientForm
+          saving={saving}
+          onSubmit={handleAddClient}
+          onCancel={() => setShowAddClient(false)}
+        />
       )}
 
       {/* Filters */}
@@ -247,14 +249,37 @@ export default function Clients() {
         const historyPayments = getFilteredPayments(c.id)
         const periodLabel = filterMonth !== 'all' ? `${MONTHS[filterMonth]} ${filterYear}` : 'за всё время'
 
+        if (editingId === c.id) {
+          return (
+            <ClientForm
+              key={c.id}
+              initial={clientToForm(c)}
+              saving={saving}
+              onSubmit={data => handleUpdateClient(c.id, data)}
+              onCancel={() => setEditingId(null)}
+            />
+          )
+        }
+
+        const age = getAge(c)
+        const gender = genderInfo(c)
+        const source = sourceInfo(c)
+        const birthday = formatBirthday(c.birthDate)
+        const contacts = contactRows(c)
+        const secondaryBtn = {
+          background: 'transparent', color: '#6b6b80', border: '1px solid #2a2a35',
+          padding: '5px 10px', borderRadius: '8px', fontSize: '12px', cursor: 'pointer',
+        }
+
         return (
           <div key={c.id} style={card}>
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '14px' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '14px', gap: '12px' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                  {gender && <span title={gender.label}>{gender.icon}</span>}
                   <span style={{ fontSize: '18px', fontWeight: '700', color: '#fff' }}>{c.childName}</span>
-                  {c.childAge && <span style={{ color: '#6b6b80', fontSize: '14px' }}>{c.childAge} лет</span>}
+                  {age !== null && <span style={{ color: '#6b6b80', fontSize: '14px' }}>{ageLabel(age)}</span>}
                   <span style={{
                     fontSize: '11px', fontWeight: '700', padding: '3px 10px', borderRadius: '20px',
                     background: isPaid ? '#14532d' : '#450a0a',
@@ -263,16 +288,37 @@ export default function Clients() {
                     {isPaid ? '✅ ОПЛАЧЕНО' : '🔴 ДОЛГ'}
                   </span>
                 </div>
-                <div style={{ display: 'flex', gap: '16px', fontSize: '13px', color: '#9ca3af' }}>
-                  {c.parentName && <span>👩 {c.parentName}</span>}
-                  {c.phone && <span>📞 {c.phone}</span>}
-                  {c.notes && <span>📝 {c.notes}</span>}
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
+                  {contacts.map(r => (
+                    <div key={r.role} style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', fontSize: '13px', color: '#9ca3af' }}>
+                      <span style={{ color: '#6b6b80' }}>{r.icon} {r.role}</span>
+                      {r.name && <span style={{ color: '#e5e7eb' }}>{r.name}</span>}
+                      {r.phone && <a href={phoneUrl(r.phone)} style={link}>📞 {r.phone}</a>}
+                      {r.instagram && <a href={instagramUrl(r.instagram)} target="_blank" rel="noreferrer" style={link}>📸 @{r.instagram}</a>}
+                      {r.telegram && <a href={telegramUrl(r.telegram)} target="_blank" rel="noreferrer" style={link}>✈️ @{r.telegram}</a>}
+                      {r.email && <span>✉️ {r.email}</span>}
+                    </div>
+                  ))}
+                  {c.childContacts && (
+                    <div style={{ fontSize: '13px', color: '#9ca3af' }}>
+                      <span style={{ color: '#6b6b80' }}>🧒 Ребёнок</span> <span>{c.childContacts}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {birthday && <span style={chip('#1f1f2e', '#9ca3af')}>🎂 {birthday}</span>}
+                  {source && <span style={chip('#1e1b4b', '#a5b4fc')}>{source.icon} {source.label}</span>}
+                  {c.allergies && <span style={chip('#450a0a', '#fca5a5')}>⚠️ {c.allergies}</span>}
+                  {c.notes && <span style={chip('#1f1f2e', '#9ca3af')}>📝 {c.notes}</span>}
                 </div>
               </div>
-              <button onClick={() => handleDeleteClient(c.id)} style={{
-                background: 'transparent', color: '#6b6b80', border: '1px solid #2a2a35',
-                padding: '5px 10px', borderRadius: '8px', fontSize: '12px', cursor: 'pointer'
-              }}>Удалить</button>
+
+              <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                <button onClick={() => startEdit(c.id)} style={secondaryBtn}>Изменить</button>
+                <button onClick={() => handleDeleteClient(c.id)} style={secondaryBtn}>Удалить</button>
+              </div>
             </div>
 
             {/* Stats */}

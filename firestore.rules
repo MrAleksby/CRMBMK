@@ -11,6 +11,20 @@ service cloud.firestore {
         && request.auth.uid in ['XqJUnm47gIPjQPJfKUTvgWnS0un2'];
     }
 
+    // Строка в пределах лимита. Отсутствующее поле подставляется как ''.
+    function str(value, maxLen) {
+      return value is string && value.size() <= maxLen;
+    }
+
+    // Блок контактов родителя: map с полями name/phone/instagram/telegram.
+    function validParent(p) {
+      return p is map
+        && str(p.get('name', ''), 100)
+        && str(p.get('phone', ''), 50)
+        && str(p.get('instagram', ''), 100)
+        && str(p.get('telegram', ''), 100);
+    }
+
     // --- clients ---
     match /clients/{id} {
       allow read, delete: if isAllowed();
@@ -18,8 +32,15 @@ service cloud.firestore {
         && request.resource.data.childName is string
         && request.resource.data.childName.size() > 0
         && request.resource.data.childName.size() <= 100
-        && request.resource.data.parentName is string
-        && request.resource.data.parentName.size() <= 100;
+        && str(request.resource.data.get('birthDate', ''), 10)
+        && request.resource.data.get('gender', '') in ['male', 'female', '']
+        && str(request.resource.data.get('childContacts', ''), 200)
+        && validParent(request.resource.data.get('mother', {}))
+        && validParent(request.resource.data.get('father', {}))
+        && request.resource.data.get('source', '') in ['instagram_ads', 'telegram_ads', 'recommendation', 'other', '']
+        && str(request.resource.data.get('sourceNote', ''), 200)
+        && str(request.resource.data.get('allergies', ''), 500)
+        && str(request.resource.data.get('notes', ''), 1000);
     }
 
     // --- payments ---
