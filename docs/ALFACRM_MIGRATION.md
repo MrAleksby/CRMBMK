@@ -159,21 +159,23 @@
 ```
 teachers      { name, phone, telegram, subjects[], rate, active }
 subjects      { name, levels[] }                       // «Финансовая грамотность»
-packages      { name, lessonsCount, price, withMeals, active, archived }
+packages      { name, lessonsCount, price, active, archived }
                                                        // шаблон: «Пакет 8 (2 400 000 за 8)»
+services      { name, price, perLesson, active }       // доп. услуги: питание и т.п.
 groups        { name, subjectId, teacherId, capacity,
                 schedule[{ weekday, time, durationMin }],
                 startDate, endDate, studentIds[], archived }
 
 subscriptions { clientId, packageId, name, subjectId,
                 lessonsTotal, lessonsUsed, price,
+                serviceIds[],                          // подключённые доп. услуги (питание)
                 startDate, endDate, status }           // выданный клиенту абонемент
 
 lessons       { date, startTime, durationMin, type: group|individual|trial,
                 groupId, teacherId, subjectId, topic,
                 status: planned|conducted|cancelled,
                 attendance: [{ clientId, status: present|absent|excused,
-                               subscriptionId, amountCharged }] }
+                               subscriptionId, amountCharged, servicesCharged }] }
 
 leads         { childName, childAge, parentName, phone, telegram,
                 source, stage, note, responsibleId,
@@ -189,6 +191,17 @@ transactions  { date, kind: income|expense|salary, amount, accountId, categoryId
 `subscriptions.lessonsUsed += 1`, создаётся списание. Отменённый урок ничего не списывает.
 Баланс клиента в уроках = `Σ(lessonsTotal − lessonsUsed)` по активным абонементам.
 Баланс в деньгах = как сейчас, доходы минус списания.
+
+**Питание — отдельная услуга, а не свойство пакета** (подтверждено владельцем).
+Поэтому в справочнике один тариф на уроки, а питание живёт в `services` и подключается
+к абонементу. При проведении урока присутствующему списывается стоимость урока
+(`amountCharged`) **и отдельно** стоимость услуг (`servicesCharged`) — со своей статьёй
+«Доп услуги», как это сделано в AlfaCRM (в ленте клиента видна запись
+«питание остаток за прошлый период | Доп услуги | 5 000,00»).
+
+Существующие пары пакетов из AlfaCRM при миграции разворачиваются обратно:
+«Пакет 4 (1 300 000)» и «Пакет 4 без питания (1 100 000)» → один пакет на 4 урока
+по 275 000 + услуга «Питание» 50 000 за занятие.
 
 ---
 
@@ -287,7 +300,9 @@ transactions  { date, kind: income|expense|salary, amount, accountId, categoryId
 
 1. **Академ. часы** (п38/ф38) — нужны ли, или хватит счётчика уроков?
 2. **Заказчик** — плательщиком всегда мама/папа, или бывает третье лицо (бабушка, компания)?
-3. **Питание** — «с питанием / без питания» это отдельная услуга в чеке или просто вид пакета?
+3. ~~**Питание** — отдельная услуга или вид пакета?~~ **Решено: отдельная услуга.**
+   Осталось уточнить: цена питания фиксированная за каждое посещение, или бывает помесячно?
+   И списывается ли питание при пропуске занятия?
 4. **Налог 1% ИП** — считается автоматически от дохода или заводится вручную?
 5. **Приостановки** и **скидки** — используются в реальной работе или это неиспользуемые функции AlfaCRM?
 6. Переносим **всю историю** (1461 операция) или только клиентов с текущими остатками?
