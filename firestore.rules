@@ -62,6 +62,18 @@ service cloud.firestore {
         && request.resource.data.status in ['planned', 'conducted', 'cancelled'];
     }
 
+    // --- абонементы, выданные ученикам ---
+    match /subscriptions/{id} {
+      allow read, delete: if isAllowed();
+      allow create, update: if isAllowed()
+        && request.resource.data.clientId is string
+        && request.resource.data.lessonsTotal is number
+        && request.resource.data.lessonsTotal >= 0
+        && request.resource.data.lessonsUsed is number
+        && request.resource.data.price is number
+        && request.resource.data.price >= 0;
+    }
+
     // --- справочники ---
     // Педагоги, предметы, тарифы, кассы, статьи, юр. лица.
     // Состав полей меняется по ходу работы, поэтому проверяем только непустое название.

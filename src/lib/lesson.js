@@ -2,6 +2,8 @@
 // Сумма у каждого ученика своя и всегда редактируемая — менеджер вводит её вручную,
 // уже с питанием, если ребёнок ел. Система лишь подставляет подсказку.
 
+import { suggestPrice } from './subscription.js'
+
 export const ATTENDANCE = {
   present: { label: 'Пришёл', color: '#059669', background: '#dcfce7' },
   absent: { label: 'Пропуск', color: '#b45309', background: '#fef3c7' },
@@ -13,13 +15,13 @@ export const LESSON_TYPES = [
   { value: 'trial', label: 'Пробный' },
 ]
 
-// Подсказка суммы: персональная цена ребёнка.
-// Когда появятся абонементы (Фаза 4), первым в цепочке встанет их расчёт.
-export function suggestedPrice(client) {
-  return Number.isFinite(client?.lessonPrice) ? client.lessonPrice : ''
+// Подсказка суммы по цепочке: абонемент → персональная цена ребёнка → пусто.
+// Пустое поле означает, что менеджер введёт сумму сам.
+export function suggestedPrice(client, subscriptions = []) {
+  return suggestPrice(client, subscriptions)
 }
 
-export function buildJournal(lesson, clients) {
+export function buildJournal(lesson, clients, subscriptions = []) {
   const saved = new Map((lesson.attendance || []).map(a => [a.clientId, a]))
   const ids = lesson.studentIds || []
 
@@ -32,7 +34,7 @@ export function buildJournal(lesson, clients) {
       status: previous?.status || 'present',
       amount: previous
         ? String(previous.amountCharged ?? '')
-        : String(suggestedPrice(client) ?? ''),
+        : String(suggestedPrice(client, subscriptions) ?? ''),
     }
   })
 }

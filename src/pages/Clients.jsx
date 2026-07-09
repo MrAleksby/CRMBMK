@@ -5,6 +5,7 @@ import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import ClientForm from '../components/ClientForm'
 import ErrorBanner from '../components/ErrorBanner'
+import { lessonsLeft } from '../lib/subscription'
 import {
   getAge, ageLabel, contactRows, statusInfo, genderInfo, searchText,
   CLIENT_STATUSES, instagramUrl, telegramUrl, phoneUrl,
@@ -76,6 +77,7 @@ export default function Clients() {
   const [clients, setClients] = useState([])
   const [payments, setPayments] = useState([])
   const [legalEntities, setLegalEntities] = useState([])
+  const [subscriptions, setSubscriptions] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [showAddClient, setShowAddClient] = useState(false)
@@ -89,14 +91,16 @@ export default function Clients() {
     setLoadError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [cs, ps, les] = await withTimeout(Promise.all([
+      const [cs, ps, les, ss] = await withTimeout(Promise.all([
         getDocs(collection(db, 'clients')),
         getDocs(collection(db, 'payments')),
         getDocs(collection(db, 'legalEntities')),
+        getDocs(collection(db, 'subscriptions')),
       ]))
       setClients(cs.docs.map(d => ({ id: d.id, ...d.data() })))
       setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })))
       setLegalEntities(les.docs.map(d => ({ id: d.id, ...d.data() })))
+      setSubscriptions(ss.docs.map(d => ({ id: d.id, ...d.data() })))
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -276,7 +280,7 @@ export default function Clients() {
                       <span style={{ color: balance < 0 ? '#dc2626' : '#111827', fontWeight: balance !== 0 ? '600' : '400' }}>
                         {balance.toLocaleString()} сум
                       </span>
-                      <span style={{ color: '#9ca3af' }}> / 0 уроков</span>
+                      <span style={{ color: '#9ca3af' }}> / {lessonsLeft(subscriptions, c.id)} уроков</span>
                     </td>
 
                     <td style={td(isLast)}>

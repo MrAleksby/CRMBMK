@@ -7,6 +7,11 @@ import { withTimeout, describeError } from '../lib/withTimeout'
 import ClientForm from '../components/ClientForm'
 import ErrorBanner from '../components/ErrorBanner'
 import AttendanceWidget from '../components/AttendanceWidget'
+import SubscriptionForm from '../components/SubscriptionForm'
+import {
+  remaining, lessonsLeft, subscriptionStatus, periodLabel as subPeriod,
+  formToSubscriptionDoc,
+} from '../lib/subscription'
 import {
   getAge, ageLabel, formatBirthday, contactRows, sourceInfo, genderInfo, statusInfo,
   clientToForm, instagramUrl, telegramUrl, phoneUrl, parentPhones,
@@ -95,6 +100,9 @@ export default function ClientCard() {
   const [groups, setGroups] = useState([])
   const [teachers, setTeachers] = useState([])
   const [allClients, setAllClients] = useState([])
+  const [subscriptions, setSubscriptions] = useState([])
+  const [packages, setPackages] = useState([])
+  const [issuing, setIssuing] = useState(false)
   const [pickGroup, setPickGroup] = useState('')
   const [filterGroup, setFilterGroup] = useState('')
   const [pickedLessons, setPickedLessons] = useState([])
@@ -110,7 +118,7 @@ export default function ClientCard() {
     setLoadError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [snap, ps, les, ls, gs, ts, cs] = await withTimeout(Promise.all([
+      const [snap, ps, les, ls, gs, ts, cs, ss, pk] = await withTimeout(Promise.all([
         getDoc(doc(db, 'clients', id)),
         getDocs(collection(db, 'payments')),
         getDocs(collection(db, 'legalEntities')),
@@ -118,6 +126,8 @@ export default function ClientCard() {
         getDocs(collection(db, 'groups')),
         getDocs(collection(db, 'teachers')),
         getDocs(collection(db, 'clients')),
+        getDocs(collection(db, 'subscriptions')),
+        getDocs(collection(db, 'packages')),
       ]))
       setClient(snap.exists() ? { id: snap.id, ...snap.data() } : null)
       setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.clientId === id))
@@ -126,6 +136,8 @@ export default function ClientCard() {
       setGroups(gs.docs.map(d => ({ id: d.id, ...d.data() })))
       setTeachers(ts.docs.map(d => ({ id: d.id, ...d.data() })))
       setAllClients(cs.docs.map(d => ({ id: d.id, ...d.data() })))
+      setSubscriptions(ss.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.clientId === id))
+      setPackages(pk.docs.map(d => ({ id: d.id, ...d.data() })))
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -261,6 +273,38 @@ export default function ClientCard() {
       setLoadError(describeError(e))
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleIssueSubscription = async (form, pkg) => {
+    setSaving(true)
+    try {
+      await addDoc(collection(db, 'subscriptions'), {
+        ...formToSubscriptionDoc(form, pkg, id),
+        createdAt: new Date(),
+      })
+      setIssuing(false)
+      await fetchData()
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteSubscription = async (sub) => {
+    const used = sub.lessonsUsed || 0
+    const message = used > 0
+      ? `Удалить абонемент «${sub.name}»?\n\nПо нему уже проведено уроков: ${used}. Списания денег останутся, вернётся только счётчик уроков.`
+      : `Удалить абонемент «${sub.name}»?`
+    if (!confirm(message)) return
+    try {
+      await deleteDoc(doc(db, 'subscriptions', sub.id))
+      await fetchData()
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
     }
   }
 
@@ -522,7 +566,9 @@ export default function ClientCard() {
             <span style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>Общий остаток</span>
           </div>
           <div style={{ textAlign: 'right', marginBottom: '4px' }}>
-            <div style={{ fontSize: '16px', fontWeight: '700', color: '#7c3aed' }}>0 уроков</div>
+            <div style={{ fontSize: '16px', fontWeight: '700', color: '#7c3aed' }}>
+              {lessonsLeft(subscriptions, id)} уроков
+            </div>
             <div style={{ fontSize: '20px', fontWeight: '700', color: isPaid ? '#059669' : '#dc2626' }}>
               {balance.toLocaleString()} сум
             </div>
@@ -584,8 +630,44 @@ export default function ClientCard() {
             )}
           </SummaryBlock>
 
-          <SummaryBlock title="Абонементы">
-            <span style={notSet}>(не задано)</span>
+          <SummaryBlock
+            title="Абонементы"
+            action={!issuing && (
+              <button onClick={() => setIssuing(true)} style={{
+                background: 'transparent', border: 'none', color: '#7c3aed',
+                fontSize: '12px', cursor: 'pointer',
+              }}>добавить</button>
+            )}
+          >
+            {subscriptions.length === 0 && !issuing && <span style={notSet}>(не задано)</span>}
+
+            {subscriptions.map(sub => {
+              const status = subscriptionStatus(sub)
+              return (
+                <div key={sub.id} style={{ marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', color: '#111827', fontWeight: '600' }}>🎫 {sub.name}</span>
+                    <button onClick={() => handleDeleteSubscription(sub)} title="Удалить абонемент"
+                      style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>✕</button>
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                    Осталось {remaining(sub)} из {sub.lessonsTotal} · {Number(sub.price).toLocaleString()} сум
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '3px' }}>
+                    <span style={{
+                      fontSize: '11px', padding: '2px 8px', borderRadius: '20px',
+                      background: status.background, color: status.color,
+                    }}>{status.label}</span>
+                    <span style={{ fontSize: '11px', color: '#6b7280' }}>{subPeriod(sub)}</span>
+                  </div>
+                </div>
+              )
+            })}
+
+            {issuing && (
+              <SubscriptionForm packages={packages} saving={saving}
+                onSubmit={handleIssueSubscription} onCancel={() => setIssuing(false)} />
+            )}
           </SummaryBlock>
 
           <SummaryBlock title="Аллергии и особенности">

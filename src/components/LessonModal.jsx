@@ -47,11 +47,11 @@ const ghostBtn = {
 const notSet = { color: '#dc2626', fontStyle: 'italic' }
 
 export default function LessonModal({
-  lesson, clients, teachers, balances, saving,
+  lesson, clients, teachers, balances, lessonsLeftBy = {}, subscriptions = [], saving,
   onClose, onConduct, onReturn, onCancelLesson, onSaveStudents,
 }) {
   const conducted = lesson.status === 'conducted'
-  const [rows, setRows] = useState(() => buildJournal(lesson, clients))
+  const [rows, setRows] = useState(() => buildJournal(lesson, clients, subscriptions))
   const [students, setStudents] = useState(lesson.studentIds || [])
   const [editingStudents, setEditingStudents] = useState(false)
   const [error, setError] = useState('')
@@ -171,6 +171,7 @@ export default function LessonModal({
                   {displayRows.map(record => {
                     const present = record.status === 'present'
                     const balance = balances?.[record.clientId] ?? 0
+                    const left = lessonsLeftBy?.[record.clientId] ?? 0
                     return (
                       <tr key={record.clientId} style={{ borderTop: '1px solid #f3f4f6' }}>
                         <td style={{ padding: '8px 0' }}>
@@ -181,7 +182,7 @@ export default function LessonModal({
                               {record.clientName}
                             </span>
                             <span style={{ fontSize: '12px', color: balance < 0 ? '#dc2626' : '#6b7280' }}>
-                              ({balance.toLocaleString()} сум)
+                              ({left > 0 ? `${left} ост` : `${balance.toLocaleString()} сум`})
                             </span>
                           </label>
                         </td>

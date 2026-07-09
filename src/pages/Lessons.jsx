@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { collection, getDocs, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore'
+import { collection, getDocs, doc, updateDoc, deleteDoc, writeBatch, increment } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import ErrorBanner from '../components/ErrorBanner'
@@ -11,6 +11,7 @@ import LessonCalendar from '../components/LessonCalendar'
 import LessonModal from '../components/LessonModal'
 import { LESSON_STATUSES, todayISO } from '../lib/group'
 import { buildJournal, journalToAttendance, lessonTypeLabel, formatLessonDate } from '../lib/lesson'
+import { activeSubscription, lessonsLeft } from '../lib/subscription'
 
 const panel = {
   background: '#ffffff',
@@ -51,6 +52,7 @@ export default function Lessons() {
   const [clients, setClients] = useState([])
   const [teachers, setTeachers] = useState([])
   const [payments, setPayments] = useState([])
+  const [subscriptions, setSubscriptions] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -70,16 +72,18 @@ export default function Lessons() {
     setLoadError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [ls, cs, ts, ps] = await withTimeout(Promise.all([
+      const [ls, cs, ts, ps, ss] = await withTimeout(Promise.all([
         getDocs(collection(db, 'lessons')),
         getDocs(collection(db, 'clients')),
         getDocs(collection(db, 'teachers')),
         getDocs(collection(db, 'payments')),
+        getDocs(collection(db, 'subscriptions')),
       ]))
       setLessons(ls.docs.map(d => ({ id: d.id, ...d.data() })))
       setClients(cs.docs.map(d => ({ id: d.id, ...d.data() })))
       setTeachers(ts.docs.map(d => ({ id: d.id, ...d.data() })))
       setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })))
+      setSubscriptions(ss.docs.map(d => ({ id: d.id, ...d.data() })))
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -102,9 +106,24 @@ export default function Lessons() {
     setSaving(true)
     try {
       const attendance = journalToAttendance(rows)
-      const batch = writeBatch(db)
 
+      // Списываем урок с абонемента ученика, если он есть. Номер абонемента
+      // запоминаем в attendance, чтобы при откате вернуть урок именно ему.
+      const used = {}
+      for (const record of attendance) {
+        if (record.status !== 'present') continue
+        const sub = activeSubscription(subscriptions, record.clientId)
+        if (!sub) continue
+        record.subscriptionId = sub.id
+        used[sub.id] = (used[sub.id] || 0) + 1
+      }
+
+      const batch = writeBatch(db)
       batch.update(doc(db, 'lessons', lesson.id), { status: 'conducted', attendance })
+
+      for (const [subId, count] of Object.entries(used)) {
+        batch.update(doc(db, 'subscriptions', subId), { lessonsUsed: increment(count) })
+      }
 
       for (const record of attendance) {
         if (record.status !== 'present' || record.amountCharged <= 0) continue
@@ -140,6 +159,18 @@ export default function Lessons() {
     return related.length
   }
 
+  // Возврат занятия должен вернуть и уроки на абонементы, иначе они сгорят.
+  const rollbackSubscriptions = (batch, lesson) => {
+    const returned = {}
+    for (const record of lesson.attendance || []) {
+      if (!record.subscriptionId || record.status !== 'present') continue
+      returned[record.subscriptionId] = (returned[record.subscriptionId] || 0) + 1
+    }
+    for (const [subId, count] of Object.entries(returned)) {
+      batch.update(doc(db, 'subscriptions', subId), { lessonsUsed: increment(-count) })
+    }
+  }
+
   const handleReturnToPlanned = async (lesson) => {
     const related = payments.filter(p => p.lessonId === lesson.id)
     const total = related.reduce((s, p) => s + (p.amount || 0), 0)
@@ -152,6 +183,7 @@ export default function Lessons() {
     try {
       const batch = writeBatch(db)
       rollbackPayments(batch, lesson.id)
+      rollbackSubscriptions(batch, lesson)
       batch.update(doc(db, 'lessons', lesson.id), { status: 'planned', attendance: [] })
       await batch.commit()
       await fetchData()
@@ -174,6 +206,7 @@ export default function Lessons() {
     try {
       const batch = writeBatch(db)
       rollbackPayments(batch, lesson.id)
+      rollbackSubscriptions(batch, lesson)
       batch.update(doc(db, 'lessons', lesson.id), { status: 'cancelled', attendance: [] })
       await batch.commit()
       await fetchData()
@@ -265,6 +298,12 @@ export default function Lessons() {
 
   const modalLesson = lessons.find(l => l.id === modalId) || null
 
+  // Остаток уроков по абонементам — показываем в модалке рядом с именем.
+  const lessonsLeftBy = {}
+  for (const client of clients) {
+    lessonsLeftBy[client.id] = lessonsLeft(subscriptions, client.id)
+  }
+
   const query = search.trim().toLowerCase()
   const filtered = lessons
     .filter(l => {
@@ -346,6 +385,8 @@ export default function Lessons() {
           clients={clients}
           teachers={teachers}
           balances={balances}
+          lessonsLeftBy={lessonsLeftBy}
+          subscriptions={subscriptions}
           saving={saving}
           onClose={() => setModalId(null)}
           onConduct={handleConduct}
