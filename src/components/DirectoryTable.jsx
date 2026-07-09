@@ -6,7 +6,7 @@ import { normalizeHandle } from '../lib/client'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import {
   FIELD_AMOUNT, FIELD_COUNT, FIELD_SELECT, FIELD_HANDLE,
-  emptyItem, optionLabel, perLessonPrice,
+  emptyItem, optionLabel, perLessonPrice, sortItems, nextOrder,
 } from '../lib/directories'
 
 const card = {
@@ -95,8 +95,7 @@ export default function DirectoryTable({ dir }) {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
       const snap = await withTimeout(getDocs(collection(db, dir.key)))
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      data.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ru'))
-      setItems(data)
+      setItems(sortItems(dir, data))
     } catch (e) {
       console.error(e)
       setError(describeError(e))
@@ -137,7 +136,8 @@ export default function DirectoryTable({ dir }) {
       if (editingId) {
         await updateDoc(doc(db, dir.key, editingId), data)
       } else {
-        await addDoc(collection(db, dir.key), { ...data, active: true, createdAt: new Date() })
+        const extra = dir.sortBy ? { order: nextOrder(items, data.kind) } : {}
+        await addDoc(collection(db, dir.key), { ...data, ...extra, active: true, createdAt: new Date() })
       }
       closeForm()
       await fetchItems()
@@ -170,10 +170,15 @@ export default function DirectoryTable({ dir }) {
     }
   }
 
+  // Добавляет только те типовые записи, которых ещё нет — повторный вызов не плодит дубли.
+  const missingSeed = dir.seed
+    ? dir.seed.filter(row => !items.some(i => String(i.name).trim().toLowerCase() === row.name.toLowerCase()))
+    : []
+
   const handleSeed = async () => {
     setSaving(true)
     try {
-      for (const row of dir.seed) {
+      for (const row of missingSeed) {
         await addDoc(collection(db, dir.key), { ...row, active: true, createdAt: new Date() })
       }
       await fetchItems()
@@ -223,7 +228,16 @@ export default function DirectoryTable({ dir }) {
           </h3>
           {dir.hint && <p style={{ fontSize: '13px', color: '#6b6b80', marginTop: '6px', maxWidth: '520px' }}>{dir.hint}</p>}
         </div>
-        {!showForm && <button onClick={openCreate} style={btn()}>+ Добавить</button>}
+        {!showForm && (
+          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+            {missingSeed.length > 0 && items.length > 0 && (
+              <button onClick={handleSeed} disabled={saving} style={{ ...btn('#059669'), opacity: saving ? 0.6 : 1 }}>
+                + Типовые ({missingSeed.length})
+              </button>
+            )}
+            <button onClick={openCreate} style={btn()}>+ Добавить</button>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -287,9 +301,9 @@ export default function DirectoryTable({ dir }) {
           <p style={{ color: '#6b6b80', fontSize: '14px', marginBottom: dir.seed ? '14px' : 0 }}>
             Пока пусто
           </p>
-          {dir.seed && (
+          {missingSeed.length > 0 && (
             <button onClick={handleSeed} disabled={saving} style={{ ...btn('#059669'), opacity: saving ? 0.6 : 1 }}>
-              Создать типовые значения ({dir.seed.length})
+              Создать типовые значения ({missingSeed.length})
             </button>
           )}
         </div>

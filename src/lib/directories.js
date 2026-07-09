@@ -7,6 +7,37 @@ export const FIELD_COUNT = 'count'
 export const FIELD_SELECT = 'select'
 export const FIELD_HANDLE = 'handle'
 
+// Типы операций. «Выплата ЗП» стоит отдельно от расходов — так же, как в AlfaCRM,
+// где это самостоятельный тип документа.
+export const CATEGORY_KINDS = [
+  { value: 'income', label: '📈 Доход' },
+  { value: 'expense', label: '📉 Расход' },
+  { value: 'salary', label: '👥 Выплата ЗП' },
+]
+
+// Порядок внутри типа — как перечислил владелец, поэтому фиксируем его полем order.
+const CATEGORY_SEED = [
+  { name: 'Оплата за занятие', kind: 'income' },
+  { name: 'Доп услуги', kind: 'income' },
+  { name: 'Кешбеки', kind: 'income' },
+  { name: 'Турнир', kind: 'income' },
+
+  { name: 'Налог 1%', kind: 'expense' },
+  { name: 'Питание', kind: 'expense' },
+  { name: 'Банковские расходы', kind: 'expense' },
+  { name: 'Такси', kind: 'expense' },
+  { name: 'Аренда', kind: 'expense' },
+  { name: 'Коммунальные', kind: 'expense' },
+  { name: 'Материалы', kind: 'expense' },
+  { name: 'Операционные', kind: 'expense' },
+  { name: 'Призы', kind: 'expense' },
+  { name: 'Сотрудники', kind: 'expense' },
+
+  { name: 'Зарплата тренера', kind: 'salary' },
+  { name: 'Процент менеджера', kind: 'salary' },
+  { name: 'Аутсорс', kind: 'salary' },
+].map((row, index) => ({ ...row, order: index }))
+
 export const DIRECTORIES = [
   {
     key: 'teachers',
@@ -22,22 +53,10 @@ export const DIRECTORIES = [
     columns: ['name', 'phone', 'telegram', 'rate'],
   },
   {
-    key: 'subjects',
-    label: 'Предметы',
-    icon: '📚',
-    itemName: 'предмет',
-    fields: [
-      { key: 'name', label: 'Название', type: FIELD_TEXT, required: true },
-      { key: 'note', label: 'Примечание', type: FIELD_TEXT },
-    ],
-    columns: ['name', 'note'],
-    seed: [{ name: 'Финансовая грамотность', note: '' }],
-  },
-  {
     key: 'packages',
-    label: 'Тарифы',
+    label: 'Абонементы',
     icon: '🎫',
-    itemName: 'тариф',
+    itemName: 'абонемент',
     hint: 'Пакет уроков. Цена за занятие подставится в журнал автоматически, но её можно изменить.',
     fields: [
       { key: 'name', label: 'Название', type: FIELD_TEXT, required: true, placeholder: 'Пакет 8' },
@@ -72,29 +91,20 @@ export const DIRECTORIES = [
     label: 'Статьи',
     icon: '🏷️',
     itemName: 'статью',
-    hint: 'Статьи доходов и расходов. Налог 1% ИП вносится вручную как расход.',
+    hint: 'Статьи доходов и расходов. «Выплата ЗП» — отдельный тип операции, как в AlfaCRM. ' +
+      'Налог 1% вносится вручную как расход.',
     fields: [
       { key: 'name', label: 'Название', type: FIELD_TEXT, required: true },
       {
         key: 'kind', label: 'Тип', type: FIELD_SELECT, required: true,
-        options: [
-          { value: 'income', label: '📈 Доход' },
-          { value: 'expense', label: '📉 Расход' },
-        ],
+        options: CATEGORY_KINDS,
       },
     ],
     columns: ['name', 'kind'],
-    seed: [
-      { name: 'Оплата за занятие', kind: 'income' },
-      { name: 'Доп услуги', kind: 'income' },
-      { name: 'Налог 1% ИП', kind: 'expense' },
-      { name: 'Зарплата тренера', kind: 'expense' },
-      { name: 'Аренда', kind: 'expense' },
-      { name: 'Реклама', kind: 'expense' },
-      { name: 'Инвентарь', kind: 'expense' },
-      { name: 'Коммунальные', kind: 'expense' },
-      { name: 'Прочее', kind: 'expense' },
-    ],
+    // Порядок задан вручную и сохраняется в поле order: сначала доходы, затем расходы,
+    // затем зарплаты. Алфавит здесь только мешал бы.
+    sortBy: ['kind', 'order'],
+    seed: CATEGORY_SEED,
   },
   {
     key: 'legalEntities',
@@ -113,6 +123,37 @@ export const DIRECTORIES = [
 ]
 
 export const getDirectory = (key) => DIRECTORIES.find(d => d.key === key)
+
+const KIND_RANK = Object.fromEntries(CATEGORY_KINDS.map((k, i) => [k.value, i]))
+
+const byName = (a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ru')
+
+// Справочники сортируются по алфавиту, кроме статей: там порядок задал владелец
+// (сначала доходы, потом расходы, потом зарплаты) и хранится в поле order.
+export function sortItems(dir, items) {
+  const list = [...items]
+  if (dir.sortBy?.[0] !== 'kind') return list.sort(byName)
+
+  return list.sort((a, b) => {
+    const kindA = KIND_RANK[a.kind] ?? 99
+    const kindB = KIND_RANK[b.kind] ?? 99
+    if (kindA !== kindB) return kindA - kindB
+
+    const orderA = Number.isFinite(a.order) ? a.order : Number.MAX_SAFE_INTEGER
+    const orderB = Number.isFinite(b.order) ? b.order : Number.MAX_SAFE_INTEGER
+    if (orderA !== orderB) return orderA - orderB
+
+    return byName(a, b)
+  })
+}
+
+// Новая запись встаёт в конец своей группы, а не в середину чужого порядка.
+export function nextOrder(items, kind) {
+  const orders = items
+    .filter(i => i.kind === kind && Number.isFinite(i.order))
+    .map(i => i.order)
+  return orders.length ? Math.max(...orders) + 1 : 0
+}
 
 // Цена одного занятия по тарифу. Именно она подставляется в журнал.
 export function perLessonPrice(pkg) {

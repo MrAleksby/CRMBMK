@@ -49,9 +49,9 @@ service cloud.firestore {
     // Новый справочник — просто добавить ключ в этот список (см. src/lib/directories.js).
     match /{directory}/{id} {
       allow read, delete: if isAllowed()
-        && directory in ['teachers', 'subjects', 'packages', 'accounts', 'categories', 'legalEntities'];
+        && directory in ['teachers', 'packages', 'accounts', 'categories', 'legalEntities'];
       allow create, update: if isAllowed()
-        && directory in ['teachers', 'subjects', 'packages', 'accounts', 'categories', 'legalEntities']
+        && directory in ['teachers', 'packages', 'accounts', 'categories', 'legalEntities']
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 200;
