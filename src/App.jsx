@@ -8,7 +8,16 @@ import Dashboard from './pages/Dashboard'
 import Clients from './pages/Clients'
 import Finance from './pages/Finance'
 import Expenses from './pages/Expenses'
+import Settings from './pages/Settings'
 import Login from './pages/Login'
+
+const NAV_ITEMS = [
+  { to: '/', label: 'Дашборд', icon: '📊', end: true },
+  { to: '/clients', label: 'Клиенты', icon: '👶' },
+  { to: '/finance', label: 'Финансы', icon: '💰' },
+  { to: '/expenses', label: 'Расходы', icon: '📉' },
+  { to: '/settings', label: 'Настройки', icon: '⚙️' },
+]
 
 const navItem = (isActive) => ({
   display: 'flex', alignItems: 'center', gap: '10px',
@@ -68,12 +77,7 @@ function App() {
             <p style={{ fontSize: '12px', color: '#6b6b80', marginTop: '4px', wordBreak: 'break-all' }}>{user.email}</p>
           </div>
 
-          {[
-            { to: '/', label: 'Дашборд', icon: '📊', end: true },
-            { to: '/clients', label: 'Клиенты', icon: '👶' },
-            { to: '/finance', label: 'Финансы', icon: '💰' },
-            { to: '/expenses', label: 'Расходы', icon: '📉' },
-          ].map(({ to, label, icon, end }) => (
+          {NAV_ITEMS.map(({ to, label, icon, end }) => (
             <NavLink key={to} to={to} end={end} style={({ isActive }) => navItem(isActive)}>
               <span style={{ fontSize: '18px' }}>{icon}</span>
               {label}
@@ -124,6 +128,7 @@ function App() {
             <Route path="/clients" element={<Clients />} />
             <Route path="/finance" element={<Finance />} />
             <Route path="/expenses" element={<Expenses />} />
+            <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>
 
@@ -135,10 +140,7 @@ function App() {
           padding: '8px 0', zIndex: 50,
         }} className="mobile-nav">
           {[
-            { to: '/', label: 'Дашборд', icon: '📊', end: true },
-            { to: '/clients', label: 'Клиенты', icon: '👶' },
-            { to: '/finance', label: 'Финансы', icon: '💰' },
-            { to: '/expenses', label: 'Расходы', icon: '📉' },
+            ...NAV_ITEMS,
             { label: 'Выйти', icon: '🚪', onClick: () => signOut(auth) },
           ].map(({ to, label, icon, end, onClick }) => (
             to ? (
