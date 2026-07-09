@@ -6,6 +6,8 @@ import ErrorBanner from '../components/ErrorBanner'
 import LessonJournal from '../components/LessonJournal'
 import LessonForm from '../components/LessonForm'
 import StudentChecklist from '../components/StudentChecklist'
+import LessonCalendar from '../components/LessonCalendar'
+import LessonModal from '../components/LessonModal'
 import { LESSON_STATUSES, todayISO } from '../lib/group'
 import { buildJournal, journalToAttendance, lessonTypeLabel, formatLessonDate } from '../lib/lesson'
 
@@ -54,6 +56,10 @@ export default function Lessons() {
   const [tab, setTab] = useState('upcoming')
   const [journalId, setJournalId] = useState(null)
   const [creating, setCreating] = useState(false)
+  const [mode, setMode] = useState('calendar')
+  const [view, setView] = useState('week')
+  const [calendarDate, setCalendarDate] = useState(new Date())
+  const [modalId, setModalId] = useState(null)
   const [studentsId, setStudentsId] = useState(null)
   const [draftStudents, setDraftStudents] = useState([])
   const [search, setSearch] = useState('')
@@ -108,6 +114,7 @@ export default function Lessons() {
 
       await batch.commit()
       setJournalId(null)
+      setModalId(null)
       await fetchData()
     } catch (e) {
       console.error(e)
@@ -200,10 +207,10 @@ export default function Lessons() {
 
   // Состав правится только у запланированного занятия: у проведённого
   // за учениками уже стоят списания.
-  const handleSaveStudents = async (lesson) => {
+  const handleSaveStudents = async (lesson, ids = draftStudents) => {
     setSaving(true)
     try {
-      await updateDoc(doc(db, 'lessons', lesson.id), { studentIds: draftStudents })
+      await updateDoc(doc(db, 'lessons', lesson.id), { studentIds: ids })
       setStudentsId(null)
       await fetchData()
     } catch (e) {
@@ -239,6 +246,16 @@ export default function Lessons() {
 
   const teacherName = (id) => teachers.find(t => t.id === id)?.name || null
   const today = todayISO()
+
+  // Баланс ученика: нужен в модалке, чтобы должники были видны красным.
+  const balances = {}
+  for (const payment of payments) {
+    if (!payment.clientId) continue
+    const sign = payment.type === 'income' ? 1 : -1
+    balances[payment.clientId] = (balances[payment.clientId] || 0) + sign * (payment.amount || 0)
+  }
+
+  const modalLesson = lessons.find(l => l.id === modalId) || null
 
   const query = search.trim().toLowerCase()
   const filtered = lessons
@@ -292,6 +309,45 @@ export default function Lessons() {
         />
       )}
 
+      <div style={{ display: 'flex', gap: '4px', background: '#ffffff', padding: '4px', borderRadius: '12px', border: '1px solid #e5e7eb', width: 'fit-content', marginBottom: '16px' }}>
+        {[{ value: 'calendar', label: '🗓 Календарь' }, { value: 'list', label: '☰ Список' }].map(m => (
+          <button key={m.value} onClick={() => setMode(m.value)} style={{
+            background: mode === m.value ? '#ede9fe' : 'transparent',
+            color: mode === m.value ? '#7c3aed' : '#6b7280',
+            border: 'none', padding: '8px 14px', borderRadius: '8px',
+            fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+          }}>{m.label}</button>
+        ))}
+      </div>
+
+      {mode === 'calendar' && (
+        <LessonCalendar
+          lessons={lessons}
+          clients={clients}
+          view={view}
+          date={calendarDate}
+          onViewChange={setView}
+          onDateChange={setCalendarDate}
+          onOpen={lesson => setModalId(lesson.id)}
+        />
+      )}
+
+      {modalLesson && (
+        <LessonModal
+          lesson={modalLesson}
+          clients={clients}
+          teachers={teachers}
+          balances={balances}
+          saving={saving}
+          onClose={() => setModalId(null)}
+          onConduct={handleConduct}
+          onReturn={handleReturnToPlanned}
+          onCancelLesson={handleCancel}
+          onSaveStudents={handleSaveStudents}
+        />
+      )}
+
+      {mode === 'list' && (
       <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: '4px', background: '#ffffff', padding: '4px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
           {TABS.map(t => (
@@ -306,8 +362,9 @@ export default function Lessons() {
         <input placeholder="🔍 Поиск по группе или теме" style={{ ...inputStyle, width: '240px' }}
           value={search} onChange={e => setSearch(e.target.value)} />
       </div>
+      )}
 
-      {filtered.length === 0 ? (
+      {mode === 'list' && (filtered.length === 0 ? (
         <div style={{ ...panel, textAlign: 'center', padding: '40px' }}>
           <p style={{ color: '#6b7280', fontSize: '14px' }}>Занятий нет</p>
         </div>
@@ -427,7 +484,7 @@ export default function Lessons() {
             </div>
           )
         })
-      )}
+      ))}
     </div>
   )
 }
