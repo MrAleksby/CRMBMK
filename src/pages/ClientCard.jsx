@@ -93,6 +93,8 @@ export default function ClientCard() {
   const [legalEntities, setLegalEntities] = useState([])
   const [lessons, setLessons] = useState([])
   const [groups, setGroups] = useState([])
+  const [teachers, setTeachers] = useState([])
+  const [allClients, setAllClients] = useState([])
   const [pickGroup, setPickGroup] = useState('')
   const [filterGroup, setFilterGroup] = useState('')
   const [pickedLessons, setPickedLessons] = useState([])
@@ -108,18 +110,22 @@ export default function ClientCard() {
     setLoadError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [snap, ps, les, ls, gs] = await withTimeout(Promise.all([
+      const [snap, ps, les, ls, gs, ts, cs] = await withTimeout(Promise.all([
         getDoc(doc(db, 'clients', id)),
         getDocs(collection(db, 'payments')),
         getDocs(collection(db, 'legalEntities')),
         getDocs(collection(db, 'lessons')),
         getDocs(collection(db, 'groups')),
+        getDocs(collection(db, 'teachers')),
+        getDocs(collection(db, 'clients')),
       ]))
       setClient(snap.exists() ? { id: snap.id, ...snap.data() } : null)
       setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.clientId === id))
       setLegalEntities(les.docs.map(d => ({ id: d.id, ...d.data() })))
       setLessons(ls.docs.map(d => ({ id: d.id, ...d.data() })))
       setGroups(gs.docs.map(d => ({ id: d.id, ...d.data() })))
+      setTeachers(ts.docs.map(d => ({ id: d.id, ...d.data() })))
+      setAllClients(cs.docs.map(d => ({ id: d.id, ...d.data() })))
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -399,7 +405,13 @@ export default function ClientCard() {
             <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#111827', margin: '0 0 12px' }}>
               Виджет посещений
             </h3>
-            <AttendanceWidget lessons={lessons} clientId={id} />
+            <AttendanceWidget
+              lessons={lessons}
+              clients={allClients}
+              teachers={teachers}
+              clientId={id}
+              onOpenLesson={lesson => navigate(`/lessons?open=${lesson.id}`)}
+            />
           </div>
 
           {/* Уроки и оплаты */}

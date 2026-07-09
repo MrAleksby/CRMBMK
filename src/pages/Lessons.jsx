@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { collection, getDocs, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
@@ -63,6 +64,7 @@ export default function Lessons() {
   const [studentsId, setStudentsId] = useState(null)
   const [draftStudents, setDraftStudents] = useState([])
   const [search, setSearch] = useState('')
+  const [searchParams] = useSearchParams()
 
   const fetchData = async () => {
     setLoadError('')
@@ -87,6 +89,12 @@ export default function Lessons() {
   }
 
   useEffect(() => { fetchData() }, [])
+
+  // Переход с виджета посещений: /lessons?open=<id> сразу открывает занятие.
+  useEffect(() => {
+    const open = searchParams.get('open')
+    if (open) setModalId(open)
+  }, [searchParams])
 
   // Проведение: статус занятия и списания пишутся одной транзакцией.
   // У каждого присутствующего своя сумма — та, что стоит в журнале.
