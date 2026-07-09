@@ -32,7 +32,7 @@ function Field({ label, children }) {
   return <div><label style={labelStyle}>{label}</label>{children}</div>
 }
 
-export default function GroupForm({ initial, clients, teachers, saving, scheduleLocked, onSubmit, onCancel }) {
+export default function GroupForm({ initial, clients, teachers, saving, scheduleLocked, editing, onSubmit, onCancel }) {
   const [form, setForm] = useState(initial)
   const [error, setError] = useState('')
   const [studentSearch, setStudentSearch] = useState('')
@@ -65,6 +65,7 @@ export default function GroupForm({ initial, clients, teachers, saving, schedule
   }
 
   const dates = scheduleLocked ? [] : generateDates(form)
+  const rebuilding = editing && !scheduleLocked
 
   const query = studentSearch.trim().toLowerCase()
   const visibleClients = query
@@ -77,7 +78,7 @@ export default function GroupForm({ initial, clients, teachers, saving, schedule
       borderRadius: '16px', padding: '20px', marginBottom: '16px',
     }}>
       <h3 style={{ color: '#111827', fontSize: '16px', fontWeight: '600', marginBottom: '16px' }}>
-        {scheduleLocked ? 'Изменить группу' : 'Новая группа'}
+        {editing ? 'Изменить группу' : 'Новая группа'}
       </h3>
 
       <div style={section}>
@@ -99,9 +100,9 @@ export default function GroupForm({ initial, clients, teachers, saving, schedule
       {scheduleLocked ? (
         <div style={{ ...section, background: '#fffbeb', border: '1px solid #fde68a' }}>
           <p style={{ fontSize: '13px', color: '#92400e', margin: 0 }}>
-            Расписание менять нельзя — занятия уже созданы. Здесь правятся название, педагог и состав.
-            Изменения перейдут только в <b>будущие запланированные</b> занятия: проведённые остаются
-            как есть, иначе съедут балансы учеников.
+            Расписание менять нельзя: в группе есть проведённые занятия, за ними стоят списания.
+            Здесь правятся название, педагог и состав — изменения перейдут только
+            в <b>запланированные</b> занятия.
           </p>
         </div>
       ) : (
@@ -164,9 +165,19 @@ export default function GroupForm({ initial, clients, teachers, saving, schedule
 
           {dates.length > 0 && (
             <p style={{ fontSize: '13px', color: '#4b5563', marginTop: '12px' }}>
-              Будет создано занятий: <b>{dates.length}</b>
+              {rebuilding ? 'Занятия будут пересозданы' : 'Будет создано занятий'}: <b>{dates.length}</b>
               {' — '}
               с {new Date(dates[0]).toLocaleDateString('ru')} по {new Date(dates[dates.length - 1]).toLocaleDateString('ru')}
+            </p>
+          )}
+
+          {rebuilding && (
+            <p style={{
+              fontSize: '12px', color: '#92400e', background: '#fffbeb',
+              border: '1px solid #fde68a', borderRadius: '10px', padding: '8px 10px', marginTop: '10px',
+            }}>
+              Проведённых занятий в группе нет, поэтому расписание можно менять свободно.
+              Старые запланированные занятия будут удалены и созданы заново по новым дням.
             </p>
           )}
         </div>

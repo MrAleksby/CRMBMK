@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { collection, getDocs, doc, updateDoc, writeBatch } from 'firebase/firestore'
+import { collection, getDocs, doc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import ErrorBanner from '../components/ErrorBanner'
@@ -108,34 +108,64 @@ export default function Groups() {
     }
   }
 
-  // Правка группы. Состав и педагог переносятся только в будущие запланированные
-  // занятия: у проведённых менять состав нельзя — поедут балансы.
+  // Расписание можно менять, пока ни одно занятие группы не проведено.
+  // Как только появились списания, дни и период замораживаются.
+  const hasConducted = (groupId) =>
+    lessons.some(l => l.groupId === groupId && l.status === 'conducted')
+
+  // Правка группы. Состав и педагог переносятся только в запланированные занятия:
+  // у проведённых менять состав нельзя — поедут балансы.
   const handleUpdate = async (groupId, form) => {
+    const scheduleLocked = hasConducted(groupId)
+    const data = formToGroupDoc(form)
+    const planned = lessons.filter(l => l.groupId === groupId && l.status === 'planned')
+
+    // Расписание открыто — пересоздаём запланированные занятия по новым дням.
+    if (!scheduleLocked) {
+      const dates = generateDates(form)
+      const message = `Расписание изменится.\n\nЗапланированных занятий будет удалено: ${planned.length}.\nСоздано заново: ${dates.length}.`
+      if (!confirm(message)) return
+    }
+
     setSaving(true)
     try {
-      const data = formToGroupDoc(form)
-      await updateDoc(doc(db, 'groups', groupId), {
-        name: data.name,
-        teacherId: data.teacherId,
-        studentIds: data.studentIds,
-      })
+      const batch = writeBatch(db)
 
-      const today = todayISO()
-      const editable = lessons.filter(l =>
-        l.groupId === groupId && l.status === 'planned' && l.date >= today)
-
-      if (editable.length > 0) {
-        const batch = writeBatch(db)
-        for (const lesson of editable) {
+      if (scheduleLocked) {
+        batch.update(doc(db, 'groups', groupId), {
+          name: data.name,
+          teacherId: data.teacherId,
+          studentIds: data.studentIds,
+        })
+        for (const lesson of planned) {
           batch.update(doc(db, 'lessons', lesson.id), {
             groupName: data.name,
             teacherId: data.teacherId,
             studentIds: data.studentIds,
           })
         }
-        await batch.commit()
+      } else {
+        batch.update(doc(db, 'groups', groupId), data)
+        for (const lesson of planned) batch.delete(doc(db, 'lessons', lesson.id))
+        for (const date of generateDates(form)) {
+          batch.set(doc(collection(db, 'lessons')), {
+            groupId,
+            groupName: data.name,
+            date,
+            timeFrom: data.timeFrom,
+            timeTo: data.timeTo,
+            teacherId: data.teacherId,
+            type: 'group',
+            topic: '',
+            status: 'planned',
+            studentIds: data.studentIds,
+            attendance: [],
+            createdAt: new Date(),
+          })
+        }
       }
 
+      await batch.commit()
       setEditingId(null)
       await fetchData()
     } catch (e) {
@@ -218,7 +248,8 @@ export default function Groups() {
                 clients={clients}
                 teachers={teachers}
                 saving={saving}
-                scheduleLocked
+                scheduleLocked={hasConducted(group.id)}
+                editing
                 onSubmit={form => handleUpdate(group.id, form)}
                 onCancel={() => setEditingId(null)}
               />
