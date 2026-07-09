@@ -50,31 +50,63 @@ GitHub Pages — автоматически при `git push` в `main` → GitH
 src/
   App.jsx          — роутинг, sidebar, мобильная навигация
   AuthContext.jsx  — Firebase Auth контекст
-  firebase.js      — инициализация Firebase
-  main.jsx
+  firebase.js      — инициализация Firebase (long-polling против зависаний)
   pages/
-    Login.jsx      — страница входа
-    Dashboard.jsx  — главный дашборд со сводкой
-    Clients.jsx    — список клиентов, платежи, занятия
-    Finance.jsx    — финансовая сводка с карточками метрик
+    Login.jsx      — вход
+    Dashboard.jsx  — сводка
+    Clients.jsx    — таблица учеников
+    ClientCard.jsx — карточка ученика /clients/:id, две колонки
+    Groups.jsx     — группы = серии занятий
+    Lessons.jsx    — календарь и список уроков, журнал
+    Finance.jsx    — финансовая сводка
     Expenses.jsx   — расходы компании
+    Settings.jsx   — справочники
+  components/
+    ClientForm.jsx        GroupForm.jsx        LessonForm.jsx
+    LessonCalendar.jsx    LessonModal.jsx      LessonJournal.jsx
+    AttendanceWidget.jsx  StudentChecklist.jsx SubscriptionForm.jsx
+    DirectoryTable.jsx    ErrorBanner.jsx
+  lib/
+    client.js       — хелперы ученика (возраст, контакты, статусы)
+    group.js        — серии занятий, генерация дат
+    lesson.js       — журнал, плитки виджета посещений
+    subscription.js — абонементы, остаток уроков, подстановка цены
+    calendar.js     — сетка месяц/неделя/день
+    directories.js  — описание справочников (декларативно)
+    amount.js  backup.js  withTimeout.js
 public/
   404.html         — редирект для React Router на GitHub Pages
 ```
 
 ## Коллекции Firestore
 
-- **clients** — клиенты: `childName`, `childAge`, `parentName`, `phone`, `email`, `notes`, `createdAt`
-- **payments** — платежи: `clientId`, `clientName`, `amount`, `type` ('income'|'session'), `sessions`, `description`, `date`
+- **clients** — ученики: `childName`, `birthDate`, `gender`, `mother`/`father` (ФИО, телефоны списком, Instagram, Telegram), `childContacts`, `source`, `allergies`, `notes`, `lessonPrice`, `payerType`, `legalEntityId`, `status`
+- **payments** — движение денег: `clientId`, `amount`, `type` ('income'|'session'), `sessions`, `description`, `date`, `lessonId` (для отката)
 - **expenses** — расходы компании: `amount`, `category`, `description`, `date`
+- **groups** — серии занятий: расписание + состав
+- **lessons** — занятия: дата, время, статус, `studentIds`, `attendance` с суммами
+- **subscriptions** — выданные абонементы: `lessonsTotal`, `lessonsUsed`, `price`, срок
+- **справочники**: `teachers`, `packages`, `accounts`, `categories`, `legalEntities`
 
-## Логика платежей
+Полная схема и решения — `docs/ALFACRM_MIGRATION.md`.
+
+## Логика платежей и занятий
 
 - `type: 'income'` — клиент платит компании
-- `type: 'session'` — списание за проведённые занятия
-- **Баланс клиента** = сумма income − сумма session
-- Положительный баланс = предоплата (компания должна клиенту занятия)
-- Отрицательный баланс = долг клиента
+- `type: 'session'` — списание за проведённое занятие
+- **Баланс клиента** = сумма income − сумма session. Плюс — предоплата, минус — долг.
+- **Остаток в уроках** = сумма `lessonsTotal − lessonsUsed` по действующим абонементам
+
+**Неприкосновенность проведённых занятий.** Правка состава группы, смена расписания
+и удаление группы касаются только запланированных занятий. За проведёнными стоят
+списания: изменение задним числом сдвинет балансы учеников.
+
+**Откат.** Списание помечено `lessonId`, посещение хранит `subscriptionId`. Поэтому
+«Вернуть в запланированные» и «Отменить занятие» возвращают и деньги, и уроки —
+одной транзакцией `writeBatch`.
+
+**Цена занятия** всегда вводится вручную и уже включает питание. Система подставляет
+подсказку: абонемент (`price ÷ lessonsCount`) → персональная цена ребёнка → пусто.
 
 ## Карточки метрик (Finance.jsx)
 
