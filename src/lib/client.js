@@ -32,6 +32,16 @@ export const PAYER_TYPES = [
   { value: 'legal', label: '🏛️ Юр. лицо' },
 ]
 
+// Статус обучения, как в AlfaCRM.
+export const CLIENT_STATUSES = [
+  { value: 'active', label: 'Активен', color: '#059669', background: '#dcfce7' },
+  { value: 'paused', label: 'Пауза', color: '#b45309', background: '#fef3c7' },
+  { value: 'dropped', label: 'Бросил', color: '#6b7280', background: '#f3f4f6' },
+]
+
+export const statusInfo = (client) =>
+  CLIENT_STATUSES.find(s => s.value === (client.status || 'active')) ?? CLIENT_STATUSES[0]
+
 export const emptyClientForm = () => ({
   childName: '',
   birthDate: '',
@@ -46,6 +56,7 @@ export const emptyClientForm = () => ({
   lessonPrice: '',
   payerType: 'parent',
   legalEntityId: '',
+  status: 'active',
 })
 
 // Дата рождения хранится строкой 'YYYY-MM-DD' — так её отдаёт <input type="date">
@@ -163,6 +174,7 @@ export function clientToForm(client) {
   form.lessonPrice = Number.isFinite(client.lessonPrice) ? String(client.lessonPrice) : ''
   form.payerType = client.payerType || 'parent'
   form.legalEntityId = client.legalEntityId || ''
+  form.status = client.status || 'active'
 
   // В форме всегда есть хотя бы одно поле для телефона, пусть и пустое.
   const toFormParent = (parent) => {
@@ -203,6 +215,7 @@ export function formToDoc(form) {
     lessonPrice: Number.isFinite(price) ? price : null,
     payerType: form.payerType,
     legalEntityId: isLegal ? form.legalEntityId : '',
+    status: form.status,
   }
 }
 

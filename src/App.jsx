@@ -6,6 +6,7 @@ import { useAuth } from './AuthContext'
 import { downloadBackup } from './lib/backup'
 import Dashboard from './pages/Dashboard'
 import Clients from './pages/Clients'
+import ClientCard from './pages/ClientCard'
 import Finance from './pages/Finance'
 import Expenses from './pages/Expenses'
 import Settings from './pages/Settings'
@@ -126,6 +127,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/clients" element={<Clients />} />
+            <Route path="/clients/:id" element={<ClientCard />} />
             <Route path="/finance" element={<Finance />} />
             <Route path="/expenses" element={<Expenses />} />
             <Route path="/settings" element={<Settings />} />

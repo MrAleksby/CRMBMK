@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  GENDERS, SOURCES, MAX_PHONES, PAYER_TYPES,
+  GENDERS, SOURCES, MAX_PHONES, PAYER_TYPES, CLIENT_STATUSES,
   emptyClientForm, formToDoc, validateClientForm,
 } from '../lib/client'
 
@@ -146,6 +146,11 @@ export default function ClientForm({ initial, saving, onSubmit, onCancel, legalE
           <Field label="Контакты ребёнка">
             <input style={inputStyle} value={form.childContacts} onChange={set('childContacts')}
               placeholder="Телефон, @telegram" />
+          </Field>
+          <Field label="Статус обучения">
+            <select style={inputStyle} value={form.status} onChange={set('status')}>
+              {CLIENT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select>
           </Field>
         </div>
       </div>
