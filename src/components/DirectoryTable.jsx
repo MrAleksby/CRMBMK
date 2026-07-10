@@ -313,13 +313,13 @@ export default function DirectoryTable({ dir }) {
         </div>
       ) : (
         <div style={{ ...card, padding: 0, overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', minWidth: '520px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', minWidth: '520px' }}>
             <thead>
               <tr>
                 {columns.map(key => (
                   <th key={key} style={{
-                    textAlign: 'left', padding: '14px 16px', color: '#6b7280',
-                    fontSize: '12px', fontWeight: '600', borderBottom: '1px solid #e5e7eb',
+                    textAlign: 'left', padding: '9px 12px', color: '#6b7280',
+                    fontSize: '11px', fontWeight: '600', borderBottom: '1px solid #e5e7eb',
                   }}>{columnLabel(key)}</th>
                 ))}
                 <th style={{ borderBottom: '1px solid #e5e7eb' }} />
@@ -332,7 +332,7 @@ export default function DirectoryTable({ dir }) {
                   <tr key={item.id} style={{ opacity: inactive ? 0.45 : 1 }}>
                     {columns.map(key => (
                       <td key={key} style={{
-                        padding: '12px 16px', color: key === 'name' ? '#111827' : '#4b5563',
+                        padding: '9px 12px', color: key === 'name' ? '#111827' : '#4b5563',
                         fontWeight: key === 'name' ? '600' : '400',
                         borderBottom: i < items.length - 1 ? '1px solid #f3f4f6' : 'none',
                         whiteSpace: 'nowrap',

@@ -57,14 +57,15 @@ const PAGE_SIZES = [20, 50, 100]
 
 const money = (n) => `${(n || 0).toLocaleString('ru')} сум`
 
+// Мельче, чем на остальных экранах: в ленте операций счёт идёт на сотни строк.
 const th = (align) => ({
-  textAlign: align || 'left', padding: '10px 8px', fontSize: '12px',
+  textAlign: align || 'left', padding: '8px 8px', fontSize: '11px',
   fontWeight: '600', color: '#4b5563', whiteSpace: 'nowrap',
   borderBottom: '1px solid #e5e7eb', cursor: 'pointer', userSelect: 'none',
 })
 
 const td = (align) => ({
-  textAlign: align || 'left', padding: '10px 8px', fontSize: '13px',
+  textAlign: align || 'left', padding: '8px 8px', fontSize: '12px',
   color: '#111827', borderBottom: '1px solid #f3f4f6', verticalAlign: 'top',
 })
 
