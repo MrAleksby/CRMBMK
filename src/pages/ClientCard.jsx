@@ -480,6 +480,7 @@ export default function ClientCard() {
                   <span style={chip(isPaid ? '#dcfce7' : '#fee2e2', isPaid ? '#059669' : '#dc2626')}>
                     {isPaid ? '✅ Оплачено' : '🔴 Долг'}
                   </span>
+                  {gender && <span style={chip('#f3f4f6', '#4b5563')}>{gender.icon} {gender.label}</span>}
                   {age !== null && <span style={chip('#f3f4f6', '#4b5563')}>{ageLabel(age)}</span>}
                   {birthday && <span style={chip('#f3f4f6', '#4b5563')}>🎂 {birthday}</span>}
                   {source && <span style={chip('#ede9fe', '#5b21b6')}>{source.icon} {source.label}</span>}

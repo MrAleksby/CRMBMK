@@ -91,11 +91,14 @@ export function ageLabel(age) {
   }
 }
 
+// Дата рождения целиком, с годом: «4 сентября 2015». Год нужен —
+// по нему сверяют ребёнка с документами и считают возраст.
 export function formatBirthday(birthDate) {
   if (!birthDate) return ''
-  const [, m, d] = birthDate.split('-').map(Number)
+  const [y, m, d] = birthDate.split('-').map(Number)
   if (!m || !d || m < 1 || m > 12) return ''
-  return `${d} ${MONTHS_GEN[m - 1]}`
+  const day = `${d} ${MONTHS_GEN[m - 1]}`
+  return y ? `${day} ${y}` : day
 }
 
 // Принимаем и «@nick», и полную ссылку — храним голый ник.
