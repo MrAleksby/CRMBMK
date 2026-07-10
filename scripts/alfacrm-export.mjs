@@ -79,12 +79,15 @@ async function fetchAll(branch, entity, filter = {}) {
   return rows
 }
 
+const readSaved = async (file) => {
+  const { readFile } = await import('node:fs/promises')
+  return JSON.parse(await readFile(`${OUT}/${file}.json`, 'utf8'))
+}
+
 // customer-tariff требует customer_id: обходим всех учеников, включая архивных,
 // иначе история абонементов выпавших клиентов потеряется.
 async function fetchCustomerTariffs(branch) {
-  const { readFile } = await import('node:fs/promises')
-  const read = async (file) => JSON.parse(await readFile(`${OUT}/${file}.json`, 'utf8'))
-  const customers = [...await read('customers'), ...await read('customers-archive')]
+  const customers = [...await readSaved('customers'), ...await readSaved('customers-archive')]
 
   const rows = []
   let done = 0
@@ -94,6 +97,21 @@ async function fetchCustomerTariffs(branch) {
     rows.push(...(data.items || []).map(item => ({ ...item, customer_id: customer.id })))
     done += 1
     process.stdout.write(`\r  customer-tariff: ${done} из ${customers.length} учеников, найдено ${rows.length}   `)
+    await sleep(THROTTLE_MS)
+  }
+  process.stdout.write('\n')
+  return rows
+}
+
+// Состав групп: cgi требует group_id и отдаёт точный список учеников.
+// Без него состав приходится угадывать по тому, кто ходил на занятия.
+async function fetchGroupMembers(branch) {
+  const groups = await readSaved('groups')
+  const rows = []
+  for (const group of groups) {
+    const data = await call(`/${branch}/cgi/index?group_id=${group.id}`, { page: 0 })
+    rows.push(...(data.items || []).map(item => ({ ...item, group_id: group.id })))
+    process.stdout.write(`\r  cgi: групп ${rows.length ? groups.indexOf(group) + 1 : 0} из ${groups.length}, записей ${rows.length}   `)
     await sleep(THROTTLE_MS)
   }
   process.stdout.write('\n')
@@ -144,8 +162,22 @@ async function main() {
     ['lead-sources', () => fetchAll(branch, 'lead-source')],
     ['subjects', () => fetchAll(branch, 'subject')],
 
+    // Воронка лидов: сами лиды лежат среди клиентов (is_study: 0),
+    // здесь только названия этапов и причины отказа.
+    ['lead-statuses', () => fetchAll(branch, 'lead-status')],
+    ['lead-rejects', () => fetchAll(branch, 'lead-reject')],
+    ['customer-rejects', () => fetchAll(branch, 'customer-reject')],
+    ['pipelines', () => fetchAll(branch, 'pipeline')],
+    ['locations', () => fetchAll(branch, 'location')],
+    ['users', () => fetchAll(branch, 'user')],
+    ['tasks', () => fetchAll(branch, 'task')],
+
+    // История изменений — архив на случай спора «кто и когда поменял сумму».
+    ['logs', () => fetchAll(branch, 'log')],
+
     // Абонементы выдаются поштучно и запрашиваются только по конкретному ученику.
     ['customer-tariffs', () => fetchCustomerTariffs(branch)],
+    ['group-members', () => fetchGroupMembers(branch)],
   ]
 
   const failures = []

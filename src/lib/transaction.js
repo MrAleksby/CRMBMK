@@ -18,6 +18,26 @@ export const emptyTransactionForm = (kind = KIND_INCOME) => ({
   comment: '',
 })
 
+// Обратное преобразование: документ → поля формы, чтобы операцию можно было править.
+export function transactionToForm(transaction) {
+  const date = transaction.date?.toDate?.() ?? transaction.date
+  const iso = date instanceof Date && !Number.isNaN(date.getTime())
+    ? date.toISOString().slice(0, 10)
+    : today()
+
+  return {
+    kind: transaction.kind,
+    date: iso,
+    amount: String(transaction.amount ?? ''),
+    accountId: transaction.accountId || '',
+    categoryId: transaction.categoryId || '',
+    clientId: transaction.clientId || '',
+    payerName: transaction.payerName || '',
+    teacherId: transaction.teacherId || '',
+    comment: transaction.comment || '',
+  }
+}
+
 // Кто фактически принёс деньги. В AlfaCRM плательщик отделён от ученика:
 // платит мама, занимается ребёнок. Подставляем родителя, но оставляем поле
 // редактируемым — платить может кто угодно, вплоть до юрлица.
@@ -50,31 +70,29 @@ export function validateTransactionForm(form) {
 // чтобы сдвиг часового пояса не перебросил операцию на соседние сутки.
 const dateAtNoon = (value) => new Date(`${value}T12:00:00`)
 
+// Все поля перечислены всегда, даже пустые: при правке операции тип может
+// смениться, и старая привязка к ученику или педагогу должна исчезнуть,
+// а не остаться висеть в документе.
 export function buildTransaction(form, { clients = [], teachers = [] } = {}) {
   const client = clients.find(c => c.id === form.clientId)
   const teacher = teachers.find(t => t.id === form.teacherId)
 
-  const doc = {
+  // Доход может быть ничей: кешбек банка или призовой фонд турнира.
+  // Возврат — всегда конкретному ребёнку, это проверяет валидация.
+  const hasClient = (form.kind === KIND_INCOME || form.kind === KIND_REFUND) && !!form.clientId
+  const isSalary = form.kind === KIND_SALARY
+
+  return {
     kind: form.kind,
     amount: toAmount(form.amount),
     date: dateAtNoon(form.date),
     accountId: form.accountId,
     categoryId: form.categoryId,
     comment: form.comment?.trim() || '',
+    clientId: hasClient ? form.clientId : '',
+    clientName: hasClient ? (client?.childName || '') : '',
+    payerName: isSalary ? '' : (form.payerName?.trim() || ''),
+    teacherId: isSalary ? form.teacherId : '',
+    teacherName: isSalary ? (teacher?.name || '') : '',
   }
-
-  // Доход может быть ничей: кешбек банка или призовой фонд турнира.
-  // Возврат — всегда конкретному ребёнку, это проверяет валидация.
-  if (form.kind === KIND_INCOME || form.kind === KIND_REFUND) {
-    if (form.clientId) {
-      doc.clientId = form.clientId
-      doc.clientName = client?.childName || ''
-    }
-    if (form.payerName?.trim()) doc.payerName = form.payerName.trim()
-  }
-  if (form.kind === KIND_SALARY) {
-    doc.teacherId = form.teacherId
-    doc.teacherName = teacher?.name || ''
-  }
-  return doc
 }

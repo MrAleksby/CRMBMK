@@ -15,10 +15,11 @@ const card = {
 }
 
 export default function TransactionForm({
-  accounts, categories, clients = [], teachers = [], saving, onSubmit, onCancel,
+  accounts, categories, clients = [], teachers = [], saving, initial, onSubmit, onCancel,
 }) {
-  const [form, setForm] = useState(emptyTransactionForm)
+  const [form, setForm] = useState(() => initial ?? emptyTransactionForm())
   const [error, setError] = useState('')
+  const editing = !!initial
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value })
 
@@ -164,7 +165,7 @@ export default function TransactionForm({
           background: '#7c3aed', color: '#fff', border: 'none',
           padding: '10px 20px', borderRadius: '10px', fontSize: '14px',
           fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1,
-        }}>{saving ? 'Сохраняем...' : 'Сохранить'}</button>
+        }}>{saving ? 'Сохраняем...' : editing ? 'Сохранить изменения' : 'Сохранить'}</button>
         <button type="button" onClick={onCancel} style={{
           background: 'transparent', color: '#6b7280', border: '1px solid #e5e7eb',
           padding: '10px 16px', borderRadius: '10px', fontSize: '14px', cursor: 'pointer',

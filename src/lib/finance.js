@@ -90,6 +90,40 @@ export function categoryTotals(transactions, categories) {
     .filter(category => category.total > 0)
 }
 
+// Номер документа. У операций, приехавших из AlfaCRM, он сохранён в sourceId
+// («pay/1475»), и менеджер узнаёт по нему платёж. У новых номера нет.
+export function documentNumber(transaction) {
+  const match = String(transaction.sourceId || '').match(/^pay\/(\d+)$/)
+  return match ? `#${match[1]}` : ''
+}
+
+// Сортировка таблицы. Строки сравниваем по-русски, даты и суммы — как числа.
+export function sortTransactions(list, key, direction, labels = {}) {
+  const sign = direction === 'desc' ? -1 : 1
+  const { accountName = {}, categoryName = {} } = labels
+
+  const value = (t) => {
+    switch (key) {
+      case 'date': return toJsDate(t.date)?.getTime() || 0
+      case 'amount': return t.amount || 0
+      case 'kind': return kindMeta(t.kind).label
+      case 'account': return accountName[t.accountId] || ''
+      case 'category': return categoryName[t.categoryId] || ''
+      case 'client': return t.clientName || ''
+      case 'payer': return t.payerName || ''
+      case 'comment': return t.comment || ''
+      default: return 0
+    }
+  }
+
+  return [...list].sort((a, b) => {
+    const left = value(a)
+    const right = value(b)
+    if (typeof left === 'number' && typeof right === 'number') return sign * (left - right)
+    return sign * String(left).localeCompare(String(right), 'ru')
+  })
+}
+
 // Годы, за которые вообще есть записи. Текущий год всегда доступен для фильтра.
 export function availableYears(...lists) {
   const years = new Set()
