@@ -65,13 +65,15 @@ const SOURCE = {
 }
 
 // Из «Самира мама @sshaykhova» достаём имя и ник телеграма.
+// Ник храним без собаки — её дорисовывает интерфейс, как и у ников,
+// введённых руками через normalizeHandle.
 export function splitPayer(legalName) {
   const raw = String(legalName || '').trim()
   if (!raw) return { name: '', telegram: '' }
-  const match = raw.match(/@[\w.]+/)
+  const match = raw.match(/@([\w.]+)/)
   return {
     name: raw.replace(/@[\w.]+/, '').trim(),
-    telegram: match ? match[0] : '',
+    telegram: match ? match[1] : '',
   }
 }
 
@@ -146,8 +148,63 @@ export function mapClient(row) {
         .filter(Boolean).join('\n'),
       payerType: 'parent',
       legalEntityId: '',
-      status: row.is_study === 0 ? 'dropped' : (STATUS[row.study_status_id] || 'active'),
+      // Лид попадает сюда, только если уже заплатил и отзанимался, — он активен.
+      // Ученики без статуса обучения в AlfaCRM тоже считаются активными.
+      status: STATUS[row.study_status_id] || 'active',
       sourceId: `customer/${row.id}`,
+    },
+  }
+}
+
+// Этапы воронки и причины отказа: id из AlfaCRM → наши ключи.
+// «Не разобрано» отдельного id не имеет — это отсутствие статуса.
+const LEAD_STAGE = {
+  1: 'contacted',
+  6: 'thinking',
+  7: 'trial_scheduled',
+  8: 'trial_done',
+  9: 'paid',
+}
+
+const LEAD_REJECT = {
+  1: 'bad_contacts',
+  2: 'conditions',
+  3: 'competitor',
+  4: 'trial_disliked',
+}
+
+// Лид — запись из архива клиентов AlfaCRM (is_study = 0).
+// convertedIds — те, у кого уже есть деньги или посещения: им заведена карточка
+// ученика, и лид сразу помечается конвертированным, а не отказом.
+export function mapLead(row, convertedIds = new Set()) {
+  const payer = splitPayer(row.legal_name)
+  const converted = convertedIds.has(row.id)
+  const createdAt = parseAlfaDate(row.created_at) || new Date()
+
+  return {
+    id: alfaId('a', row.id),
+    data: {
+      childName: row.name || 'Без имени',
+      birthDate: toISODate(row.dob),
+      gender: row.gender === 1 ? 'male' : row.gender === 0 ? 'female' : '',
+      parentName: payer.name,
+      phones: (row.phone || []).filter(Boolean),
+      telegram: payer.telegram,
+      instagram: '',
+      source: SOURCE[row.lead_source_id] || 'other',
+      sourceNote: '',
+      stage: LEAD_STAGE[row.lead_status_id] || 'new',
+      note: [row.note, row.custom_schoolname && `Школа: ${row.custom_schoolname}`]
+        .filter(Boolean).join('\n'),
+      // Ответственный менеджер в AlfaCRM — пользователь системы, а не педагог.
+      // В справочнике сотрудников его нет, назначать нечего.
+      responsibleId: '',
+      createdAt,
+      stageChangedAt: parseAlfaDate(row.updated_at) || createdAt,
+      archived: converted || Boolean(row.lead_reject_id),
+      rejectReason: converted ? '' : (LEAD_REJECT[row.lead_reject_id] || ''),
+      clientId: converted ? alfaId('a', row.id) : '',
+      sourceId: `lead/${row.id}`,
     },
   }
 }
@@ -216,9 +273,13 @@ export const mapGroup = (row, regular, groupLessons = []) => ({
 const LESSON_STATUS = { 1: 'planned', 2: 'cancelled', 3: 'conducted' }
 const LESSON_TYPE = { 1: 'individual', 2: 'group', 3: 'trial' }
 
-export function mapLesson(row, groupNameById, clientNameById = {}) {
+// knownClientIds — id тех, у кого есть карточка ученика. Лид, которому назначили
+// пробное и отменили его, карточки не получает: он остаётся в воронке. Ссылку
+// на него из урока надо убрать, иначе в журнале появится ученик без имени.
+export function mapLesson(row, groupNameById, clientNameById = {}, knownClientIds = null) {
+  const isKnown = (id) => !knownClientIds || knownClientIds.has(id)
   const groupId = (row.group_ids || [])[0]
-  const attendance = (row.details || []).map(detail => ({
+  const attendance = (row.details || []).filter(d => isKnown(d.customer_id)).map(detail => ({
     clientId: alfaId('a', detail.customer_id),
     clientName: clientNameById[detail.customer_id] || '',
     status: detail.is_attend === 1 ? 'present' : 'absent',
@@ -238,7 +299,7 @@ export function mapLesson(row, groupNameById, clientNameById = {}) {
       type: LESSON_TYPE[row.lesson_type_id] || 'group',
       topic: row.topic || '',
       status: LESSON_STATUS[row.status] || 'planned',
-      studentIds: (row.customer_ids || []).map(id => alfaId('a', id)),
+      studentIds: (row.customer_ids || []).filter(isKnown).map(id => alfaId('a', id)),
       attendance: row.status === 3 ? attendance : [],
       sourceId: `lesson/${row.id}`,
     },
@@ -324,6 +385,24 @@ export function planImport(dump) {
     regularLessons = [],
   } = dump
 
+  // Архив клиентов AlfaCRM — это лиды: is_study = 0, до ученика они не дошли.
+  // Но у некоторых уже есть проведённое пробное и оплата. Такому лиду карточка
+  // ученика нужна, иначе урок и операция остались бы без владельца.
+  //
+  // Отменённый урок сюда не считается: пробное, которое не состоялось, клиента
+  // не создаёт — лид просто стоит в колонке «Назначено пробное».
+  const withActivity = new Set()
+  for (const pay of pays) withActivity.add(pay.customer_id)
+  for (const lesson of lessons) {
+    if (lesson.status !== 3) continue
+    for (const clientId of lesson.customer_ids || []) withActivity.add(clientId)
+  }
+  const convertedLeadIds = new Set(
+    customersArchive.filter(row => withActivity.has(row.id)).map(row => row.id))
+
+  const clientRows = [...customers, ...customersArchive.filter(row => convertedLeadIds.has(row.id))]
+  const knownClientIds = new Set(clientRows.map(row => row.id))
+
   const allClients = [...customers, ...customersArchive]
   const clientNameById = Object.fromEntries(allClients.map(c => [c.id, c.name]))
   const teacherNameById = Object.fromEntries(teachers.map(t => [t.id, t.name]))
@@ -353,7 +432,9 @@ export function planImport(dump) {
     const groupId = (lesson.group_ids || [])[0]
     if (!groupId) continue
     const set = studentsByGroup[groupId] ||= new Set()
-    for (const clientId of lesson.customer_ids || []) set.add(alfaId('a', clientId))
+    for (const clientId of lesson.customer_ids || []) {
+      if (knownClientIds.has(clientId)) set.add(alfaId('a', clientId))
+    }
     ;(lessonsByGroup[groupId] ||= []).push(lesson)
   }
 
@@ -374,9 +455,10 @@ export function planImport(dump) {
     categories,
     teachers: teachers.map(mapTeacher),
     packages: tariffs.map(mapPackage),
-    clients: allClients.map(mapClient),
+    clients: clientRows.map(mapClient),
+    leads: customersArchive.map(row => mapLead(row, convertedLeadIds)),
     groups: groupDocs,
-    lessons: lessons.map(row => mapLesson(row, groupNameById, clientNameById)),
+    lessons: lessons.map(row => mapLesson(row, groupNameById, clientNameById, knownClientIds)),
     charges: chargeDocs,
     transactions: transactionDocs,
     subscriptions: customerTariffs.map(row => mapSubscription(row, tariffById)).filter(Boolean),
@@ -423,6 +505,7 @@ export function reconcileImport(dump, plan) {
     income: { expected, actual: income, ok: Math.abs(income - expected) < 0.01 },
     charges: plan.charges.length,
     transactions: plan.transactions.length,
+    leads: plan.leads.length,
     ok: matched === allClients.length && Math.abs(income - expected) < 0.01,
   }
 }

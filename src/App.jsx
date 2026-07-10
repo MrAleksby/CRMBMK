@@ -7,6 +7,7 @@ import { downloadBackup } from './lib/backup'
 import Dashboard from './pages/Dashboard'
 import Clients from './pages/Clients'
 import ClientCard from './pages/ClientCard'
+import Leads from './pages/Leads'
 import Groups from './pages/Groups'
 import Lessons from './pages/Lessons'
 import Finance from './pages/Finance'
@@ -15,6 +16,7 @@ import Login from './pages/Login'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Дашборд', icon: '📊', end: true },
+  { to: '/leads', label: 'Лиды', icon: '🎯' },
   { to: '/clients', label: 'Клиенты', icon: '👶' },
   { to: '/groups', label: 'Группы', icon: '👥' },
   { to: '/lessons', label: 'Уроки', icon: '📅' },
@@ -128,6 +130,7 @@ function App() {
         <main style={{ marginLeft: '220px', padding: '28px', minHeight: '100vh' }}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/leads" element={<Leads />} />
             <Route path="/clients" element={<Clients />} />
             <Route path="/clients/:id" element={<ClientCard />} />
             <Route path="/groups" element={<Groups />} />

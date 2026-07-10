@@ -50,7 +50,7 @@ export async function readDump(files) {
 // Коллекции, которые импорт замещает целиком. legalEntities, payments и expenses
 // не трогаем: первых в AlfaCRM нет, вторые — архив старой модели.
 export const REPLACED = [
-  'clients', 'transactions', 'charges', 'lessons', 'groups',
+  'clients', 'leads', 'transactions', 'charges', 'lessons', 'groups',
   'subscriptions', 'accounts', 'categories', 'teachers', 'packages',
 ]
 
@@ -75,7 +75,7 @@ export async function clearCollections(names, onProgress = () => {}) {
 // Порядок важен: справочники раньше того, что на них ссылается.
 const WRITE_ORDER = [
   'accounts', 'categories', 'teachers', 'packages',
-  'clients', 'groups', 'lessons', 'subscriptions', 'charges', 'transactions',
+  'clients', 'leads', 'groups', 'lessons', 'subscriptions', 'charges', 'transactions',
 ]
 
 export async function writeImport(plan, onProgress = () => {}) {

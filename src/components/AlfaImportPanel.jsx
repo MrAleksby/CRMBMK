@@ -142,6 +142,7 @@ export default function AlfaImportPanel() {
         <>
           <div style={{ background: '#f7f8fa', borderRadius: '12px', padding: '12px', margin: '16px 0' }}>
             <Row label="Учеников" value={plan.clients.length} />
+            <Row label="Лидов в воронке" value={plan.leads.length} />
             <Row label="Занятий" value={plan.lessons.length} />
             <Row label="Начислений за занятия" value={plan.charges.length} />
             <Row label="Кассовых операций" value={plan.transactions.length} />
