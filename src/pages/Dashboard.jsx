@@ -49,11 +49,10 @@ export default function Dashboard() {
   const { debt: totalDebt } = debtAndPrepaid(balances)
   const debtors = clients.filter(c => getClientBalance(c.id) < 0)
 
-  // Лента последних движений: оплаты и начисления вперемешку.
-  const recentPayments = [
-    ...transactions.filter(t => t.kind === KIND_INCOME).map(t => ({ ...t, _charge: false })),
-    ...charges.map(c => ({ ...c, _charge: true })),
-  ]
+  // Только фактические оплаты. Проведённое, но не оплаченное занятие — это долг,
+  // и он виден в карточке ученика, а не среди платежей.
+  const recentPayments = transactions
+    .filter(t => t.kind === KIND_INCOME)
     .sort((a, b) => (toJsDate(b.date)?.getTime() || 0) - (toJsDate(a.date)?.getTime() || 0))
     .slice(0, 6)
 
@@ -103,32 +102,27 @@ export default function Dashboard() {
             {recentPayments.map((p, i) => {
               const date = toJsDate(p.date)
               return (
-                <div key={`${p._charge ? 'c' : 't'}-${p.id}`} style={{
+                <div key={p.id} style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '12px 0',
                   borderBottom: i < recentPayments.length - 1 ? '1px solid #e5e7eb' : 'none'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{
-                      width: '36px', height: '36px', borderRadius: '50%',
-                      background: p._charge ? '#ffedd5' : '#dcfce7',
+                      width: '36px', height: '36px', borderRadius: '50%', background: '#dcfce7',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px'
-                    }}>
-                      {p._charge ? '🏃' : '💰'}
-                    </div>
+                    }}>💰</div>
                     <div>
-                      <p style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: 0 }}>{p.clientName || '—'}</p>
+                      <p style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: 0 }}>
+                        {p.clientName || p.payerName || '—'}
+                      </p>
                       <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>
                         {date ? date.toLocaleDateString('ru') : '—'}
-                        {p._charge && p.lessons > 0 && ` · ${p.lessons} зан.`}
                       </p>
                     </div>
                   </div>
-                  <span style={{
-                    fontWeight: '700', fontSize: '15px',
-                    color: p._charge ? '#dc2626' : '#059669'
-                  }}>
-                    {p._charge ? '−' : '+'}{(p.amount || 0).toLocaleString()} сум
+                  <span style={{ fontWeight: '700', fontSize: '15px', color: '#059669' }}>
+                    +{(p.amount || 0).toLocaleString()} сум
                   </span>
                 </div>
               )

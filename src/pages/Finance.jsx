@@ -4,10 +4,10 @@ import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import { MONTHS_SHORT } from '../lib/constants'
 import {
-  TX_KINDS, KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, kindMeta,
-  toJsDate, inPeriod, sumAmount, availableYears,
-  incomeTotal, expenseTotal, salaryTotal,
-  companyBalance, realizedProfit, accountTotals, categoryTotals,
+  KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, kindMeta,
+  toJsDate, inPeriod, availableYears,
+  incomeTotal, expenseTotal, salaryTotal, refundTotal,
+  companyBalance, periodProfit, accountTotals, categoryTotals,
 } from '../lib/finance'
 import { buildTransaction } from '../lib/transaction'
 import { clientBalances, debtAndPrepaid } from '../lib/balance'
@@ -27,15 +27,15 @@ const inputStyle = {
   padding: '8px 12px', color: '#111827', fontSize: '14px', outline: 'none',
 }
 
-// Фильтр ленты. «Занятия» — это charges, у них нет кассы и статьи.
-const CHARGES = 'charges'
+// В ленте только фактическое движение денег. Начисления за проведённые занятия
+// сюда не попадают: пока ученик не заплатил, денег в кассе нет — есть долг.
+// Долги видны в карточке ученика и в списке клиентов.
 const TABS = [
   { value: 'all', label: 'Все' },
   { value: KIND_INCOME, label: '💰 Доходы' },
   { value: KIND_EXPENSE, label: '📉 Расходы' },
   { value: KIND_SALARY, label: '👥 Выплаты ЗП' },
   { value: KIND_REFUND, label: '↩️ Возвраты' },
-  { value: CHARGES, label: '🏃 Занятия' },
 ]
 
 const money = (n) => `${(n || 0).toLocaleString()} сум`
@@ -116,7 +116,6 @@ export default function Finance() {
   }
 
   const handleDelete = async (item) => {
-    if (item._kind === CHARGES) return
     if (!confirm('Удалить операцию? Балансы пересчитаются.')) return
     try {
       await deleteDoc(doc(db, 'transactions', item.id))
@@ -132,56 +131,45 @@ export default function Finance() {
   const categoryName = useMemo(
     () => Object.fromEntries(categories.map(c => [c.id, c.name])), [categories])
 
-  // Период — общий для транзакций и начислений.
   const periodTx = useMemo(
     () => transactions.filter(t => inPeriod(t, filterMonth, filterYear)),
     [transactions, filterMonth, filterYear])
-  const periodCharges = useMemo(
-    () => charges.filter(c => inPeriod(c, filterMonth, filterYear)),
-    [charges, filterMonth, filterYear])
 
-  // Балансы учеников считаются за всё время: долг не обнуляется сменой месяца.
+  // Начисления нужны только для долгов учеников: в кассовые метрики они не идут.
   const balances = useMemo(() => clientBalances(transactions, charges), [transactions, charges])
   const { debt, prepaid } = useMemo(() => debtAndPrepaid(balances), [balances])
 
   const accountsReport = useMemo(() => accountTotals(transactions, accounts), [transactions, accounts])
   const categoriesReport = useMemo(() => categoryTotals(periodTx, categories), [periodTx, categories])
 
-  const lessonsCount = useMemo(
-    () => periodCharges.reduce((sum, c) => sum + (c.lessons || 0), 0), [periodCharges])
+  const years = useMemo(() => availableYears(transactions), [transactions])
 
-  const years = useMemo(() => availableYears(transactions, charges), [transactions, charges])
-
-  // Лента: транзакции и начисления в одном списке, свежие сверху.
+  // Лента только по фактическим деньгам, свежие сверху.
   const feed = useMemo(() => {
     const matchesFilters = (t) =>
       (filterAccount === 'all' || t.accountId === filterAccount) &&
       (filterCategory === 'all' || t.categoryId === filterCategory)
 
-    // Начисление не имеет кассы и статьи — при таких фильтрах его показывать нечестно.
-    const chargesAllowed = filterAccount === 'all' && filterCategory === 'all'
+    const items = periodTx
+      .filter(matchesFilters)
+      .filter(t => tab === 'all' || t.kind === tab)
 
-    const txItems = periodTx.filter(matchesFilters).map(t => ({ ...t, _kind: t.kind }))
-    const chItems = chargesAllowed ? periodCharges.map(c => ({ ...c, _kind: CHARGES })) : []
-
-    const items = tab === 'all' ? [...txItems, ...chItems]
-      : tab === CHARGES ? chItems
-      : txItems.filter(t => t.kind === tab)
-
-    return items.sort((a, b) => (toJsDate(b.date)?.getTime() || 0) - (toJsDate(a.date)?.getTime() || 0))
-  }, [periodTx, periodCharges, tab, filterAccount, filterCategory])
+    return [...items].sort((a, b) => (toJsDate(b.date)?.getTime() || 0) - (toJsDate(a.date)?.getTime() || 0))
+  }, [periodTx, tab, filterAccount, filterCategory])
 
   if (loading) return <div style={{ color: '#6b7280', padding: '32px' }}>Загрузка...</div>
 
   const balance = companyBalance(transactions)
-  const profit = realizedProfit(periodCharges, periodTx)
+  const profit = periodProfit(periodTx)
 
   return (
     <div style={{ maxWidth: '900px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', gap: '12px', flexWrap: 'wrap' }}>
         <div>
           <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: 0 }}>💰 Финансы</h2>
-          <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>Кассы, статьи и лицевые счета учеников</p>
+          <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>
+            Фактические приходы и расходы. Долги за проведённые занятия — в карточках учеников
+          </p>
         </div>
         <button onClick={() => setShowForm(!showForm)} style={{
           background: '#7c3aed', color: '#fff', border: 'none',
@@ -230,18 +218,17 @@ export default function Finance() {
         gap: '12px', marginBottom: '24px',
       }}>
         <Metric label="Доходы" value={money(incomeTotal(periodTx))} color="#059669" />
-        <Metric label="Списано (занятия)" value={money(sumAmount(periodCharges))} color="#ea580c" />
         <Metric label="Расходы компании" value={money(expenseTotal(periodTx))} color="#dc2626" />
         <Metric label="Выплаты ЗП" value={money(salaryTotal(periodTx))} color="#dc2626" />
-        <Metric label="Занятий" value={lessonsCount} color="#7c3aed" />
+        <Metric label="Возвраты клиентам" value={money(refundTotal(periodTx))} color="#dc2626" />
+        <Metric label="Прибыль за период" value={money(profit)}
+          color={profit >= 0 ? '#059669' : '#dc2626'} />
+        <Metric label="Баланс компании" value={money(balance)}
+          color={balance >= 0 ? '#059669' : '#dc2626'} />
         <Metric label="Долги клиентов" value={money(debt)}
           color={debt > 0 ? '#dc2626' : '#6b7280'} tint={debt > 0 ? '#fef2f2' : null} />
         <Metric label="Должны клиентам" value={money(prepaid)}
           color={prepaid > 0 ? '#059669' : '#6b7280'} tint={prepaid > 0 ? '#f0fdf4' : null} />
-        <Metric label="Баланс компании" value={money(balance)}
-          color={balance >= 0 ? '#059669' : '#dc2626'} />
-        <Metric label="Реализованная прибыль" value={money(profit)}
-          color={profit >= 0 ? '#059669' : '#dc2626'} />
       </div>
 
       {/* Кассы и статьи */}
@@ -301,29 +288,24 @@ export default function Finance() {
       ) : (
         <div style={card}>
           {feed.map((item, i) => {
-            const isCharge = item._kind === CHARGES
-            const meta = isCharge ? null : kindMeta(item.kind)
+            const meta = kindMeta(item.kind)
+            const isIncome = item.kind === KIND_INCOME
 
-            const icon = isCharge ? '🏃' : meta.icon
-            const color = isCharge ? '#ea580c' : meta.color
-            const tint = isCharge ? '#ffedd5' : item.kind === KIND_INCOME ? '#dcfce7' : '#fee2e2'
-            const sign = !isCharge && item.kind === KIND_INCOME ? '+' : '−'
+            const icon = meta.icon
+            const color = meta.color
+            const tint = isIncome ? '#dcfce7' : '#fee2e2'
+            const sign = isIncome ? '+' : '−'
 
-            const title = isCharge
-              ? (item.clientName || 'Ученик')
-              : item.kind === KIND_SALARY ? (item.teacherName || 'Педагог')
+            const title = item.kind === KIND_SALARY
+              ? (item.teacherName || 'Педагог')
               : (item.clientName || categoryName[item.categoryId] || meta.label)
 
-            const label = isCharge
-              ? `${item.lessons || 1} зан.`
-              : categoryName[item.categoryId] || meta.label
-
+            const label = categoryName[item.categoryId] || meta.label
             const date = toJsDate(item.date)
-            const note = isCharge ? item.description : item.comment
-            const locked = isCharge && !!item.lessonId
+            const note = item.comment
 
             return (
-              <div key={`${item._kind}-${item.id}`} style={{
+              <div key={item.id} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '12px 0', gap: '12px',
                 borderBottom: i < feed.length - 1 ? '1px solid #e5e7eb' : 'none',
@@ -344,7 +326,7 @@ export default function Finance() {
                         fontSize: '11px', padding: '1px 7px', borderRadius: '20px',
                         background: tint, color,
                       }}>{label}</span>
-                      {!isCharge && accountName[item.accountId] && (
+                      {accountName[item.accountId] && (
                         <span style={{ fontSize: '12px', color: '#6b7280' }}>· {accountName[item.accountId]}</span>
                       )}
                       {item.payerName && (
@@ -359,17 +341,11 @@ export default function Finance() {
                   <span style={{ fontSize: '15px', fontWeight: '700', color }}>
                     {sign}{money(item.amount)}
                   </span>
-                  {!isCharge && (
-                    <button onClick={() => handleDelete(item)} title="Удалить операцию" style={{
-                      background: 'transparent', color: '#9ca3af', border: 'none',
-                      cursor: 'pointer', fontSize: '16px',
-                      minWidth: '44px', minHeight: '44px',
-                    }}>✕</button>
-                  )}
-                  {locked && (
-                    <span title="Начисление за проведённое занятие. Отменить можно только через откат занятия."
-                      style={{ color: '#9ca3af', fontSize: '14px', minWidth: '44px', textAlign: 'center' }}>🔒</span>
-                  )}
+                  <button onClick={() => handleDelete(item)} title="Удалить операцию" style={{
+                    background: 'transparent', color: '#9ca3af', border: 'none',
+                    cursor: 'pointer', fontSize: '16px',
+                    minWidth: '44px', minHeight: '44px',
+                  }}>✕</button>
                 </div>
               </div>
             )

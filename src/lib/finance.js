@@ -55,16 +55,16 @@ const ofKind = (transactions, kind) => transactions.filter(t => t.kind === kind)
 export const incomeTotal = (transactions) => sumAmount(ofKind(transactions, KIND_INCOME))
 export const expenseTotal = (transactions) => sumAmount(ofKind(transactions, KIND_EXPENSE))
 export const salaryTotal = (transactions) => sumAmount(ofKind(transactions, KIND_SALARY))
+export const refundTotal = (transactions) => sumAmount(ofKind(transactions, KIND_REFUND))
 
 // Сколько денег у компании: всё пришедшее минус всё выплаченное.
 // Начисления за занятия не участвуют — они не деньги, а долг ученика.
 export const companyBalance = (transactions) =>
   transactions.reduce((total, t) => total + (SIGN[t.kind] ?? 0) * (t.amount || 0), 0)
 
-// Реализованная прибыль: заработано занятиями минус потрачено.
-// Считается по начислениям, а не по оплатам — предоплата ещё не заработана.
-export const realizedProfit = (charges, transactions) =>
-  sumAmount(charges) - expenseTotal(transactions) - salaryTotal(transactions)
+// Прибыль за период — по фактическим деньгам, прошедшим через кассу.
+// Проведённое, но не оплаченное занятие сюда не попадает: это долг, а не доход.
+export const periodProfit = (transactions) => companyBalance(transactions)
 
 // Остаток по каждой кассе за всё время. Порядок — как в справочнике.
 export function accountTotals(transactions, accounts) {
