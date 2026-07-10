@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { collection, getDocs, addDoc, doc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
@@ -7,6 +7,8 @@ import ClientForm from '../components/ClientForm'
 import ErrorBanner from '../components/ErrorBanner'
 import { lessonsLeft } from '../lib/subscription'
 import { clientBalances } from '../lib/balance'
+import { useSelection } from '../lib/selection'
+import ActionToolbar from '../components/ActionToolbar'
 import {
   getAge, ageLabel, contactRows, statusInfo, genderInfo, searchText,
   CLIENT_STATUSES, instagramUrl, telegramUrl, phoneUrl,
@@ -23,17 +25,6 @@ const inputStyle = {
   fontSize: '14px',
   outline: 'none',
 }
-
-const btn = (color = '#7c3aed') => ({
-  background: color,
-  color: '#fff',
-  border: 'none',
-  padding: '8px 16px',
-  borderRadius: '10px',
-  fontSize: '13px',
-  fontWeight: '600',
-  cursor: 'pointer',
-})
 
 const th = {
   textAlign: 'left', padding: '12px 14px', color: '#6b7280',
@@ -89,6 +80,9 @@ export default function Clients() {
   const [filterBalance, setFilterBalance] = useState('all')
   const [page, setPage] = useState(1)
 
+  const navigate = useNavigate()
+  const selection = useSelection(clients)
+
   const fetchData = async () => {
     setLoadError('')
     try {
@@ -142,27 +136,42 @@ export default function Clients() {
     }
   }
 
-  // Клиент и его деньги удаляются одной транзакцией: оборванное удаление
-  // оставило бы операции без владельца.
-  const handleDelete = async (client) => {
-    if (!confirm(`Удалить «${client.childName}»? Вместе с ним удалятся его оплаты, начисления и абонементы.`)) return
+  // Ученики и их деньги удаляются одной транзакцией: оборванное удаление
+  // оставило бы операции без владельца. Больше 400 записей Firestore в один
+  // batch не примет, поэтому режем на части.
+  const handleDeleteSelected = async () => {
+    const chosen = selection.rows
+    if (chosen.length === 0) return
+
+    const names = chosen.slice(0, 3).map(c => c.childName).join(', ')
+    const tail = chosen.length > 3 ? ` и ещё ${chosen.length - 3}` : ''
+    const message = chosen.length === 1
+      ? `Удалить «${chosen[0].childName}»? Вместе с ним удалятся его оплаты, начисления и абонементы.`
+      : `Удалить учеников: ${chosen.length} (${names}${tail})?\n\nВместе с ними удалятся их оплаты, начисления и абонементы.`
+    if (!confirm(message)) return
+
+    const ids = new Set(chosen.map(c => c.id))
+    const refs = [
+      ...transactions.filter(t => ids.has(t.clientId)).map(t => doc(db, 'transactions', t.id)),
+      ...charges.filter(c => ids.has(c.clientId)).map(c => doc(db, 'charges', c.id)),
+      ...subscriptions.filter(s => ids.has(s.clientId)).map(s => doc(db, 'subscriptions', s.id)),
+      ...chosen.map(c => doc(db, 'clients', c.id)),
+    ]
+
+    setSaving(true)
     try {
-      const batch = writeBatch(db)
-      for (const t of transactions.filter(t => t.clientId === client.id)) {
-        batch.delete(doc(db, 'transactions', t.id))
+      for (let i = 0; i < refs.length; i += 400) {
+        const batch = writeBatch(db)
+        for (const ref of refs.slice(i, i + 400)) batch.delete(ref)
+        await batch.commit()
       }
-      for (const c of charges.filter(c => c.clientId === client.id)) {
-        batch.delete(doc(db, 'charges', c.id))
-      }
-      for (const s of subscriptions.filter(s => s.clientId === client.id)) {
-        batch.delete(doc(db, 'subscriptions', s.id))
-      }
-      batch.delete(doc(db, 'clients', client.id))
-      await batch.commit()
+      selection.clear()
       await fetchData()
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -193,8 +202,18 @@ export default function Clients() {
           <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: 0 }}>👶 Клиенты</h2>
           <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>{clients.length} учеников в базе</p>
         </div>
-        <button onClick={() => setShowAddClient(!showAddClient)} style={btn()}>+ Добавить клиента</button>
       </div>
+
+      <ActionToolbar
+        count={selection.count}
+        busy={saving}
+        addLabel="✚ Добавить ученика"
+        editLabel="✎ Открыть карточку"
+        onAdd={() => setShowAddClient(true)}
+        onEdit={() => selection.rows.length === 1 && navigate(`/clients/${selection.rows[0].id}`)}
+        onDelete={handleDeleteSelected}
+        onClear={selection.clear}
+      />
 
       <ErrorBanner message={loadError} onRetry={fetchData} />
 
@@ -262,6 +281,11 @@ export default function Clients() {
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
             <thead>
               <tr>
+                <th style={{ ...th, width: '36px' }}>
+                  <input type="checkbox" title="Отметить всех на странице"
+                    checked={selection.allVisibleChecked(visible)}
+                    onChange={() => selection.toggleVisible(visible)} />
+                </th>
                 <th style={{ ...th, width: '50px' }} />
                 <th style={th}>ФИО</th>
                 <th style={th}>Общий остаток</th>
@@ -269,7 +293,6 @@ export default function Clients() {
                 <th style={th}>Контакты</th>
                 <th style={th}>Примечание</th>
                 <th style={th}>Дата след. посещения</th>
-                <th style={{ ...th, width: '40px' }} />
               </tr>
             </thead>
             <tbody>
@@ -280,8 +303,13 @@ export default function Clients() {
                 const contacts = contactRows(c)
                 const birth = birthLine(c)
 
+                const checked = selection.selected.has(c.id)
+
                 return (
-                  <tr key={c.id}>
+                  <tr key={c.id} style={{ background: checked ? '#ede9fe' : 'transparent' }}>
+                    <td style={td(isLast)}>
+                      <input type="checkbox" checked={checked} onChange={() => selection.toggle(c.id)} />
+                    </td>
                     <td style={td(isLast)}><Avatar client={c} /></td>
 
                     <td style={td(isLast)}>
@@ -351,12 +379,6 @@ export default function Clients() {
                       <span style={muted}>(не задано)</span>
                     </td>
 
-                    <td style={{ ...td(isLast), textAlign: 'right' }}>
-                      <button onClick={() => handleDelete(c)} title="Удалить клиента" style={{
-                        background: 'transparent', border: 'none', cursor: 'pointer',
-                        fontSize: '15px', color: '#dc2626', padding: '2px 4px',
-                      }}>🗑</button>
-                    </td>
                   </tr>
                 )
               })}

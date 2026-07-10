@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { collection, getDocs, addDoc, deleteDoc, updateDoc, doc } from 'firebase/firestore'
+import { collection, getDocs, addDoc, updateDoc, writeBatch, doc } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import { MONTHS_SHORT } from '../lib/constants'
@@ -13,7 +13,9 @@ import {
 import { buildTransaction, transactionToForm } from '../lib/transaction'
 import { clientBalances, debtAndPrepaid } from '../lib/balance'
 import { sortItems, getDirectory } from '../lib/directories'
+import { useSelection } from '../lib/selection'
 import TransactionForm from '../components/TransactionForm'
+import ActionToolbar from '../components/ActionToolbar'
 import ErrorBanner from '../components/ErrorBanner'
 
 const card = {
@@ -118,6 +120,9 @@ export default function Finance() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
 
+  // Выделение строк галочками: действия применяются к отмеченным, как в AlfaCRM.
+  const selection = useSelection(transactions)
+
   const [filterMonth, setFilterMonth] = useState('all')
   const [filterYear, setFilterYear] = useState(new Date().getFullYear())
   const [filterAccount, setFilterAccount] = useState('all')
@@ -189,6 +194,7 @@ export default function Finance() {
     try {
       await updateDoc(doc(db, 'transactions', editing.id), buildTransaction(form, { clients, teachers }))
       setEditing(null)
+      selection.clear()
       await fetchAll()
     } catch (e) {
       console.error(e)
@@ -203,15 +209,34 @@ export default function Finance() {
     setEditing(item)
   }
 
-  const handleDelete = async (item) => {
-    if (!confirm('Удалить операцию? Балансы пересчитаются.')) return
+  // Удаление пачкой: одной транзакцией, чтобы не оставить половину.
+  const handleDeleteSelected = async () => {
+    const chosen = selection.rows
+    if (chosen.length === 0) return
+
+    const total = chosen.reduce((sum, t) => sum + (t.amount || 0), 0)
+    const message = chosen.length === 1
+      ? 'Удалить операцию? Балансы пересчитаются.'
+      : `Удалить операций: ${chosen.length} на ${total.toLocaleString('ru')} сум?\n\nБалансы пересчитаются.`
+    if (!confirm(message)) return
+
+    setSaving(true)
     try {
-      await deleteDoc(doc(db, 'transactions', item.id))
+      const batch = writeBatch(db)
+      for (const row of chosen) batch.delete(doc(db, 'transactions', row.id))
+      await batch.commit()
+      selection.clear()
       await fetchAll()
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
+    } finally {
+      setSaving(false)
     }
+  }
+
+  const handleEditSelected = () => {
+    if (selection.rows.length === 1) startEdit(selection.rows[0])
   }
 
   const accountName = useMemo(
@@ -280,14 +305,16 @@ export default function Finance() {
             Фактические приходы и расходы. Долги за проведённые занятия — в карточках учеников
           </p>
         </div>
-        <button onClick={() => { setEditing(null); setShowForm(true) }} style={{
-          background: '#7c3aed', color: '#fff', border: 'none',
-          padding: '10px 20px', borderRadius: '12px', fontSize: '14px',
-          fontWeight: '600', cursor: 'pointer',
-        }}>
-          + Добавить операцию
-        </button>
       </div>
+
+      <ActionToolbar
+        count={selection.count}
+        busy={saving}
+        onAdd={() => { setEditing(null); setShowForm(true) }}
+        onEdit={handleEditSelected}
+        onDelete={handleDeleteSelected}
+        onClear={selection.clear}
+      />
 
       <ErrorBanner message={loadError} onRetry={fetchAll} />
 
@@ -444,6 +471,11 @@ export default function Finance() {
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
               <thead>
                 <tr>
+                  <th style={{ ...th(), width: '36px', cursor: 'default' }}>
+                    <input type="checkbox" title="Отметить все строки на странице"
+                      checked={selection.allVisibleChecked(pageRows)}
+                      onChange={() => selection.toggleVisible(pageRows)} />
+                  </th>
                   {COLUMNS.map(col => (
                     <th key={col.key} style={{ ...th(col.align), width: col.width }}
                       onClick={() => toggleSort(col.key)}
@@ -454,7 +486,6 @@ export default function Finance() {
                       </span>
                     </th>
                   ))}
-                  <th style={{ ...th('right'), width: '90px', cursor: 'default' }}>Действия</th>
                 </tr>
               </thead>
               <tbody>
@@ -464,12 +495,17 @@ export default function Finance() {
                   const date = toJsDate(item.date)
                   const number = documentNumber(item)
                   const purpose = item.kind === KIND_SALARY ? item.teacherName : item.clientName
+                  const checked = selection.selected.has(item.id)
 
                   return (
                     <tr key={item.id}
                       onDoubleClick={() => startEdit(item)}
                       title="Двойной щелчок — править операцию"
-                      style={{ background: editing?.id === item.id ? '#f7f8fa' : 'transparent' }}>
+                      style={{ background: checked ? '#ede9fe' : 'transparent' }}>
+                      <td style={td()}>
+                        <input type="checkbox" checked={checked} onChange={() => selection.toggle(item.id)}
+                          onDoubleClick={e => e.stopPropagation()} />
+                      </td>
                       <td style={td()}>{date ? date.toLocaleDateString('ru') : '—'}</td>
 
                       <td style={td()}>
@@ -494,17 +530,6 @@ export default function Finance() {
 
                       <td style={{ ...td(), color: '#4b5563' }}>{item.payerName || '—'}</td>
                       <td style={{ ...td(), color: '#6b7280' }}>{item.comment || ''}</td>
-
-                      <td style={{ ...td('right'), whiteSpace: 'nowrap' }}>
-                        <button onClick={() => startEdit(item)} title="Править операцию" style={{
-                          background: 'transparent', border: 'none', color: '#9ca3af',
-                          cursor: 'pointer', fontSize: '14px', padding: '4px 6px',
-                        }}>✎</button>
-                        <button onClick={() => handleDelete(item)} title="Удалить операцию" style={{
-                          background: 'transparent', border: 'none', color: '#9ca3af',
-                          cursor: 'pointer', fontSize: '14px', padding: '4px 6px',
-                        }}>✕</button>
-                      </td>
                     </tr>
                   )
                 })}
