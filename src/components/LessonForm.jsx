@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { LESSON_TYPES } from '../lib/lesson'
 import { todayISO } from '../lib/group'
+import { isTeacher } from '../lib/directories'
 
 const inputStyle = {
   background: '#f7f8fa', border: '1px solid #e5e7eb', borderRadius: '10px',
@@ -81,7 +82,8 @@ export default function LessonForm({ clients, teachers, saving, onSubmit, onCanc
           <label style={labelStyle}>Педагог</label>
           <select style={inputStyle} value={form.teacherId} onChange={set('teacherId')}>
             <option value="">Не выбран</option>
-            {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+            {/* Уроки ведут только педагоги: менеджеру занятие не назначить. */}
+            {teachers.filter(isTeacher).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </div>
         <div>

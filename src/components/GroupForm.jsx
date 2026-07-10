@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   WEEKDAYS, GROUP_MODES, generateDates, validateGroupForm,
 } from '../lib/group'
+import { isTeacher } from '../lib/directories'
 
 const inputStyle = {
   background: '#f7f8fa',
@@ -91,7 +92,8 @@ export default function GroupForm({ initial, clients, teachers, saving, schedule
           <Field label="Педагог">
             <select style={inputStyle} value={form.teacherId} onChange={set('teacherId')}>
               <option value="">Не выбран</option>
-              {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              {/* Группу ведёт педагог, а не менеджер. */}
+              {teachers.filter(isTeacher).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </Field>
         </div>

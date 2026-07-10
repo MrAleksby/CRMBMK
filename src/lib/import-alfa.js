@@ -77,9 +77,23 @@ export function splitPayer(legalName) {
 
 // --- Документы -------------------------------------------------------------
 
+// Порядок касс в отчёте задан владельцем, а не алфавитом.
+// Кассы, которых нет в списке, уходят в конец.
+const ACCOUNT_ORDER = ['xolis (карта)', 'карта', 'наличные (xolis)', 'расчетный счет', 'наличные']
+
+const accountOrder = (name) => {
+  const index = ACCOUNT_ORDER.indexOf(String(name).trim().toLowerCase())
+  return index === -1 ? ACCOUNT_ORDER.length : index
+}
+
 export const mapAccount = (row) => ({
   id: alfaId('a', row.id),
-  data: { name: row.name, kind: accountKind(row.name), active: row.is_enabled !== 0 },
+  data: {
+    name: row.name,
+    kind: accountKind(row.name),
+    order: accountOrder(row.name),
+    active: row.is_enabled !== 0,
+  },
 })
 
 export const mapCategory = (row) => ({
@@ -87,10 +101,13 @@ export const mapCategory = (row) => ({
   data: { name: row.name, kind: itemKind(row), order: row.weight ?? 0, active: true },
 })
 
+// В AlfaCRM в справочнике педагогов только педагоги: менеджеры живут среди
+// пользователей системы, а их выплаты идут без привязки к человеку.
 export const mapTeacher = (row) => ({
   id: alfaId('a', row.id),
   data: {
     name: row.name,
+    role: 'teacher',
     phone: (row.phone || [])[0] || '',
     telegram: '',
     rate: 0,

@@ -41,19 +41,38 @@ const CATEGORY_SEED = [
   { name: 'Возврат средств', kind: 'refund' },
 ].map((row, index) => ({ ...row, order: index }))
 
+// Роль сотрудника. Зарплату получают все, уроки ведут только педагоги.
+// Записи без роли — педагоги: справочник заводился, когда менеджеров в нём не было.
+export const STAFF_ROLES = [
+  { value: 'teacher', label: '🎓 Педагог' },
+  { value: 'manager', label: '💼 Менеджер' },
+  { value: 'other', label: '👤 Другое' },
+]
+
+export const isTeacher = (staff) => (staff?.role || 'teacher') === 'teacher'
+
+export const staffRoleLabel = (staff) =>
+  STAFF_ROLES.find(r => r.value === (staff?.role || 'teacher'))?.label ?? ''
+
 export const DIRECTORIES = [
   {
     key: 'teachers',
-    label: 'Педагоги',
+    label: 'Сотрудники',
     icon: '🎓',
-    itemName: 'педагога',
+    itemName: 'сотрудника',
+    hint: 'Педагоги ведут уроки. Менеджерам и аутсорсу можно провести выплату ЗП, ' +
+      'но в занятия они не попадают.',
     fields: [
       { key: 'name', label: 'ФИО', type: FIELD_TEXT, required: true },
+      {
+        key: 'role', label: 'Роль', type: FIELD_SELECT, required: true,
+        options: STAFF_ROLES, fallback: 'teacher',
+      },
       { key: 'phone', label: 'Телефон', type: FIELD_TEXT },
       { key: 'telegram', label: 'Telegram', type: FIELD_HANDLE, placeholder: '@nickname' },
       { key: 'rate', label: 'Ставка за урок (сум)', type: FIELD_AMOUNT },
     ],
-    columns: ['name', 'phone', 'telegram', 'rate'],
+    columns: ['name', 'role', 'phone', 'telegram', 'rate'],
   },
   {
     key: 'packages',
@@ -73,6 +92,10 @@ export const DIRECTORIES = [
     label: 'Кассы',
     icon: '🏦',
     itemName: 'кассу',
+    hint: 'Порядок задаёт, как кассы идут в отчёте по остаткам. Меньше число — выше строка.',
+    // Порядок кассы задан вручную: в отчёте она должна стоять там, где привык владелец,
+    // а не там, куда её поставит алфавит.
+    sortBy: ['order'],
     fields: [
       { key: 'name', label: 'Название', type: FIELD_TEXT, required: true, placeholder: 'Наличные' },
       {
@@ -82,8 +105,9 @@ export const DIRECTORIES = [
           { value: 'card', label: '💳 Карта' },
         ],
       },
+      { key: 'order', label: 'Порядок в отчёте', type: FIELD_COUNT, min: 0 },
     ],
-    columns: ['name', 'kind'],
+    columns: ['name', 'kind', 'order'],
     seed: [
       { name: 'Наличные', kind: 'cash' },
       { name: 'Карта', kind: 'card' },
@@ -131,29 +155,35 @@ const KIND_RANK = Object.fromEntries(CATEGORY_KINDS.map((k, i) => [k.value, i]))
 
 const byName = (a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ru')
 
-// Справочники сортируются по алфавиту, кроме статей: там порядок задал владелец
-// (сначала доходы, потом расходы, потом зарплаты) и хранится в поле order.
+const byOrder = (a, b) => {
+  const orderA = Number.isFinite(a.order) ? a.order : Number.MAX_SAFE_INTEGER
+  const orderB = Number.isFinite(b.order) ? b.order : Number.MAX_SAFE_INTEGER
+  return orderA !== orderB ? orderA - orderB : byName(a, b)
+}
+
+// Справочники сортируются по алфавиту, кроме тех, где порядок задал владелец:
+// статьи (сначала доходы, потом расходы, потом зарплаты) и кассы (по важности).
+// Порядок хранится в поле order, записи без него уходят в конец.
 export function sortItems(dir, items) {
   const list = [...items]
-  if (dir.sortBy?.[0] !== 'kind') return list.sort(byName)
+  const sortBy = dir.sortBy?.[0]
+
+  if (sortBy === 'order') return list.sort(byOrder)
+  if (sortBy !== 'kind') return list.sort(byName)
 
   return list.sort((a, b) => {
     const kindA = KIND_RANK[a.kind] ?? 99
     const kindB = KIND_RANK[b.kind] ?? 99
     if (kindA !== kindB) return kindA - kindB
-
-    const orderA = Number.isFinite(a.order) ? a.order : Number.MAX_SAFE_INTEGER
-    const orderB = Number.isFinite(b.order) ? b.order : Number.MAX_SAFE_INTEGER
-    if (orderA !== orderB) return orderA - orderB
-
-    return byName(a, b)
+    return byOrder(a, b)
   })
 }
 
 // Новая запись встаёт в конец своей группы, а не в середину чужого порядка.
+// Без kind порядок сквозной по всему справочнику — так устроены кассы.
 export function nextOrder(items, kind) {
   const orders = items
-    .filter(i => i.kind === kind && Number.isFinite(i.order))
+    .filter(i => (kind === undefined || i.kind === kind) && Number.isFinite(i.order))
     .map(i => i.order)
   return orders.length ? Math.max(...orders) + 1 : 0
 }
@@ -172,6 +202,9 @@ export const emptyItem = (dir) =>
     f.type === FIELD_SELECT ? (f.options[0]?.value ?? '') : '',
   ]))
 
+// fallback нужен полям, добавленным к уже заполненному справочнику:
+// у старых записей значения нет, но смысл у него есть (сотрудник без роли — педагог).
 export function optionLabel(field, value) {
-  return field.options?.find(o => o.value === value)?.label ?? value ?? '—'
+  const actual = value || field.fallback
+  return field.options?.find(o => o.value === actual)?.label ?? actual ?? '—'
 }

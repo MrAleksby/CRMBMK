@@ -136,7 +136,11 @@ export default function DirectoryTable({ dir }) {
       if (editingId) {
         await updateDoc(doc(db, dir.key, editingId), data)
       } else {
-        const extra = dir.sortBy ? { order: nextOrder(items, data.kind) } : {}
+        // Порядок подставляем сам, только если справочник им сортируется
+        // и пользователь не задал его руками.
+        const groupBy = dir.sortBy?.[0] === 'kind' ? data.kind : undefined
+        const needsOrder = dir.sortBy && !Number.isFinite(data.order)
+        const extra = needsOrder ? { order: nextOrder(items, groupBy) } : {}
         await addDoc(collection(db, dir.key), { ...data, ...extra, active: true, createdAt: new Date() })
       }
       closeForm()

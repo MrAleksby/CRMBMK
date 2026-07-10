@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { TX_KINDS, KIND_INCOME, KIND_SALARY, KIND_REFUND } from '../lib/finance'
 import { emptyTransactionForm, categoriesForKind, validateTransactionForm, suggestPayer } from '../lib/transaction'
+import { staffRoleLabel } from '../lib/directories'
 
 const inputStyle = {
   background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '10px',
@@ -160,11 +161,11 @@ export default function TransactionForm({
 
         {form.kind === KIND_SALARY && (
           <div>
-            <label style={labelStyle}>Педагог</label>
+            <label style={labelStyle}>Получатель</label>
             <select style={inputStyle} value={form.teacherId} onChange={set('teacherId')}>
               <option value="">Не привязан</option>
               {teachers.filter(t => t.active !== false).map(t => (
-                <option key={t.id} value={t.id}>{t.name}</option>
+                <option key={t.id} value={t.id}>{t.name} — {staffRoleLabel(t)}</option>
               ))}
             </select>
           </div>
