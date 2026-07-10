@@ -37,3 +37,6 @@ data/
 *.xlsx
 *.xls
 fingam-backup-*.json
+
+# Временная папка для импорта — персональные данные
+public/alfa/
