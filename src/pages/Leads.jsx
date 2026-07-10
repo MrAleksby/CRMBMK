@@ -6,19 +6,18 @@ import { withTimeout, describeError } from '../lib/withTimeout'
 import ErrorBanner from '../components/ErrorBanner'
 import LeadForm from '../components/LeadForm'
 import ClientForm from '../components/ClientForm'
-import { emptyClientForm, telegramUrl, instagramUrl, phoneUrl, sourceInfo } from '../lib/client'
+import {
+  emptyClientForm, telegramUrl, instagramUrl, phoneUrl, sourceInfo, getAge, ageLabel,
+} from '../lib/client'
 import {
   LEAD_STAGES, REJECT_REASONS,
-  stageInfo, rejectLabel, groupByStage, funnelStats, leadSearchText,
-  leadToForm, clientFormFromLead, formatLeadDate, daysOnStage,
+  stageInfo, rejectLabel, groupByStage, funnelStats, leadSearchText, nextStage,
+  leadToForm, clientFormFromLead, formatLeadDate, formatShortDate,
   isConverted, isRejected,
 } from '../lib/lead'
 
 const FUNNEL = 'funnel'
 const ARCHIVE = 'archive'
-
-// Через сколько дней без движения карточка считается забытой.
-const STALE_DAYS = 14
 
 const inputStyle = {
   background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '10px',
@@ -58,42 +57,122 @@ function Stat({ label, value, color = '#111827' }) {
   )
 }
 
-// Карточка в канбане. Тянется мышью между колонками; на телефоне этап
-// меняют через окно лида — там же, где остальные действия.
-function LeadCard({ lead, onOpen, onDragStart }) {
-  const stale = daysOnStage(lead)
+const cardIcon = {
+  background: 'transparent', border: 'none', padding: '0 2px',
+  fontSize: '13px', lineHeight: 1, cursor: 'pointer', color: '#9ca3af',
+}
+
+// Кнопки в углу карточки не должны открывать её: клик по иконке — это действие,
+// а не «посмотреть». Останавливаем всплытие и запрещаем перетаскивание.
+function CardAction({ title, color, disabled, onClick, children }) {
+  if (disabled) return null
+  return (
+    <button
+      title={title}
+      draggable={false}
+      onDragStart={e => e.stopPropagation()}
+      onClick={e => { e.stopPropagation(); onClick() }}
+      onMouseEnter={e => { e.currentTarget.style.color = color }}
+      onMouseLeave={e => { e.currentTarget.style.color = '#9ca3af' }}
+      style={cardIcon}
+    >{children}</button>
+  )
+}
+
+// Ссылки внутри карточки: звонок, телеграм, инстаграм. Клик по ним не открывает
+// окно лида — иначе набрать номер одним касанием не выйдет.
+const stop = (e) => e.stopPropagation()
+
+const cardLink = { color: '#7c3aed', textDecoration: 'none' }
+
+// Карточка в канбане. Тянется мышью между колонками, в углу — действия:
+// следующий этап, конверсия, удаление. Остальное в окне лида.
+function LeadCard({ lead, responsibleName, onOpen, onDragStart, onAdvance, onConvert, onDelete }) {
+  const [hover, setHover] = useState(false)
   const source = sourceInfo(lead)
-  const phone = (lead.phones || [])[0]
+  const age = getAge(lead)
+  const phones = (lead.phones || []).filter(Boolean)
   // В AlfaCRM лида часто заводили как «Лола Рахманова мама» и тем же текстом
   // подписывали заказчика. Печатать одну строку дважды незачем.
   const parent = lead.parentName === lead.childName ? '' : lead.parentName
+  const forward = nextStage(lead.stage)
 
   return (
     <div
       draggable
       onDragStart={e => onDragStart(e, lead)}
-      onClick={() => onOpen(lead)}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{
         background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '12px',
-        padding: '10px 12px', cursor: 'grab', display: 'flex', flexDirection: 'column', gap: '3px',
+        padding: '10px 12px', cursor: 'grab', display: 'flex', flexDirection: 'column', gap: '4px',
       }}
     >
-      <span style={{ fontSize: '13px', fontWeight: '600', color: '#111827' }}>{lead.childName}</span>
-      {parent && <span style={{ fontSize: '12px', color: '#6b7280' }}>{parent}</span>}
-      {phone && <span style={{ fontSize: '12px', color: '#7c3aed' }}>📞 {phone}</span>}
-      <div style={{ display: 'flex', gap: '6px', fontSize: '11px', color: '#9ca3af', flexWrap: 'wrap' }}>
-        {source && <span>{source.icon} {source.label}</span>}
-        {stale !== null && (
-          <span style={{ color: stale >= STALE_DAYS ? '#dc2626' : '#9ca3af' }}>
-            · {stale === 0 ? 'сегодня' : `${stale} дн.`}
+      {/* Как в AlfaCRM: в покое справа дата, под курсором на её месте — действия. */}
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '6px' }}>
+        <button
+          onClick={() => onOpen(lead)}
+          style={{
+            background: 'none', border: 'none', padding: 0, textAlign: 'left',
+            fontSize: '13px', fontWeight: '600', color: '#7c3aed',
+            textDecoration: 'underline', cursor: 'pointer',
+          }}
+        >
+          {lead.childName}{age !== null && ` (${ageLabel(age)})`}
+        </button>
+
+        {hover ? (
+          <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+            <CardAction title="Сделать клиентом" color="#059669" onClick={() => onConvert(lead)}>👤</CardAction>
+            <CardAction title={forward ? `Перевести: ${stageInfo(forward).label}` : ''}
+              color="#7c3aed" disabled={!forward} onClick={() => onAdvance(lead, forward)}>➔</CardAction>
+            <CardAction title="Удалить лид" color="#dc2626" onClick={() => onDelete(lead)}>🗑</CardAction>
+          </div>
+        ) : (
+          <span style={{ fontSize: '11px', color: '#9ca3af', whiteSpace: 'nowrap' }}>
+            {formatShortDate(lead.createdAt)}
           </span>
         )}
       </div>
+
+      {lead.note && (
+        <span style={{ fontSize: '12px', color: '#4b5563', whiteSpace: 'pre-line' }}>{lead.note}</span>
+      )}
+
+      {source && (
+        <span style={{ fontSize: '12px', color: '#6b7280' }}>{source.icon} {source.label}</span>
+      )}
+
+      {phones.map(phone => (
+        <span key={phone} style={{ fontSize: '12px' }}>
+          <a href={phoneUrl(phone)} onClick={stop} style={cardLink}>📞 {phone}</a>
+          {parent && <span style={{ color: '#6b7280' }}> ({parent})</span>}
+        </span>
+      ))}
+
+      {lead.telegram && (
+        <a href={telegramUrl(lead.telegram)} target="_blank" rel="noreferrer" onClick={stop}
+          style={{ ...cardLink, fontSize: '12px' }}>✈️ @{lead.telegram}</a>
+      )}
+      {lead.instagram && (
+        <a href={instagramUrl(lead.instagram)} target="_blank" rel="noreferrer" onClick={stop}
+          style={{ ...cardLink, fontSize: '12px' }}>📸 @{lead.instagram}</a>
+      )}
+
+      {phones.length === 0 && !lead.telegram && !lead.instagram && parent && (
+        <span style={{ fontSize: '12px', color: '#6b7280' }}>{parent}</span>
+      )}
+
+      {responsibleName && (
+        <span style={{ fontSize: '11px', color: '#6b7280' }}>📌 {responsibleName}</span>
+      )}
     </div>
   )
 }
 
-function Column({ stage, leads, onOpen, onDragStart, onDrop, isTarget, onDragOver, onDragLeave }) {
+function Column({
+  stage, leads, actions, responsibleName, onDrop, isTarget, onDragOver, onDragLeave,
+}) {
   const info = stageInfo(stage)
   return (
     <div
@@ -117,7 +196,7 @@ function Column({ stage, leads, onOpen, onDragStart, onDrop, isTarget, onDragOve
       </div>
 
       {leads.map(lead => (
-        <LeadCard key={lead.id} lead={lead} onOpen={onOpen} onDragStart={onDragStart} />
+        <LeadCard key={lead.id} lead={lead} responsibleName={responsibleName(lead)} {...actions} />
       ))}
 
       {leads.length === 0 && (
@@ -127,8 +206,11 @@ function Column({ stage, leads, onOpen, onDragStart, onDrop, isTarget, onDragOve
   )
 }
 
+// Пустой список телефонов — это `[]`, а он истинный. Без проверки на длину
+// в окне лида висела бы строка «Телефоны» без единого номера.
 function Row({ label, children }) {
-  if (!children) return null
+  const empty = !children || (Array.isArray(children) && children.length === 0)
+  if (empty) return null
   return (
     <div style={{ display: 'flex', gap: '10px', fontSize: '13px', padding: '5px 0' }}>
       <span style={{ color: '#6b7280', minWidth: '110px' }}>{label}</span>
@@ -276,6 +358,18 @@ export default function Leads() {
     e.dataTransfer.effectAllowed = 'move'
   }
 
+  // Действия карточки. Конверсия открывает то же окно, что и кнопка в лиде:
+  // форму ученика заполняет менеджер, автоматом клиента не заводим.
+  const cardActions = {
+    onOpen: (lead) => { setOpenId(lead.id); setMode('view') },
+    onDragStart,
+    onAdvance: handleMoveStage,
+    onConvert: (lead) => { setOpenId(lead.id); setMode('convert') },
+    onDelete: handleDelete,
+  }
+
+  const responsibleName = (lead) => staff.find(s => s.id === lead.responsibleId)?.name || ''
+
   const onDrop = (e, stage) => {
     e.preventDefault()
     setDragOver(null)
@@ -328,8 +422,8 @@ export default function Leads() {
               stage={stage.value}
               leads={columns.get(stage.value) || []}
               isTarget={dragOver === stage.value}
-              onOpen={lead => { setOpenId(lead.id); setMode('view') }}
-              onDragStart={onDragStart}
+              actions={cardActions}
+              responsibleName={responsibleName}
               onDragOver={e => { e.preventDefault(); setDragOver(stage.value) }}
               onDragLeave={() => setDragOver(prev => (prev === stage.value ? null : prev))}
               onDrop={e => onDrop(e, stage.value)}

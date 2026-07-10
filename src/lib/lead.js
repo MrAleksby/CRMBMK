@@ -23,6 +23,14 @@ export const FIRST_STAGE = LEAD_STAGES[0].value
 export const stageInfo = (stage) =>
   LEAD_STAGES.find(s => s.value === stage) ?? LEAD_STAGES[0]
 
+// Следующий этап воронки. На «Получена оплата» двигать некуда:
+// оттуда лид уходит только в клиенты.
+export function nextStage(stage) {
+  const index = LEAD_STAGES.findIndex(s => s.value === stage)
+  if (index === -1) return LEAD_STAGES[1].value
+  return LEAD_STAGES[index + 1]?.value ?? null
+}
+
 export const REJECT_REASONS = [
   { value: 'bad_contacts', label: 'Некорректные контакты' },
   { value: 'conditions', label: 'Не устроили условия' },
@@ -146,12 +154,12 @@ export const formatLeadDate = (value) => {
   return date ? date.toLocaleDateString('ru') : ''
 }
 
-// Сколько дней карточка стоит на месте. Менеджеру важно видеть застрявших.
-export function daysOnStage(lead) {
-  const since = toDate(lead.stageChangedAt) || toDate(lead.createdAt)
-  if (!since) return null
-  const days = Math.floor((Date.now() - since.getTime()) / 86400000)
-  return days >= 0 ? days : null
+// В углу карточки места мало: «02.03» вместо «02.03.2026».
+export const formatShortDate = (value) => {
+  const date = toDate(value)
+  if (!date) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}`
 }
 
 // Колонки канбана в порядке этапов. Внутри колонки — свежие сверху.
