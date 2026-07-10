@@ -10,7 +10,7 @@ import AttendanceWidget from '../components/AttendanceWidget'
 import SubscriptionForm from '../components/SubscriptionForm'
 import {
   lessonsLeft, subscriptionStatus, subscriptionPerLesson, periodLabel as subPeriod,
-  formToSubscriptionDoc,
+  formToSubscriptionDoc, subscriptionTitle, splitSubscriptions, subscriptionToForm,
 } from '../lib/subscription'
 import {
   getAge, ageLabel, formatBirthday, contactRows, sourceInfo, genderInfo, statusInfo,
@@ -92,6 +92,53 @@ function SummaryBlock({ title, action, children }) {
   )
 }
 
+const subIcon = {
+  background: 'transparent', border: 'none', padding: '0 2px',
+  color: '#9ca3af', fontSize: '12px', cursor: 'pointer',
+}
+
+// Строка абонемента, как в AlfaCRM: «Пакет 8 (2 640 000/8)», под ним период
+// и цена занятия. Архивный зачёркнут — он цену уже не даёт.
+function SubscriptionRow({ sub, archived, onEdit, onArchive, onRestore, onDelete }) {
+  const status = subscriptionStatus(sub)
+  const perLesson = subscriptionPerLesson(sub)
+
+  return (
+    <div style={{ marginBottom: '10px', opacity: archived ? 0.75 : 1 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '6px', alignItems: 'center' }}>
+        <span style={{
+          fontSize: '13px', color: '#111827', fontWeight: '600',
+          textDecoration: archived ? 'line-through' : 'none',
+        }}>🎫 {subscriptionTitle(sub)}</span>
+
+        <span style={{ display: 'flex', flexShrink: 0 }}>
+          <button onClick={onEdit} title="Править абонемент" style={subIcon}>✎</button>
+          {onArchive && <button onClick={onArchive} title="Убрать в архив" style={subIcon}>📦</button>}
+          {onRestore && <button onClick={onRestore} title="Вернуть из архива" style={subIcon}>↩</button>}
+          <button onClick={onDelete} title="Удалить абонемент" style={subIcon}>✕</button>
+        </span>
+      </div>
+
+      <div style={{ fontSize: '12px', color: '#6b7280' }}>
+        {sub.lessonsTotal} уроков
+        {perLesson !== null && ` · ${perLesson.toLocaleString()} сум за урок`}
+      </div>
+
+      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '3px', flexWrap: 'wrap' }}>
+        <span style={{
+          fontSize: '11px', padding: '2px 8px', borderRadius: '20px',
+          background: status.background, color: status.color,
+        }}>{status.label}</span>
+        <span style={{ fontSize: '11px', color: '#6b7280' }}>{subPeriod(sub)}</span>
+      </div>
+
+      {sub.note && (
+        <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '3px' }}>{sub.note}</div>
+      )}
+    </div>
+  )
+}
+
 export default function ClientCard() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -109,6 +156,8 @@ export default function ClientCard() {
   const [subscriptions, setSubscriptions] = useState([])
   const [packages, setPackages] = useState([])
   const [issuing, setIssuing] = useState(false)
+  const [editingSub, setEditingSub] = useState(null)
+  const [showArchivedSubs, setShowArchivedSubs] = useState(false)
   const [pickGroup, setPickGroup] = useState('')
   const [filterGroup, setFilterGroup] = useState('')
   const [pickedLessons, setPickedLessons] = useState([])
@@ -337,6 +386,50 @@ export default function ClientCard() {
     }
   }
 
+  // Правка абонемента переписывает и снимок тарифа: сменили пакет — поехала
+  // цена занятия, а с ней и остаток в уроках. Денег и начислений это не трогает.
+  //
+  // status берём у правимого документа: formToSubscriptionDoc всегда ставит
+  // 'active', и правка архивного молча вернула бы его в действующие.
+  const handleEditSubscription = async (form, pkg) => {
+    setSaving(true)
+    try {
+      await updateDoc(doc(db, 'subscriptions', editingSub.id), {
+        ...formToSubscriptionDoc(form, pkg, id),
+        status: editingSub.status || 'active',
+      })
+      setEditingSub(null)
+      await fetchData()
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // В архив, а не в корзину: истории абонементов место в карточке.
+  // Архивный цену занятия не даёт, но остаётся видимым.
+  const handleArchiveSubscription = async (sub) => {
+    try {
+      await updateDoc(doc(db, 'subscriptions', sub.id), { status: 'archived' })
+      await fetchData()
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    }
+  }
+
+  const handleRestoreSubscription = async (sub) => {
+    try {
+      await updateDoc(doc(db, 'subscriptions', sub.id), { status: 'active' })
+      await fetchData()
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    }
+  }
+
   // Абонемент задаёт лишь цену занятия. Удаление не трогает ни деньги,
   // ни проведённые занятия — пересчитается только остаток в уроках.
   const handleDeleteSubscription = async (sub) => {
@@ -425,6 +518,7 @@ export default function ClientCard() {
   const isPaid = balance >= 0
   // Плюс — предоплаченные занятия, минус — неоплаченные проведённые.
   const lessonsInStock = lessonsLeft(subscriptions, id, balance, charges, client)
+  const { current: currentSubs, archived: archivedSubs } = splitSubscriptions(subscriptions)
   const periodLabel = filterMonth !== 'all' ? `${MONTHS_SHORT[filterMonth]} ${filterYear}` : 'за всё время'
 
   // Заказчик — тот, кто платит: юрлицо или родитель (мама приоритетнее).
@@ -737,7 +831,7 @@ export default function ClientCard() {
 
           <SummaryBlock
             title="Абонементы"
-            action={!issuing && (
+            action={!issuing && !editingSub && (
               <button onClick={() => setIssuing(true)} style={{
                 background: 'transparent', border: 'none', color: '#7c3aed',
                 fontSize: '12px', cursor: 'pointer',
@@ -746,33 +840,48 @@ export default function ClientCard() {
           >
             {subscriptions.length === 0 && !issuing && <span style={notSet}>(не задано)</span>}
 
-            {subscriptions.map(sub => {
-              const status = subscriptionStatus(sub)
-              return (
-                <div key={sub.id} style={{ marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', alignItems: 'center' }}>
-                    <span style={{ fontSize: '13px', color: '#111827', fontWeight: '600' }}>🎫 {sub.name}</span>
-                    <button onClick={() => handleDeleteSubscription(sub)} title="Удалить абонемент"
-                      style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>✕</button>
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                    {sub.lessonsTotal} уроков · {Number(sub.price).toLocaleString()} сум
-                    {subscriptionPerLesson(sub) && ` · ${subscriptionPerLesson(sub).toLocaleString()} сум за урок`}
-                  </div>
-                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '3px' }}>
-                    <span style={{
-                      fontSize: '11px', padding: '2px 8px', borderRadius: '20px',
-                      background: status.background, color: status.color,
-                    }}>{status.label}</span>
-                    <span style={{ fontSize: '11px', color: '#6b7280' }}>{subPeriod(sub)}</span>
-                  </div>
-                </div>
+            {currentSubs.map(sub => (
+              editingSub?.id === sub.id ? (
+                <SubscriptionForm key={sub.id} initial={subscriptionToForm(sub)}
+                  packages={packages} saving={saving}
+                  onSubmit={handleEditSubscription} onCancel={() => setEditingSub(null)} />
+              ) : (
+                <SubscriptionRow key={sub.id} sub={sub}
+                  onEdit={() => { setIssuing(false); setEditingSub(sub) }}
+                  onArchive={() => handleArchiveSubscription(sub)}
+                  onDelete={() => handleDeleteSubscription(sub)} />
               )
-            })}
+            ))}
 
             {issuing && (
               <SubscriptionForm packages={packages} saving={saving}
                 onSubmit={handleIssueSubscription} onCancel={() => setIssuing(false)} />
+            )}
+
+            {/* Истёкшие и убранные в архив прячем под ссылку, как в AlfaCRM:
+                у иного ученика их шесть, и они забивают всю колонку. */}
+            {archivedSubs.length > 0 && (
+              <div style={{ marginTop: '6px' }}>
+                <button onClick={() => setShowArchivedSubs(v => !v)} style={{
+                  background: 'transparent', border: 'none', padding: 0,
+                  color: '#7c3aed', fontSize: '12px', cursor: 'pointer',
+                }}>
+                  {showArchivedSubs ? '▴' : '▾'} Архивные абонементы ({archivedSubs.length})
+                </button>
+
+                {showArchivedSubs && archivedSubs.map(sub => (
+                  editingSub?.id === sub.id ? (
+                    <SubscriptionForm key={sub.id} initial={subscriptionToForm(sub)}
+                      packages={packages} saving={saving}
+                      onSubmit={handleEditSubscription} onCancel={() => setEditingSub(null)} />
+                  ) : (
+                    <SubscriptionRow key={sub.id} sub={sub} archived
+                      onEdit={() => { setIssuing(false); setEditingSub(sub) }}
+                      onRestore={sub.status === 'archived' ? () => handleRestoreSubscription(sub) : null}
+                      onDelete={() => handleDeleteSubscription(sub)} />
+                  )
+                ))}
+              </div>
             )}
           </SummaryBlock>
 

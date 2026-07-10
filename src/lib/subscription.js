@@ -97,11 +97,63 @@ export function suggestPrice(client, subs) {
   return Number.isFinite(client?.lessonPrice) ? client.lessonPrice : ''
 }
 
+// Заголовок как в AlfaCRM: «Пакет 8 (2 640 000/8)» — цена пакета и число уроков.
+export function subscriptionTitle(sub) {
+  const price = Number(sub?.price)
+  const lessons = Number(sub?.lessonsTotal)
+  const name = sub?.name || 'Абонемент'
+  if (!Number.isFinite(price) || !lessons) return name
+  return `${name} (${price.toLocaleString('ru')}/${lessons})`
+}
+
+// Абонемент уходит из текущих, когда истёк срок или его убрали в архив.
+// Именно так делит список AlfaCRM: сверху действующие, ниже «Архивные (N)».
+export function splitSubscriptions(subs, today = todayISO()) {
+  const current = []
+  const archived = []
+  for (const sub of subs) (isUsable(sub, today) ? current : archived).push(sub)
+
+  const byStart = (a, b) => String(b.startDate || '').localeCompare(String(a.startDate || ''))
+  return { current: current.sort(byStart), archived: archived.sort(byStart) }
+}
+
+const MS_PER_WEEK = 7 * 86400000
+
+// В AlfaCRM срок задают числом недель, а дата окончания подставляется сама.
+// Держим оба поля синхронными: менеджеру удобнее «8 недель», проверять — по дате.
+export function endDateFromWeeks(startDate, weeks) {
+  const count = Number(weeks)
+  if (!startDate || !Number.isFinite(count) || count <= 0) return ''
+  const end = new Date(`${startDate}T12:00:00`)
+  if (Number.isNaN(end.getTime())) return ''
+  return new Date(end.getTime() + count * MS_PER_WEEK).toISOString().slice(0, 10)
+}
+
+export function weeksBetween(startDate, endDate) {
+  if (!startDate || !endDate) return ''
+  const from = new Date(`${startDate}T12:00:00`).getTime()
+  const to = new Date(`${endDate}T12:00:00`).getTime()
+  if (Number.isNaN(from) || Number.isNaN(to) || to < from) return ''
+  return Math.round((to - from) / MS_PER_WEEK)
+}
+
 export const emptySubscriptionForm = () => ({
   packageId: '',
   startDate: todayISO(),
   endDate: '',
+  weeks: '',
+  note: '',
 })
+
+export function subscriptionToForm(sub) {
+  return {
+    packageId: sub.packageId || '',
+    startDate: sub.startDate || todayISO(),
+    endDate: sub.endDate || '',
+    weeks: String(weeksBetween(sub.startDate, sub.endDate) || ''),
+    note: sub.note || '',
+  }
+}
 
 export function validateSubscriptionForm(form, packages) {
   if (!form.packageId) return 'Выберите абонемент'
@@ -116,12 +168,14 @@ export function formToSubscriptionDoc(form, pkg, clientId) {
     clientId,
     packageId: pkg.id,
     name: pkg.name,
-    // lessonsTotal и price нужны, чтобы знать цену занятия. Счётчика использованных
-    // уроков нет: остаток выводится из денег.
+    // lessonsTotal и price — снимок тарифа на момент выдачи. Подорожает пакет —
+    // у выданных абонементов цена занятия не поедет, и история не перепишется.
+    // Счётчика использованных уроков нет: остаток выводится из денег.
     lessonsTotal: Number(pkg.lessonsCount) || 0,
     price: Number(pkg.price) || 0,
     startDate: form.startDate,
     endDate: form.endDate || '',
+    note: (form.note || '').trim(),
     status: 'active',
   }
 }
