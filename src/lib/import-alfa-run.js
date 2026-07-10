@@ -17,6 +17,7 @@ const FILE_MAP = {
   'customers-archive.json': 'customersArchive',
   'pays.json': 'pays',
   'groups.json': 'groups',
+  'regular-lessons.json': 'regularLessons',
   'teachers.json': 'teachers',
   'tariffs.json': 'tariffs',
   'customer-tariffs.json': 'customerTariffs',

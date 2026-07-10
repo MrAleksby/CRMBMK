@@ -127,6 +127,8 @@ async function main() {
     ['customers-archive', () => fetchAll(branch, 'customer', { is_study: 0 })],
     ['pays', () => fetchAll(branch, 'pay')],
     ['groups', () => fetchAll(branch, 'group')],
+    // Расписание групп живёт отдельно: день недели, время, период.
+    ['regular-lessons', () => fetchAll(branch, 'regular-lesson')],
     ['teachers', () => fetchAll(branch, 'teacher')],
     ['tariffs', () => fetchAll(branch, 'tariff')],
     ['lessons-conducted', () => fetchAll(branch, 'lesson', { status: LESSON_STATUS.conducted })],

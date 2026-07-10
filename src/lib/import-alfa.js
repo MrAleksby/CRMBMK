@@ -135,17 +135,61 @@ export function mapClient(row) {
   }
 }
 
-export const mapGroup = (row) => ({
+// День недели по ISO: 1 — понедельник, 7 — воскресенье. В AlfaCRM так же.
+const isoWeekday = (isoDate) => {
+  const day = new Date(`${isoDate}T12:00:00`).getDay()
+  return day === 0 ? 7 : day
+}
+
+// Расписание группы. Если у неё есть регулярный урок — берём оттуда.
+// Иначе выводим из фактических занятий: интенсив идёт днями подряд,
+// обычная группа повторяется по одним и тем же дням недели.
+export function groupSchedule(row, regular, groupLessons) {
+  if (regular) {
+    const days = regular.days?.length ? regular.days : [regular.day]
+    return {
+      mode: 'weekly',
+      weekdays: days.filter(Number.isFinite).sort((a, b) => a - b),
+      timeFrom: regular.time_from_v || '',
+      timeTo: regular.time_to_v || '',
+      dateFrom: toISODate(regular.b_date_v || row.b_date),
+      dateTo: toISODate(regular.e_date_v || row.e_date),
+    }
+  }
+
+  const dates = [...new Set(groupLessons.map(l => l.date))].sort()
+  if (dates.length === 0) {
+    return {
+      mode: 'weekly', weekdays: [], timeFrom: '', timeTo: '',
+      dateFrom: toISODate(row.b_date), dateTo: toISODate(row.e_date),
+    }
+  }
+
+  const first = groupLessons.find(l => l.date === dates[0])
+  const timeFrom = String(first?.time_from || '').split(' ')[1]?.slice(0, 5) || ''
+  const timeTo = String(first?.time_to || '').split(' ')[1]?.slice(0, 5) || ''
+
+  // Занятия каждый день подряд — это интенсив.
+  const span = Math.round(
+    (new Date(dates[dates.length - 1]) - new Date(dates[0])) / 86400000) + 1
+  const isRange = dates.length > 1 && span === dates.length
+
+  return {
+    mode: isRange ? 'range' : 'weekly',
+    weekdays: isRange ? [] : [...new Set(dates.map(isoWeekday))].sort((a, b) => a - b),
+    timeFrom,
+    timeTo,
+    dateFrom: dates[0],
+    dateTo: dates[dates.length - 1],
+  }
+}
+
+export const mapGroup = (row, regular, groupLessons = []) => ({
   id: alfaId('a', row.id),
   data: {
     name: row.name,
     teacherId: row.teachers?.[0]?.id ? alfaId('a', row.teachers[0].id) : '',
-    mode: 'weekly',
-    weekdays: [],
-    dateFrom: toISODate(row.b_date),
-    dateTo: toISODate(row.e_date),
-    timeFrom: '',
-    timeTo: '',
+    ...groupSchedule(row, regular, groupLessons),
     studentIds: [],
     archived: false,
     sourceId: `group/${row.id}`,
@@ -260,6 +304,7 @@ export function planImport(dump) {
   const {
     customers = [], customersArchive = [], pays = [], groups = [], teachers = [],
     tariffs = [], customerTariffs = [], lessons = [], payAccounts = [], payItems = [],
+    regularLessons = [],
   } = dump
 
   const allClients = [...customers, ...customersArchive]
@@ -286,15 +331,23 @@ export function planImport(dump) {
 
   // Состав группы AlfaCRM не отдаёт: собираем его из уроков.
   const studentsByGroup = {}
+  const lessonsByGroup = {}
   for (const lesson of lessons) {
     const groupId = (lesson.group_ids || [])[0]
     if (!groupId) continue
     const set = studentsByGroup[groupId] ||= new Set()
     for (const clientId of lesson.customer_ids || []) set.add(alfaId('a', clientId))
+    ;(lessonsByGroup[groupId] ||= []).push(lesson)
+  }
+
+  // Регулярный урок привязан к группе через related_id.
+  const regularByGroup = {}
+  for (const regular of regularLessons) {
+    if (regular.related_class === 'Group') regularByGroup[regular.related_id] = regular
   }
 
   const groupDocs = groups.map(row => {
-    const doc = mapGroup(row)
+    const doc = mapGroup(row, regularByGroup[row.id], lessonsByGroup[row.id] || [])
     doc.data.studentIds = [...(studentsByGroup[row.id] || [])]
     return doc
   })
