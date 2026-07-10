@@ -307,15 +307,6 @@ export default function Finance() {
         </div>
       </div>
 
-      <ActionToolbar
-        count={selection.count}
-        busy={saving}
-        onAdd={() => { setEditing(null); setShowForm(true) }}
-        onEdit={handleEditSelected}
-        onDelete={handleDeleteSelected}
-        onClear={selection.clear}
-      />
-
       <ErrorBanner message={loadError} onRetry={fetchAll} />
 
       {editing && (
@@ -439,8 +430,18 @@ export default function Finance() {
         ))}
       </div>
 
-      {/* Таблица операций */}
+      {/* Таблица операций. Кнопки стоят прямо над ней: действия применяются
+          к отмеченным строкам, и глазами их не приходится связывать через полстраницы. */}
       <div style={card}>
+        <ActionToolbar
+          count={selection.count}
+          busy={saving}
+          onAdd={() => { setEditing(null); setShowForm(true) }}
+          onEdit={handleEditSelected}
+          onDelete={handleDeleteSelected}
+          onClear={selection.clear}
+        />
+
         <div style={{
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           marginBottom: '10px', gap: '12px', flexWrap: 'wrap', fontSize: '13px', color: '#6b7280',

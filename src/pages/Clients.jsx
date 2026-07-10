@@ -204,17 +204,6 @@ export default function Clients() {
         </div>
       </div>
 
-      <ActionToolbar
-        count={selection.count}
-        busy={saving}
-        addLabel="✚ Добавить ученика"
-        editLabel="✎ Открыть карточку"
-        onAdd={() => setShowAddClient(true)}
-        onEdit={() => selection.rows.length === 1 && navigate(`/clients/${selection.rows[0].id}`)}
-        onDelete={handleDeleteSelected}
-        onClear={selection.clear}
-      />
-
       <ErrorBanner message={loadError} onRetry={fetchData} />
 
       {showAddClient && (
@@ -264,6 +253,18 @@ export default function Clients() {
           {filtered.length !== clients.length && ` из ${clients.length}`}.
         </p>
       </div>
+
+      {/* Кнопки стоят прямо над таблицей: они работают с отмеченными строками. */}
+      <ActionToolbar
+        count={selection.count}
+        busy={saving}
+        addLabel="✚ Добавить ученика"
+        editLabel="✎ Открыть карточку"
+        onAdd={() => setShowAddClient(true)}
+        onEdit={() => selection.rows.length === 1 && navigate(`/clients/${selection.rows[0].id}`)}
+        onDelete={handleDeleteSelected}
+        onClear={selection.clear}
+      />
 
       {/* Таблица */}
       {filtered.length === 0 ? (
