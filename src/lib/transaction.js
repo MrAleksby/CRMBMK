@@ -60,7 +60,9 @@ export function validateTransactionForm(form) {
   }
   if (!form.accountId) return 'Выберите кассу'
   if (!form.categoryId) return 'Выберите статью'
-  if (form.kind === KIND_SALARY && !form.teacherId) return 'Выберите педагога'
+  // Педагог у выплаты ЗП необязателен: процент менеджера и аутсорс к нему не привязаны.
+  // В истории AlfaCRM таких выплат 65 из 223.
+  //
   // Возврат уменьшает предоплату конкретного ребёнка — без него операция бессмысленна.
   if (form.kind === KIND_REFUND && !form.clientId) return 'Выберите ученика, которому вернули деньги'
   return null

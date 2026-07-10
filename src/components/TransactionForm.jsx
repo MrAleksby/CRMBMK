@@ -160,9 +160,9 @@ export default function TransactionForm({
 
         {form.kind === KIND_SALARY && (
           <div>
-            <label style={labelStyle}>Педагог *</label>
-            <select required style={inputStyle} value={form.teacherId} onChange={set('teacherId')}>
-              <option value="">Выберите…</option>
+            <label style={labelStyle}>Педагог</label>
+            <select style={inputStyle} value={form.teacherId} onChange={set('teacherId')}>
+              <option value="">Не привязан</option>
               {teachers.filter(t => t.active !== false).map(t => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
@@ -180,6 +180,12 @@ export default function TransactionForm({
       {form.kind === KIND_INCOME && !form.clientId && (
         <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '10px' }}>
           Доход без ученика не влияет на его баланс — так проводят кешбеки и турниры.
+        </p>
+      )}
+
+      {form.kind === KIND_SALARY && !form.teacherId && (
+        <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '10px' }}>
+          Педагога указывают для зарплаты тренера. Процент менеджера и аутсорс к педагогу не привязаны.
         </p>
       )}
 
