@@ -29,3 +29,11 @@ dist-ssr
 
 # Firebase deploy cache
 .firebase
+
+# Выгрузки из AlfaCRM: ФИО детей, телефоны родителей, суммы платежей.
+# Репозиторий публичный — эти файлы не должны попасть в историю git.
+data/
+*.csv
+*.xlsx
+*.xls
+fingam-backup-*.json
