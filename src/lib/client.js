@@ -162,6 +162,36 @@ export function searchText(client) {
   return parts.filter(Boolean).join(' ').toLowerCase()
 }
 
+// Сортировка списка учеников по колонке таблицы. Баланс приходит извне:
+// он считается одним проходом по всем операциям и в клиенте не хранится.
+//
+// Статус сортируется по смыслу — активен, пауза, бросил, — а не по алфавиту:
+// «Активен» и «Бросил» рядом в словаре, но противоположны по делу.
+export function sortClients(list, key, direction, { balance = () => 0 } = {}) {
+  const sign = direction === 'desc' ? -1 : 1
+
+  const value = (client) => {
+    switch (key) {
+      case 'name': return client.childName || ''
+      case 'balance': return balance(client.id)
+      case 'status': return CLIENT_STATUSES.findIndex(s => s.value === (client.status || 'active'))
+      case 'contacts': {
+        const [first] = contactRows(client)
+        return first ? (parentPhones(first)[0] || first.name || '') : ''
+      }
+      case 'notes': return client.notes || ''
+      default: return 0
+    }
+  }
+
+  return [...list].sort((a, b) => {
+    const left = value(a)
+    const right = value(b)
+    if (typeof left === 'number' && typeof right === 'number') return sign * (left - right)
+    return sign * String(left).localeCompare(String(right), 'ru')
+  })
+}
+
 // Заполнение формы при редактировании: старого безымянного родителя
 // подставляем в маму, чтобы данные не пришлось перебивать руками.
 export function clientToForm(client) {

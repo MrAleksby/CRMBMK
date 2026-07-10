@@ -10,11 +10,21 @@ import { clientBalances } from '../lib/balance'
 import { useSelection } from '../lib/selection'
 import ActionToolbar from '../components/ActionToolbar'
 import {
-  getAge, ageLabel, contactRows, statusInfo, genderInfo, searchText,
+  getAge, ageLabel, contactRows, statusInfo, genderInfo, searchText, sortClients,
   CLIENT_STATUSES, instagramUrl, telegramUrl, phoneUrl,
 } from '../lib/client'
 
 const PAGE_SIZE = 50
+
+// Колонки таблицы. Клик по заголовку сортирует, как в AlfaCRM.
+// «Дата след. посещения» пока не считается, сортировать нечего.
+const COLUMNS = [
+  { key: 'name', label: 'ФИО' },
+  { key: 'balance', label: 'Общий остаток' },
+  { key: 'status', label: 'Статус обучения' },
+  { key: 'contacts', label: 'Контакты' },
+  { key: 'notes', label: 'Примечание' },
+]
 
 const inputStyle = {
   background: '#ffffff',
@@ -26,21 +36,23 @@ const inputStyle = {
   outline: 'none',
 }
 
+// Шрифты и отступы в таблице мельче, чем на остальных экранах: так на страницу
+// помещается больше строк, и список читается как в AlfaCRM.
 const th = {
-  textAlign: 'left', padding: '12px 14px', color: '#6b7280',
-  fontSize: '12px', fontWeight: '600', borderBottom: '1px solid #e5e7eb',
+  textAlign: 'left', padding: '9px 12px', color: '#6b7280',
+  fontSize: '11px', fontWeight: '600', borderBottom: '1px solid #e5e7eb',
   whiteSpace: 'nowrap',
 }
 
 const td = (isLast) => ({
-  padding: '12px 14px', fontSize: '13px', color: '#4b5563',
+  padding: '9px 12px', fontSize: '12px', color: '#4b5563',
   borderBottom: isLast ? 'none' : '1px solid #f3f4f6',
   verticalAlign: 'top',
 })
 
 const link = { color: '#4b5563', textDecoration: 'none' }
 
-const muted = { color: '#dc2626', fontStyle: 'italic', fontSize: '12px' }
+const muted = { color: '#dc2626', fontStyle: 'italic', fontSize: '11px' }
 
 // Формат даты рождения под ФИО: «10 лет (04.09.2015)»
 function birthLine(client) {
@@ -57,8 +69,8 @@ function Avatar({ client }) {
   const gender = genderInfo(client)
   return (
     <div style={{
-      width: '34px', height: '34px', borderRadius: '50%', background: '#f3f4f6',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px',
+      width: '30px', height: '30px', borderRadius: '50%', background: '#f3f4f6',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px',
     }}>
       {gender ? gender.icon : '🧒'}
     </div>
@@ -79,6 +91,16 @@ export default function Clients() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterBalance, setFilterBalance] = useState('all')
   const [page, setPage] = useState(1)
+  const [sortKey, setSortKey] = useState('name')
+  const [sortDir, setSortDir] = useState('asc')
+
+  // Повторный клик по той же колонке переворачивает порядок. Деньги и возраст
+  // впервые полезнее видеть по убыванию: сначала крупные должники и старшие.
+  const toggleSort = (key) => {
+    if (key === sortKey) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortKey(key); setSortDir(key === 'balance' ? 'desc' : 'asc') }
+    setPage(1)
+  }
 
   const navigate = useNavigate()
   const selection = useSelection(clients)
@@ -176,16 +198,15 @@ export default function Clients() {
   }
 
   const query = search.trim().toLowerCase()
-  const filtered = clients
-    .filter(c => {
-      if (query && !searchText(c).includes(query)) return false
-      if (filterStatus !== 'all' && (c.status || 'active') !== filterStatus) return false
-      const balance = getBalance(c.id)
-      if (filterBalance === 'debt') return balance < 0
-      if (filterBalance === 'paid') return balance >= 0
-      return true
-    })
-    .sort((a, b) => String(a.childName || '').localeCompare(String(b.childName || ''), 'ru'))
+  const matching = clients.filter(c => {
+    if (query && !searchText(c).includes(query)) return false
+    if (filterStatus !== 'all' && (c.status || 'active') !== filterStatus) return false
+    const balance = getBalance(c.id)
+    if (filterBalance === 'debt') return balance < 0
+    if (filterBalance === 'paid') return balance >= 0
+    return true
+  })
+  const filtered = sortClients(matching, sortKey, sortDir, { balance: getBalance })
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, pageCount)
@@ -288,11 +309,16 @@ export default function Clients() {
                     onChange={() => selection.toggleVisible(visible)} />
                 </th>
                 <th style={{ ...th, width: '50px' }} />
-                <th style={th}>ФИО</th>
-                <th style={th}>Общий остаток</th>
-                <th style={th}>Статус обучения</th>
-                <th style={th}>Контакты</th>
-                <th style={th}>Примечание</th>
+                {COLUMNS.map(col => (
+                  <th key={col.key} style={{ ...th, cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => toggleSort(col.key)}
+                    title="Нажмите, чтобы отсортировать">
+                    {col.label}
+                    <span style={{ color: sortKey === col.key ? '#7c3aed' : '#d1d5db', marginLeft: '4px' }}>
+                      {sortKey === col.key ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+                    </span>
+                  </th>
+                ))}
                 <th style={th}>Дата след. посещения</th>
               </tr>
             </thead>
@@ -315,14 +341,14 @@ export default function Clients() {
 
                     <td style={td(isLast)}>
                       <Link to={`/clients/${c.id}`} style={{
-                        color: '#7c3aed', fontWeight: '600', fontSize: '14px', textDecoration: 'none',
+                        color: '#7c3aed', fontWeight: '600', fontSize: '13px', textDecoration: 'none',
                       }}>
                         {c.childName}
                       </Link>
                       {c.allergies && (
-                        <div style={{ fontSize: '11px', color: '#b91c1c', marginTop: '2px' }}>⚠️ {c.allergies}</div>
+                        <div style={{ fontSize: '10px', color: '#b91c1c', marginTop: '2px' }}>⚠️ {c.allergies}</div>
                       )}
-                      {birth && <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{birth}</div>}
+                      {birth && <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{birth}</div>}
                     </td>
 
                     <td style={{ ...td(isLast), whiteSpace: 'nowrap' }}>
@@ -340,7 +366,7 @@ export default function Clients() {
 
                     <td style={td(isLast)}>
                       <span style={{
-                        fontSize: '12px', padding: '3px 10px', borderRadius: '6px',
+                        fontSize: '11px', padding: '2px 8px', borderRadius: '6px',
                         background: status.background, color: status.color, whiteSpace: 'nowrap',
                       }}>{status.label}</span>
                     </td>
@@ -350,7 +376,7 @@ export default function Clients() {
                       {contacts.map(r => (
                         <div key={r.role} style={{ marginBottom: '4px' }}>
                           {r.phones.map((phone, idx) => (
-                            <div key={`${phone}-${idx}`} style={{ fontSize: '12px' }}>
+                            <div key={`${phone}-${idx}`} style={{ fontSize: '11px' }}>
                               <a href={phoneUrl(phone)} style={{ ...link, color: '#7c3aed' }}>📞 {phone}</a>
                               {(r.name || r.telegram) && (
                                 <span style={{ color: '#6b7280' }}>
@@ -364,7 +390,7 @@ export default function Clients() {
                             </div>
                           ))}
                           {r.phones.length === 0 && r.instagram && (
-                            <div style={{ fontSize: '12px' }}>
+                            <div style={{ fontSize: '11px' }}>
                               <a href={instagramUrl(r.instagram)} target="_blank" rel="noreferrer" style={link}>📸 @{r.instagram}</a>
                             </div>
                           )}
