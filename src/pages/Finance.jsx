@@ -280,12 +280,12 @@ export default function Finance() {
             Фактические приходы и расходы. Долги за проведённые занятия — в карточках учеников
           </p>
         </div>
-        <button onClick={() => { setEditing(null); setShowForm(!showForm) }} style={{
+        <button onClick={() => { setEditing(null); setShowForm(true) }} style={{
           background: '#7c3aed', color: '#fff', border: 'none',
           padding: '10px 20px', borderRadius: '12px', fontSize: '14px',
           fontWeight: '600', cursor: 'pointer',
         }}>
-          {showForm ? 'Закрыть' : '+ Добавить операцию'}
+          + Добавить операцию
         </button>
       </div>
 

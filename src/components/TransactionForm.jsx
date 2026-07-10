@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { TX_KINDS, KIND_INCOME, KIND_SALARY, KIND_REFUND } from '../lib/finance'
 import { emptyTransactionForm, categoriesForKind, validateTransactionForm, suggestPayer } from '../lib/transaction'
 
@@ -9,9 +9,27 @@ const inputStyle = {
 
 const labelStyle = { fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }
 
+// Форма открывается поверх таблицы, как в AlfaCRM. Иначе при прокрутке к нужной
+// строке форма появляется где-то вверху страницы, и кажется, что кнопка не сработала.
+const overlay = {
+  position: 'fixed', inset: 0, background: 'rgba(17, 24, 39, 0.45)',
+  display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+  padding: '40px 16px', zIndex: 100, overflowY: 'auto',
+}
+
 const card = {
   background: '#ffffff', border: '1px solid #e5e7eb',
-  borderRadius: '16px', padding: '20px', marginBottom: '20px',
+  borderRadius: '16px', padding: '20px', width: '100%', maxWidth: '760px',
+}
+
+const header = {
+  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+  marginBottom: '16px',
+}
+
+const closeBtn = {
+  background: 'transparent', border: 'none', color: '#9ca3af',
+  fontSize: '20px', cursor: 'pointer', lineHeight: 1, padding: '4px 8px',
 }
 
 export default function TransactionForm({
@@ -44,20 +62,41 @@ export default function TransactionForm({
     onSubmit(form)
   }
 
+  // Escape закрывает форму — привычнее, чем искать кнопку «Отмена».
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onCancel() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onCancel])
+
   if (activeAccounts.length === 0 || categories.length === 0) {
     return (
-      <div style={card}>
-        <p style={{ fontSize: '14px', color: '#4b5563', margin: 0 }}>
-          Сначала заведите кассы и статьи в Настройках — без них операцию не провести.
-        </p>
+      <div style={overlay} onClick={onCancel}>
+        <div style={card} onClick={e => e.stopPropagation()}>
+          <div style={header}>
+            <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', margin: 0 }}>Новая операция</h3>
+            <button type="button" onClick={onCancel} style={closeBtn}>✕</button>
+          </div>
+          <p style={{ fontSize: '14px', color: '#4b5563', margin: 0 }}>
+            Сначала заведите кассы и статьи в Настройках — без них операцию не провести.
+          </p>
+        </div>
       </div>
     )
   }
 
   return (
-    <form onSubmit={handleSubmit} style={card}>
+    <div style={overlay} onClick={onCancel}>
+    <form onSubmit={handleSubmit} style={card} onClick={e => e.stopPropagation()}>
+      <div style={header}>
+        <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', margin: 0 }}>
+          {editing ? 'Править операцию' : 'Новая операция'}
+        </h3>
+        <button type="button" onClick={onCancel} style={closeBtn} title="Закрыть (Esc)">✕</button>
+      </div>
+
       {/* Тип операции */}
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
         {TX_KINDS.map(k => {
           const active = form.kind === k.value
           return (
@@ -172,5 +211,6 @@ export default function TransactionForm({
         }}>Отмена</button>
       </div>
     </form>
+    </div>
   )
 }
