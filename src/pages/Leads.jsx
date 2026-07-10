@@ -64,6 +64,9 @@ function LeadCard({ lead, onOpen, onDragStart }) {
   const stale = daysOnStage(lead)
   const source = sourceInfo(lead)
   const phone = (lead.phones || [])[0]
+  // В AlfaCRM лида часто заводили как «Лола Рахманова мама» и тем же текстом
+  // подписывали заказчика. Печатать одну строку дважды незачем.
+  const parent = lead.parentName === lead.childName ? '' : lead.parentName
 
   return (
     <div
@@ -76,9 +79,7 @@ function LeadCard({ lead, onOpen, onDragStart }) {
       }}
     >
       <span style={{ fontSize: '13px', fontWeight: '600', color: '#111827' }}>{lead.childName}</span>
-      {lead.parentName && (
-        <span style={{ fontSize: '12px', color: '#6b7280' }}>{lead.parentName}</span>
-      )}
+      {parent && <span style={{ fontSize: '12px', color: '#6b7280' }}>{parent}</span>}
       {phone && <span style={{ fontSize: '12px', color: '#7c3aed' }}>📞 {phone}</span>}
       <div style={{ display: 'flex', gap: '6px', fontSize: '11px', color: '#9ca3af', flexWrap: 'wrap' }}>
         {source && <span>{source.icon} {source.label}</span>}
@@ -349,7 +350,7 @@ export default function Leads() {
             }}>
               <div>
                 <span style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>{lead.childName}</span>
-                {lead.parentName && (
+                {lead.parentName && lead.parentName !== lead.childName && (
                   <span style={{ fontSize: '13px', color: '#6b7280' }}> · {lead.parentName}</span>
                 )}
                 <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
@@ -394,7 +395,9 @@ export default function Leads() {
             </div>
 
             <div style={{ margin: '16px 0' }}>
-              <Row label="Кто обратился">{open.parentName}</Row>
+              <Row label="Кто обратился">
+                {open.parentName === open.childName ? '' : open.parentName}
+              </Row>
               <Row label="Телефоны">
                 {(open.phones || []).map(p => (
                   <a key={p} href={phoneUrl(p)} style={{ color: '#7c3aed', textDecoration: 'none', marginRight: '10px' }}>{p}</a>
