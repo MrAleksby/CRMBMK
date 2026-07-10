@@ -26,43 +26,68 @@ function lessonStyle(lesson) {
   return { background: '#ede9fe', border: '#ddd6fe', color: '#5b21b6' }
 }
 
-function LessonChip({ lesson, clients, onOpen, compact }) {
+// compact — не хватает высоты на список детей (месяц, соседние занятия).
+// dense — не хватает ещё и ширины: несколько занятий делят колонку недели.
+function LessonChip({ lesson, clients, onOpen, compact, dense }) {
   const style = lessonStyle(lesson)
   const names = (lesson.studentIds || [])
     .map(id => clients.find(c => c.id === id)?.childName)
     .filter(Boolean)
 
+  const mark = lesson.status === 'conducted' ? '✓ ' : lesson.status === 'cancelled' ? '⊖ ' : ''
+  const title = `${lesson.timeFrom}–${lesson.timeTo} · ${lesson.groupName || 'Занятие'}`
+
+  // В тесной плитке помещается только час начала и число детей: диапазон времени,
+  // название и значок статуса туда не влезают, а статус и так виден по цвету
+  // и зачёркиванию. Остальное — в подсказке и в карточке занятия.
   return (
-    <div onClick={() => onOpen(lesson)} title={`${lesson.timeFrom}–${lesson.timeTo}`} style={{
+    <div onClick={() => onOpen(lesson)} title={title} style={{
       background: style.background, border: `1px solid ${style.border}`,
-      borderRadius: '8px', padding: compact ? '4px 6px' : '6px 8px',
+      borderRadius: '8px', padding: dense ? '3px 4px' : '6px 8px',
       cursor: 'pointer', overflow: 'hidden', height: '100%',
       textDecoration: style.strike ? 'line-through' : 'none',
     }}>
-      <div style={{ fontSize: '11px', fontWeight: '700', color: style.color }}>
-        {lesson.status === 'conducted' ? '✓ ' : lesson.status === 'cancelled' ? '⊖ ' : ''}
-        {lesson.timeFrom}–{lesson.timeTo}
+      <div style={{
+        fontSize: dense ? '10px' : '11px', fontWeight: '700', color: style.color,
+        whiteSpace: 'nowrap',
+      }}>
+        {dense ? lesson.timeFrom : `${mark}${lesson.timeFrom}–${lesson.timeTo}`}
       </div>
-      <div style={{ fontSize: '12px', color: style.color, fontWeight: '600' }}>
-        {lesson.groupName || 'Занятие'}
-      </div>
+
+      {!dense && (
+        <div style={{ fontSize: '12px', color: style.color, fontWeight: '600' }}>
+          {lesson.groupName || 'Занятие'}
+        </div>
+      )}
+
       {!compact && names.length > 0 && (
         <div style={{ fontSize: '11px', color: style.color, marginTop: '4px', lineHeight: 1.5 }}>
           {names.slice(0, 8).map(n => <div key={n}>· {n}</div>)}
           {names.length > 8 && <div>…и ещё {names.length - 8}</div>}
         </div>
       )}
+
       {compact && (
-        <div style={{ fontSize: '11px', color: style.color }}>👶 {names.length}</div>
+        <div style={{ fontSize: dense ? '10px' : '11px', color: style.color, whiteSpace: 'nowrap' }}>
+          👶 {names.length}
+        </div>
       )}
     </div>
   )
 }
 
+// Неделя должна помещаться в экран целиком: возить её вправо-влево, чтобы увидеть
+// понедельник и воскресенье, неудобно. Поэтому колонки дней сжимаемы —
+// `minmax(0, 1fr)`, а не фиксированные 140px. Нижний порог оставлен на телефон:
+// семь колонок по 90px там всё равно не прочитать, пусть лучше едет вбок.
 function TimeGrid({ days, lessons, clients, onOpen }) {
   return (
     <div style={{ overflowX: 'auto' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: `56px repeat(${days.length}, minmax(140px, 1fr))`, minWidth: days.length > 1 ? '900px' : 'auto' }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: `48px repeat(${days.length}, minmax(0, 1fr))`,
+        minWidth: days.length > 1 ? '640px' : 'auto',
+      }}>
         {/* Шапка с днями */}
         <div />
         {days.map(day => {
@@ -109,8 +134,11 @@ function TimeGrid({ days, lessons, clients, onOpen }) {
                     position: 'absolute', top: `${box.top}px`, height: `${box.height}px`,
                     left: `${index * width}%`, width: `calc(${width}% - 4px)`, padding: '0 2px',
                   }}>
+                    {/* В режиме «День» колонка одна и широкая: там даже соседние
+                        занятия показываются полностью, тесно только в неделе. */}
                     <LessonChip lesson={lesson} clients={clients} onOpen={onOpen}
-                      compact={dayLessons.length > 1} />
+                      compact={dayLessons.length > 1}
+                      dense={days.length > 1 && dayLessons.length > 1} />
                   </div>
                 )
               })}

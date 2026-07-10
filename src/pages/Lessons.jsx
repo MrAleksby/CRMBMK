@@ -351,8 +351,9 @@ export default function Lessons() {
 
   if (loading) return <div style={{ color: '#6b7280', padding: '32px' }}>Загрузка...</div>
 
+  // Шире остальных страниц: недельной сетке нужно место на семь колонок.
   return (
-    <div style={{ maxWidth: '1000px' }}>
+    <div style={{ maxWidth: '1280px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
         <div>
           <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: 0 }}>📅 Уроки</h2>
