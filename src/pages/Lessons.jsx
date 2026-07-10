@@ -10,8 +10,9 @@ import StudentChecklist from '../components/StudentChecklist'
 import LessonCalendar from '../components/LessonCalendar'
 import LessonModal from '../components/LessonModal'
 import { LESSON_STATUSES, todayISO } from '../lib/group'
-import { buildJournal, journalToAttendance, lessonTypeLabel, formatLessonDate } from '../lib/lesson'
+import { buildJournal, journalToAttendance, lessonTypeLabel, formatLessonDate, planAttendanceUpdate } from '../lib/lesson'
 import { activeSubscription, lessonsLeft } from '../lib/subscription'
+import { clientBalances } from '../lib/balance'
 
 const panel = {
   background: '#ffffff',
@@ -51,7 +52,8 @@ export default function Lessons() {
   const [lessons, setLessons] = useState([])
   const [clients, setClients] = useState([])
   const [teachers, setTeachers] = useState([])
-  const [payments, setPayments] = useState([])
+  const [transactions, setTransactions] = useState([])
+  const [charges, setCharges] = useState([])
   const [subscriptions, setSubscriptions] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -72,17 +74,19 @@ export default function Lessons() {
     setLoadError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [ls, cs, ts, ps, ss] = await withTimeout(Promise.all([
+      const [ls, cs, ts, tx, ch, ss] = await withTimeout(Promise.all([
         getDocs(collection(db, 'lessons')),
         getDocs(collection(db, 'clients')),
         getDocs(collection(db, 'teachers')),
-        getDocs(collection(db, 'payments')),
+        getDocs(collection(db, 'transactions')),
+        getDocs(collection(db, 'charges')),
         getDocs(collection(db, 'subscriptions')),
       ]))
       setLessons(ls.docs.map(d => ({ id: d.id, ...d.data() })))
       setClients(cs.docs.map(d => ({ id: d.id, ...d.data() })))
       setTeachers(ts.docs.map(d => ({ id: d.id, ...d.data() })))
-      setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })))
+      setTransactions(tx.docs.map(d => ({ id: d.id, ...d.data() })))
+      setCharges(ch.docs.map(d => ({ id: d.id, ...d.data() })))
       setSubscriptions(ss.docs.map(d => ({ id: d.id, ...d.data() })))
     } catch (e) {
       console.error(e)
@@ -127,12 +131,11 @@ export default function Lessons() {
 
       for (const record of attendance) {
         if (record.status !== 'present' || record.amountCharged <= 0) continue
-        batch.set(doc(collection(db, 'payments')), {
+        batch.set(doc(collection(db, 'charges')), {
           clientId: record.clientId,
           clientName: record.clientName,
           amount: record.amountCharged,
-          type: 'session',
-          sessions: 1,
+          lessons: 1,
           description: lesson.groupName || lessonTypeLabel(lesson.type),
           lessonId: lesson.id,
           date: new Date(`${lesson.date}T${lesson.timeFrom || '00:00'}`),
@@ -151,11 +154,57 @@ export default function Lessons() {
     }
   }
 
-  // Возврат в запланированные: удаляем списания, порождённые этим занятием.
-  // Без этого деньги остались бы списаны за занятие, которого не было.
-  const rollbackPayments = (batch, lessonId) => {
-    const related = payments.filter(p => p.lessonId === lessonId)
-    for (const payment of related) batch.delete(doc(db, 'payments', payment.id))
+  // Правка журнала уже проведённого занятия: суммы иногда приходится исправлять.
+  // Журнал, начисления и абонементы обновляются одной транзакцией, иначе разъедутся.
+  const handleUpdateConducted = async (lesson, rows) => {
+    setSaving(true)
+    try {
+      const plan = planAttendanceUpdate(lesson.attendance, rows, {
+        charges: chargesOf(lesson.id),
+        activeSubFor: clientId => activeSubscription(subscriptions, clientId)?.id || null,
+      })
+
+      const batch = writeBatch(db)
+      batch.update(doc(db, 'lessons', lesson.id), { attendance: plan.attendance })
+
+      for (const [subId, delta] of plan.subscriptionDelta) {
+        batch.update(doc(db, 'subscriptions', subId), { lessonsUsed: increment(delta) })
+      }
+      for (const chargeId of plan.chargesToDelete) {
+        batch.delete(doc(db, 'charges', chargeId))
+      }
+      for (const { id: chargeId, amount } of plan.chargesToUpdate) {
+        batch.update(doc(db, 'charges', chargeId), { amount })
+      }
+      for (const charge of plan.chargesToCreate) {
+        batch.set(doc(collection(db, 'charges')), {
+          ...charge,
+          lessons: 1,
+          description: lesson.groupName || lessonTypeLabel(lesson.type),
+          lessonId: lesson.id,
+          date: new Date(`${lesson.date}T${lesson.timeFrom || '00:00'}`),
+        })
+      }
+
+      await batch.commit()
+      setJournalId(null)
+      setModalId(null)
+      await fetchData()
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Возврат в запланированные: удаляем начисления, порождённые этим занятием.
+  // Без этого долг остался бы висеть за занятие, которого не было.
+  const chargesOf = (lessonId) => charges.filter(c => c.lessonId === lessonId)
+
+  const rollbackCharges = (batch, lessonId) => {
+    const related = chargesOf(lessonId)
+    for (const charge of related) batch.delete(doc(db, 'charges', charge.id))
     return related.length
   }
 
@@ -172,8 +221,8 @@ export default function Lessons() {
   }
 
   const handleReturnToPlanned = async (lesson) => {
-    const related = payments.filter(p => p.lessonId === lesson.id)
-    const total = related.reduce((s, p) => s + (p.amount || 0), 0)
+    const related = chargesOf(lesson.id)
+    const total = related.reduce((s, c) => s + (c.amount || 0), 0)
     const message = related.length
       ? `Вернуть занятие в запланированные?\n\nБудет отменено списаний: ${related.length} на ${total.toLocaleString()} сум. Деньги вернутся на баланс учеников.`
       : 'Вернуть занятие в запланированные?'
@@ -182,7 +231,7 @@ export default function Lessons() {
     setSaving(true)
     try {
       const batch = writeBatch(db)
-      rollbackPayments(batch, lesson.id)
+      rollbackCharges(batch, lesson.id)
       rollbackSubscriptions(batch, lesson)
       batch.update(doc(db, 'lessons', lesson.id), { status: 'planned', attendance: [] })
       await batch.commit()
@@ -196,7 +245,7 @@ export default function Lessons() {
   }
 
   const handleCancel = async (lesson) => {
-    const related = payments.filter(p => p.lessonId === lesson.id)
+    const related = chargesOf(lesson.id)
     const message = related.length
       ? `Отменить занятие?\n\nБудет отменено списаний: ${related.length}. Деньги вернутся на баланс учеников.`
       : 'Отменить занятие?'
@@ -205,7 +254,7 @@ export default function Lessons() {
     setSaving(true)
     try {
       const batch = writeBatch(db)
-      rollbackPayments(batch, lesson.id)
+      rollbackCharges(batch, lesson.id)
       rollbackSubscriptions(batch, lesson)
       batch.update(doc(db, 'lessons', lesson.id), { status: 'cancelled', attendance: [] })
       await batch.commit()
@@ -224,7 +273,7 @@ export default function Lessons() {
   }
 
   const handleDelete = async (lesson) => {
-    const related = payments.filter(p => p.lessonId === lesson.id)
+    const related = chargesOf(lesson.id)
     if (related.length) {
       alert('Сначала верните занятие в запланированные — за ним стоят списания.')
       return
@@ -289,12 +338,7 @@ export default function Lessons() {
   const today = todayISO()
 
   // Баланс ученика: нужен в модалке, чтобы должники были видны красным.
-  const balances = {}
-  for (const payment of payments) {
-    if (!payment.clientId) continue
-    const sign = payment.type === 'income' ? 1 : -1
-    balances[payment.clientId] = (balances[payment.clientId] || 0) + sign * (payment.amount || 0)
-  }
+  const balances = Object.fromEntries(clientBalances(transactions, charges))
 
   const modalLesson = lessons.find(l => l.id === modalId) || null
 
@@ -471,9 +515,14 @@ export default function Lessons() {
                     </>
                   )}
                   {lesson.status === 'conducted' && (
-                    <button onClick={() => handleReturnToPlanned(lesson)} disabled={saving} style={secondaryBtn}>
-                      ↩ Вернуть в запланированные
-                    </button>
+                    <>
+                      <button onClick={() => setJournalId(open ? null : lesson.id)} style={secondaryBtn}>
+                        {open ? 'Закрыть журнал' : '✎ Изменить журнал'}
+                      </button>
+                      <button onClick={() => handleReturnToPlanned(lesson)} disabled={saving} style={secondaryBtn}>
+                        ↩ Вернуть в запланированные
+                      </button>
+                    </>
                   )}
                   {lesson.status === 'cancelled' && (
                     <>
@@ -506,9 +555,12 @@ export default function Lessons() {
               {open && (
                 <div style={{ marginTop: '14px' }}>
                   <LessonJournal
-                    rows={buildJournal(lesson, clients)}
+                    rows={buildJournal(lesson, clients, subscriptions)}
                     saving={saving}
-                    onConduct={rows => handleConduct(lesson, rows)}
+                    editing={lesson.status === 'conducted'}
+                    onConduct={rows => lesson.status === 'conducted'
+                      ? handleUpdateConducted(lesson, rows)
+                      : handleConduct(lesson, rows)}
                     onCancel={() => setJournalId(null)}
                   />
                 </div>

@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { collection, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore'
+import { collection, getDocs, addDoc, doc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import ClientForm from '../components/ClientForm'
 import ErrorBanner from '../components/ErrorBanner'
 import { lessonsLeft } from '../lib/subscription'
+import { clientBalances } from '../lib/balance'
 import {
   getAge, ageLabel, contactRows, statusInfo, genderInfo, searchText,
   CLIENT_STATUSES, instagramUrl, telegramUrl, phoneUrl,
@@ -75,7 +76,8 @@ function Avatar({ client }) {
 
 export default function Clients() {
   const [clients, setClients] = useState([])
-  const [payments, setPayments] = useState([])
+  const [transactions, setTransactions] = useState([])
+  const [charges, setCharges] = useState([])
   const [legalEntities, setLegalEntities] = useState([])
   const [subscriptions, setSubscriptions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -91,14 +93,16 @@ export default function Clients() {
     setLoadError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [cs, ps, les, ss] = await withTimeout(Promise.all([
+      const [cs, tx, ch, les, ss] = await withTimeout(Promise.all([
         getDocs(collection(db, 'clients')),
-        getDocs(collection(db, 'payments')),
+        getDocs(collection(db, 'transactions')),
+        getDocs(collection(db, 'charges')),
         getDocs(collection(db, 'legalEntities')),
         getDocs(collection(db, 'subscriptions')),
       ]))
       setClients(cs.docs.map(d => ({ id: d.id, ...d.data() })))
-      setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })))
+      setTransactions(tx.docs.map(d => ({ id: d.id, ...d.data() })))
+      setCharges(ch.docs.map(d => ({ id: d.id, ...d.data() })))
       setLegalEntities(les.docs.map(d => ({ id: d.id, ...d.data() })))
       setSubscriptions(ss.docs.map(d => ({ id: d.id, ...d.data() })))
     } catch (e) {
@@ -111,12 +115,9 @@ export default function Clients() {
 
   useEffect(() => { fetchData() }, [])
 
-  const getBalance = (clientId) => {
-    const ps = payments.filter(p => p.clientId === clientId)
-    const income = ps.filter(p => p.type === 'income').reduce((s, p) => s + (p.amount || 0), 0)
-    const spent = ps.filter(p => p.type === 'session').reduce((s, p) => s + (p.amount || 0), 0)
-    return income - spent
-  }
+  // Один проход по всем операциям вместо пересчёта на каждого клиента.
+  const balances = useMemo(() => clientBalances(transactions, charges), [transactions, charges])
+  const getBalance = (clientId) => balances.get(clientId) || 0
 
   const handleAddClient = async (data) => {
     setSaving(true)
@@ -132,13 +133,23 @@ export default function Clients() {
     }
   }
 
+  // Клиент и его деньги удаляются одной транзакцией: оборванное удаление
+  // оставило бы операции без владельца.
   const handleDelete = async (client) => {
-    if (!confirm(`Удалить «${client.childName}» и все его платежи?`)) return
+    if (!confirm(`Удалить «${client.childName}»? Вместе с ним удалятся его оплаты, начисления и абонементы.`)) return
     try {
-      await deleteDoc(doc(db, 'clients', client.id))
-      await Promise.all(
-        payments.filter(p => p.clientId === client.id).map(p => deleteDoc(doc(db, 'payments', p.id)))
-      )
+      const batch = writeBatch(db)
+      for (const t of transactions.filter(t => t.clientId === client.id)) {
+        batch.delete(doc(db, 'transactions', t.id))
+      }
+      for (const c of charges.filter(c => c.clientId === client.id)) {
+        batch.delete(doc(db, 'charges', c.id))
+      }
+      for (const s of subscriptions.filter(s => s.clientId === client.id)) {
+        batch.delete(doc(db, 'subscriptions', s.id))
+      }
+      batch.delete(doc(db, 'clients', client.id))
+      await batch.commit()
       await fetchData()
     } catch (e) {
       console.error(e)

@@ -50,6 +50,75 @@ export function journalToAttendance(rows) {
   }))
 }
 
+// Правка журнала уже проведённого занятия.
+//
+// Сумма занятия живёт в двух местах: в журнале (attendance[].amountCharged)
+// и на лицевом счёте ученика (charges.amount). Менять их порознь нельзя —
+// разъедутся. Функция считает, что именно нужно сделать, чтобы после правки
+// journal, charges и абонементы описывали одно и то же.
+//
+// activeSubFor(clientId) — абонемент, с которого списать урок вернувшемуся ученику.
+export function planAttendanceUpdate(oldAttendance, rows, { charges, activeSubFor }) {
+  const before = new Map((oldAttendance || []).map(a => [a.clientId, a]))
+  const chargeOf = new Map(charges.map(c => [c.clientId, c]))
+
+  const attendance = []
+  const subscriptionDelta = new Map()
+  const chargesToCreate = []
+  const chargesToUpdate = []
+  const chargesToDelete = []
+
+  const bumpSub = (subId, delta) => {
+    if (!subId) return
+    subscriptionDelta.set(subId, (subscriptionDelta.get(subId) || 0) + delta)
+  }
+
+  for (const row of rows) {
+    const old = before.get(row.clientId)
+    const wasPresent = old?.status === 'present'
+    const nowPresent = row.status === 'present'
+    const amount = nowPresent ? (Number(row.amount) || 0) : 0
+    const charge = chargeOf.get(row.clientId)
+
+    // Урок с абонемента списан при проведении. Пропуск возвращает его обратно,
+    // возвращение ученика — списывает снова, уже с действующего абонемента.
+    let subscriptionId = old?.subscriptionId
+    if (wasPresent && !nowPresent) {
+      bumpSub(subscriptionId, -1)
+      subscriptionId = undefined
+    } else if (!wasPresent && nowPresent) {
+      subscriptionId = activeSubFor(row.clientId) || undefined
+      bumpSub(subscriptionId, 1)
+    }
+
+    const record = {
+      clientId: row.clientId,
+      clientName: row.clientName,
+      status: row.status,
+      amountCharged: amount,
+    }
+    if (subscriptionId) record.subscriptionId = subscriptionId
+    attendance.push(record)
+
+    // Начисление существует только там, где есть что списывать.
+    if (amount > 0 && !charge) {
+      chargesToCreate.push({ clientId: row.clientId, clientName: row.clientName, amount })
+    } else if (amount > 0 && charge && charge.amount !== amount) {
+      chargesToUpdate.push({ id: charge.id, amount })
+    } else if (amount === 0 && charge) {
+      chargesToDelete.push(charge.id)
+    }
+  }
+
+  // Ученик, убранный из состава занятия, не должен остаться с начислением.
+  const kept = new Set(rows.map(r => r.clientId))
+  for (const charge of charges) {
+    if (!kept.has(charge.clientId)) chargesToDelete.push(charge.id)
+  }
+
+  return { attendance, subscriptionDelta, chargesToCreate, chargesToUpdate, chargesToDelete }
+}
+
 export function validateJournal(rows) {
   for (const row of rows) {
     if (row.status !== 'present') continue

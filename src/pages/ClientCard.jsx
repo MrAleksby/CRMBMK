@@ -16,6 +16,11 @@ import {
   getAge, ageLabel, formatBirthday, contactRows, sourceInfo, genderInfo, statusInfo,
   clientToForm, instagramUrl, telegramUrl, phoneUrl, parentPhones,
 } from '../lib/client'
+import { MONTHS_SHORT } from '../lib/constants'
+import { KIND_INCOME, toJsDate, inPeriod as inMonth, availableYears } from '../lib/finance'
+import { categoriesForKind } from '../lib/transaction'
+import { clientBalance } from '../lib/balance'
+import { sortItems, getDirectory } from '../lib/directories'
 
 const panel = {
   background: '#ffffff',
@@ -59,8 +64,6 @@ const link = { color: '#7c3aed', textDecoration: 'none' }
 
 const notSet = { color: '#dc2626', fontStyle: 'italic', fontSize: '13px' }
 
-const MONTHS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
-
 // Строка правой колонки-сводки: подпись слева, значение справа.
 function SummaryRow({ label, children, action }) {
   return (
@@ -94,7 +97,10 @@ export default function ClientCard() {
   const navigate = useNavigate()
 
   const [client, setClient] = useState(null)
-  const [payments, setPayments] = useState([])
+  const [transactions, setTransactions] = useState([])
+  const [charges, setCharges] = useState([])
+  const [accounts, setAccounts] = useState([])
+  const [categories, setCategories] = useState([])
   const [legalEntities, setLegalEntities] = useState([])
   const [lessons, setLessons] = useState([])
   const [groups, setGroups] = useState([])
@@ -118,9 +124,10 @@ export default function ClientCard() {
     setLoadError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [snap, ps, les, ls, gs, ts, cs, ss, pk] = await withTimeout(Promise.all([
+      const [snap, tx, ch, les, ls, gs, ts, cs, ss, pk, acc, cat] = await withTimeout(Promise.all([
         getDoc(doc(db, 'clients', id)),
-        getDocs(collection(db, 'payments')),
+        getDocs(collection(db, 'transactions')),
+        getDocs(collection(db, 'charges')),
         getDocs(collection(db, 'legalEntities')),
         getDocs(collection(db, 'lessons')),
         getDocs(collection(db, 'groups')),
@@ -128,16 +135,22 @@ export default function ClientCard() {
         getDocs(collection(db, 'clients')),
         getDocs(collection(db, 'subscriptions')),
         getDocs(collection(db, 'packages')),
+        getDocs(collection(db, 'accounts')),
+        getDocs(collection(db, 'categories')),
       ]))
+      const rows = snapshot => snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
       setClient(snap.exists() ? { id: snap.id, ...snap.data() } : null)
-      setPayments(ps.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => p.clientId === id))
-      setLegalEntities(les.docs.map(d => ({ id: d.id, ...d.data() })))
-      setLessons(ls.docs.map(d => ({ id: d.id, ...d.data() })))
-      setGroups(gs.docs.map(d => ({ id: d.id, ...d.data() })))
-      setTeachers(ts.docs.map(d => ({ id: d.id, ...d.data() })))
-      setAllClients(cs.docs.map(d => ({ id: d.id, ...d.data() })))
-      setSubscriptions(ss.docs.map(d => ({ id: d.id, ...d.data() })).filter(x => x.clientId === id))
-      setPackages(pk.docs.map(d => ({ id: d.id, ...d.data() })))
+      setTransactions(rows(tx).filter(t => t.clientId === id))
+      setCharges(rows(ch).filter(c => c.clientId === id))
+      setLegalEntities(rows(les))
+      setLessons(rows(ls))
+      setGroups(rows(gs))
+      setTeachers(rows(ts))
+      setAllClients(rows(cs))
+      setSubscriptions(rows(ss).filter(x => x.clientId === id))
+      setPackages(rows(pk))
+      setAccounts(sortItems(getDirectory('accounts'), rows(acc)))
+      setCategories(sortItems(getDirectory('categories'), rows(cat)))
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -148,42 +161,60 @@ export default function ClientCard() {
 
   useEffect(() => { fetchData() }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const sorted = [...payments].sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0))
+  // Лента лицевого счёта: оплаты и начисления за занятия вперемешку, свежие сверху.
+  const entries = [
+    ...transactions.map(t => ({ ...t, _charge: false })),
+    ...charges.map(c => ({ ...c, _charge: true })),
+  ].sort((a, b) => (toJsDate(b.date)?.getTime() || 0) - (toJsDate(a.date)?.getTime() || 0))
 
-  const inPeriod = (p) => {
-    if (filterMonth === 'all') return true
-    if (!p.date?.seconds) return false
-    const d = new Date(p.date.seconds * 1000)
-    return d.getMonth() === parseInt(filterMonth) && d.getFullYear() === filterYear
-  }
-
-  const sum = (list, type, field = 'amount') =>
-    list.filter(p => p.type === type).reduce((s, p) => s + (p[field] || 0), 0)
-
-  const balance = sum(sorted, 'income') - sum(sorted, 'session')
-  const periodPayments = sorted.filter(inPeriod)
-  const incomeCount = sorted.filter(p => p.type === 'income').length
-  const lessonsDone = sum(sorted, 'session', 'sessions')
+  const balance = clientBalance(transactions, charges, id)
+  const periodEntries = entries.filter(e => inMonth(e, filterMonth, filterYear))
+  const incomeCount = transactions.filter(t => t.kind === KIND_INCOME).length
+  const lessonsDone = charges.reduce((sum, c) => sum + (c.lessons || 0), 0)
   const myLessons = lessons.filter(l => (l.studentIds || []).includes(id))
   const lessonsPlanned = myLessons.filter(l => l.status === 'planned').length
 
+  // Оплата ложится в кассу как обычная доходная операция, начисление — на лицевой счёт.
+  // Дата берётся из формы: платежи часто вносят задним числом.
   const handlePayment = async () => {
     const amount = toAmount(form.amount)
-    if (amount === null) {
-      alert('Введите корректную сумму — неотрицательное число')
+    if (amount === null || amount === 0) {
+      alert('Введите сумму — положительное число')
       return
     }
+    if (form.type === KIND_INCOME && (!form.accountId || !form.categoryId)) {
+      alert('Выберите кассу и статью')
+      return
+    }
+    const date = new Date(`${form.date}T12:00:00`)
+    if (Number.isNaN(date.getTime())) {
+      alert('Укажите дату операции')
+      return
+    }
+
     setSaving(true)
     try {
-      await addDoc(collection(db, 'payments'), {
-        clientId: id,
-        clientName: client.childName,
-        amount,
-        type: form.type,
-        sessions: form.type === 'session' ? (toCount(form.sessions, 1) ?? 1) : 0,
-        description: form.description || '',
-        date: new Date(),
-      })
+      if (form.type === KIND_INCOME) {
+        await addDoc(collection(db, 'transactions'), {
+          kind: KIND_INCOME,
+          clientId: id,
+          clientName: client.childName,
+          amount,
+          accountId: form.accountId,
+          categoryId: form.categoryId,
+          comment: form.description || '',
+          date,
+        })
+      } else {
+        await addDoc(collection(db, 'charges'), {
+          clientId: id,
+          clientName: client.childName,
+          amount,
+          lessons: toCount(form.sessions, 1) ?? 1,
+          description: form.description || '',
+          date,
+        })
+      }
       setForm({ open: false })
       await fetchData()
     } catch (e) {
@@ -208,11 +239,24 @@ export default function ClientCard() {
     }
   }
 
+  // Одной транзакцией: иначе оборванное удаление оставит платежи без клиента,
+  // и они будут вечно висеть в отчётах.
   const handleDeleteClient = async () => {
-    if (!confirm('Удалить клиента и все его платежи?')) return
-    await deleteDoc(doc(db, 'clients', id))
-    await Promise.all(payments.map(p => deleteDoc(doc(db, 'payments', p.id))))
-    navigate('/clients')
+    if (!confirm('Удалить ученика? Вместе с ним удалятся его оплаты, начисления и абонементы.')) return
+    setSaving(true)
+    try {
+      const batch = writeBatch(db)
+      for (const t of transactions) batch.delete(doc(db, 'transactions', t.id))
+      for (const c of charges) batch.delete(doc(db, 'charges', c.id))
+      for (const s of subscriptions) batch.delete(doc(db, 'subscriptions', s.id))
+      batch.delete(doc(db, 'clients', id))
+      await batch.commit()
+      navigate('/clients')
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+      setSaving(false)
+    }
   }
 
   // Записываем ТОЛЬКО на отмеченные занятия. Группа здесь — фильтр списка,
@@ -329,9 +373,21 @@ export default function ClientCard() {
     }
   }
 
-  const handleDeletePayment = async (paymentId) => {
-    await deleteDoc(doc(db, 'payments', paymentId))
-    await fetchData()
+  // Начисление за проведённое занятие удалять нельзя: за ним стоит журнал.
+  // Такое списание снимается только откатом занятия на странице «Уроки».
+  const handleDeleteEntry = async (entry) => {
+    if (entry._charge && entry.lessonId) {
+      alert('Это списание за проведённое занятие. Верните занятие в запланированные на странице «Уроки».')
+      return
+    }
+    if (!confirm('Удалить запись? Баланс пересчитается.')) return
+    try {
+      await deleteDoc(doc(db, entry._charge ? 'charges' : 'transactions', entry.id))
+      await fetchData()
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    }
   }
 
   if (loading) return <div style={{ color: '#6b7280', padding: '32px' }}>Загрузка...</div>
@@ -369,7 +425,7 @@ export default function ClientCard() {
   const birthday = formatBirthday(client.birthDate)
   const contacts = contactRows(client)
   const isPaid = balance >= 0
-  const periodLabel = filterMonth !== 'all' ? `${MONTHS[filterMonth]} ${filterYear}` : 'за всё время'
+  const periodLabel = filterMonth !== 'all' ? `${MONTHS_SHORT[filterMonth]} ${filterYear}` : 'за всё время'
 
   // Заказчик — тот, кто платит: юрлицо или родитель (мама приоритетнее).
   const legalPayer = client.payerType === 'legal'
@@ -397,9 +453,8 @@ export default function ClientCard() {
     .filter(l => l.status === 'planned' && l.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date))
 
-  const years = [...new Set(sorted.map(p => p.date?.seconds
-    ? new Date(p.date.seconds * 1000).getFullYear() : null).filter(Boolean))]
-  if (!years.includes(new Date().getFullYear())) years.push(new Date().getFullYear())
+  const years = availableYears(entries)
+  const incomeCategories = categoriesForKind(categories, KIND_INCOME)
 
   return (
     <div style={{ maxWidth: '1100px' }}>
@@ -467,20 +522,25 @@ export default function ClientCard() {
               <div style={{ display: 'flex', gap: '8px' }}>
                 <select style={{ ...inputStyle, width: '120px' }} value={filterMonth} onChange={e => setFilterMonth(e.target.value)}>
                   <option value="all">Все месяцы</option>
-                  {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                  {MONTHS_SHORT.map((m, i) => <option key={i} value={i}>{m}</option>)}
                 </select>
                 <select style={{ ...inputStyle, width: '90px' }} value={filterYear} onChange={e => setFilterYear(Number(e.target.value))}>
-                  {years.sort().map(y => <option key={y} value={y}>{y}</option>)}
+                  {years.map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
               </div>
             </div>
 
             {!form.open && (
               <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-                <button onClick={() => setForm({ open: true, type: 'income', amount: '', sessions: '', description: '' })} style={btn('#059669')}>
+                <button style={btn('#059669')} onClick={() => setForm({
+                  open: true, type: KIND_INCOME, amount: '', sessions: '', description: '',
+                  date: today, accountId: accounts[0]?.id || '', categoryId: incomeCategories[0]?.id || '',
+                })}>
                   💰 Принять оплату
                 </button>
-                <button onClick={() => setForm({ open: true, type: 'session', amount: '', sessions: '', description: '' })} style={btn()}>
+                <button style={btn()} onClick={() => setForm({
+                  open: true, type: 'charge', amount: '', sessions: '', description: '', date: today,
+                })}>
                   🏃 Записать занятие
                 </button>
               </div>
@@ -488,73 +548,116 @@ export default function ClientCard() {
 
             {form.open && (
               <div style={{ background: '#f7f8fa', borderRadius: '12px', padding: '14px', marginBottom: '14px' }}>
-                <p style={{ fontWeight: '600', fontSize: '14px', marginBottom: '12px', color: form.type === 'income' ? '#059669' : '#7c3aed' }}>
-                  {form.type === 'income' ? '💰 Принять оплату' : '🏃 Записать занятие'}
+                <p style={{ fontWeight: '600', fontSize: '14px', marginBottom: '12px', color: form.type === KIND_INCOME ? '#059669' : '#7c3aed' }}>
+                  {form.type === KIND_INCOME ? '💰 Принять оплату' : '🏃 Записать занятие'}
                 </p>
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                  <div>
-                    <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
-                      {form.type === 'income' ? 'Сумма оплаты (сум) *' : 'Стоимость занятия (сум) *'}
-                    </label>
-                    <input type="number" min="0" placeholder="0" style={{ ...inputStyle, width: '140px' }}
-                      value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
-                  </div>
-                  {form.type === 'session' && (
+
+                {form.type === KIND_INCOME && (accounts.length === 0 || incomeCategories.length === 0) ? (
+                  <p style={{ fontSize: '13px', color: '#b91c1c', margin: 0 }}>
+                    ⚠️ Сначала заведите кассы и доходные статьи в Настройках.
+                  </p>
+                ) : (
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                     <div>
-                      <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Кол-во занятий</label>
-                      <input type="number" min="1" placeholder="1" style={{ ...inputStyle, width: '100px' }}
-                        value={form.sessions} onChange={e => setForm({ ...form, sessions: e.target.value })} />
+                      <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
+                        {form.type === KIND_INCOME ? 'Сумма оплаты (сум) *' : 'Стоимость занятия (сум) *'}
+                      </label>
+                      <input type="number" min="0" inputMode="numeric" placeholder="0" style={{ ...inputStyle, width: '140px' }}
+                        value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
                     </div>
-                  )}
-                  <div style={{ flex: 1, minWidth: '150px' }}>
-                    <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Комментарий</label>
-                    <input placeholder="Необязательно" style={inputStyle}
-                      value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Дата *</label>
+                      <input type="date" style={{ ...inputStyle, width: '150px' }}
+                        value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
+                    </div>
+
+                    {form.type === KIND_INCOME ? (
+                      <>
+                        <div>
+                          <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Касса *</label>
+                          <select style={{ ...inputStyle, width: '140px' }}
+                            value={form.accountId} onChange={e => setForm({ ...form, accountId: e.target.value })}>
+                            {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Статья *</label>
+                          <select style={{ ...inputStyle, width: '170px' }}
+                            value={form.categoryId} onChange={e => setForm({ ...form, categoryId: e.target.value })}>
+                            {incomeCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                        </div>
+                      </>
+                    ) : (
+                      <div>
+                        <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Кол-во занятий</label>
+                        <input type="number" min="1" placeholder="1" style={{ ...inputStyle, width: '100px' }}
+                          value={form.sessions} onChange={e => setForm({ ...form, sessions: e.target.value })} />
+                      </div>
+                    )}
+
+                    <div style={{ flex: 1, minWidth: '150px' }}>
+                      <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Комментарий</label>
+                      <input placeholder="Необязательно" style={inputStyle}
+                        value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+                    </div>
+
+                    <button onClick={handlePayment} disabled={saving || !form.amount}
+                      style={{ ...btn(form.type === KIND_INCOME ? '#059669' : '#7c3aed'), opacity: (!form.amount || saving) ? 0.6 : 1 }}>
+                      Сохранить
+                    </button>
+                    <button onClick={() => setForm({ open: false })} style={{
+                      background: 'transparent', color: '#6b7280', border: '1px solid #e5e7eb',
+                      padding: '8px 14px', borderRadius: '10px', fontSize: '13px', cursor: 'pointer',
+                    }}>✕</button>
                   </div>
-                  <button onClick={handlePayment} disabled={saving || !form.amount}
-                    style={{ ...btn(form.type === 'income' ? '#059669' : '#7c3aed'), opacity: (!form.amount || saving) ? 0.6 : 1 }}>
-                    Сохранить
-                  </button>
-                  <button onClick={() => setForm({ open: false })} style={{
-                    background: 'transparent', color: '#6b7280', border: '1px solid #e5e7eb',
-                    padding: '8px 14px', borderRadius: '10px', fontSize: '13px', cursor: 'pointer',
-                  }}>✕</button>
-                </div>
+                )}
               </div>
             )}
 
-            {periodPayments.length === 0 ? (
+            {periodEntries.length === 0 ? (
               <p style={{ color: '#6b7280', fontSize: '13px' }}>Записей {periodLabel} нет</p>
             ) : (
               <div>
-                {periodPayments.map((p, i) => (
-                  <div key={p.id} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '10px 0', gap: '10px',
-                    borderBottom: i < periodPayments.length - 1 ? '1px solid #f3f4f6' : 'none',
-                  }}>
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
-                      <span style={{ fontSize: '13px', color: '#6b7280' }}>
-                        {p.date?.seconds ? new Date(p.date.seconds * 1000).toLocaleDateString('ru') : '—'}
-                      </span>
-                      {p.type === 'income' ? (
-                        <span style={chip('#dcfce7', '#059669')}>💰 Оплата</span>
-                      ) : (
-                        <span style={chip('#ede9fe', '#5b21b6')}>🏃 {p.sessions} зан.</span>
-                      )}
-                      {p.description && <span style={{ fontSize: '12px', color: '#6b7280' }}>{p.description}</span>}
+                {periodEntries.map((entry, i) => {
+                  const date = toJsDate(entry.date)
+                  const locked = entry._charge && !!entry.lessonId
+                  const note = entry._charge ? entry.description : entry.comment
+                  return (
+                    <div key={`${entry._charge ? 'c' : 't'}-${entry.id}`} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '10px 0', gap: '10px',
+                      borderBottom: i < periodEntries.length - 1 ? '1px solid #f3f4f6' : 'none',
+                    }}>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
+                        <span style={{ fontSize: '13px', color: '#6b7280' }}>
+                          {date ? date.toLocaleDateString('ru') : '—'}
+                        </span>
+                        {entry._charge ? (
+                          <span style={chip('#ffedd5', '#c2410c')}>🏃 {entry.lessons || 1} зан.</span>
+                        ) : (
+                          <span style={chip('#dcfce7', '#059669')}>💰 Оплата</span>
+                        )}
+                        {note && <span style={{ fontSize: '12px', color: '#6b7280' }}>{note}</span>}
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0 }}>
+                        <span style={{ fontWeight: '700', fontSize: '14px', color: entry._charge ? '#dc2626' : '#059669' }}>
+                          {entry._charge ? '−' : '+'}{(entry.amount || 0).toLocaleString()} сум
+                        </span>
+                        {locked ? (
+                          <span title="Списание за проведённое занятие. Снимается откатом занятия."
+                            style={{ color: '#9ca3af', fontSize: '13px', padding: '2px 6px' }}>🔒</span>
+                        ) : (
+                          <button onClick={() => handleDeleteEntry(entry)} style={{
+                            background: 'transparent', color: '#9ca3af', border: 'none',
+                            cursor: 'pointer', fontSize: '14px', padding: '2px 6px',
+                          }}>✕</button>
+                        )}
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0 }}>
-                      <span style={{ fontWeight: '700', fontSize: '14px', color: p.type === 'income' ? '#059669' : '#dc2626' }}>
-                        {p.type === 'income' ? '+' : '-'}{(p.amount || 0).toLocaleString()} сум
-                      </span>
-                      <button onClick={() => handleDeletePayment(p.id)} style={{
-                        background: 'transparent', color: '#9ca3af', border: 'none',
-                        cursor: 'pointer', fontSize: '14px', padding: '2px 6px',
-                      }}>✕</button>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>

@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { DIRECTORIES } from '../lib/directories'
 import DirectoryTable from '../components/DirectoryTable'
+import MigrationPanel from '../components/MigrationPanel'
+
+const MIGRATION = 'migration'
 
 const tab = (isActive) => ({
   background: isActive ? '#ede9fe' : 'transparent',
@@ -16,7 +19,7 @@ const tab = (isActive) => ({
 
 export default function Settings() {
   const [activeKey, setActiveKey] = useState(DIRECTORIES[0].key)
-  const dir = DIRECTORIES.find(d => d.key === activeKey)
+  const dir = DIRECTORIES.find(d => d.key === activeKey) ?? DIRECTORIES[0]
 
   return (
     <div style={{ maxWidth: '900px' }}>
@@ -33,9 +36,12 @@ export default function Settings() {
             {d.icon} {d.label}
           </button>
         ))}
+        <button onClick={() => setActiveKey(MIGRATION)} style={tab(activeKey === MIGRATION)}>
+          🔄 Перенос финансов
+        </button>
       </div>
 
-      <DirectoryTable dir={dir} />
+      {activeKey === MIGRATION ? <MigrationPanel /> : <DirectoryTable dir={dir} />}
     </div>
   )
 }

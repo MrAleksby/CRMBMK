@@ -22,7 +22,7 @@ const ghostBtn = {
   padding: '8px 14px', borderRadius: '10px', fontSize: '13px', cursor: 'pointer',
 }
 
-export default function LessonJournal({ rows: initialRows, saving, onConduct, onCancel }) {
+export default function LessonJournal({ rows: initialRows, saving, editing = false, onConduct, onCancel }) {
   const [rows, setRows] = useState(initialRows)
   const [error, setError] = useState('')
 
@@ -91,16 +91,25 @@ export default function LessonJournal({ rows: initialRows, saving, onConduct, on
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ fontSize: '13px', color: '#4b5563' }}>
-          Придёт {presentCount} из {rows.length}. Спишется{' '}
+          {editing ? 'Пришло' : 'Придёт'} {presentCount} из {rows.length}.{' '}
+          {editing ? 'Списано' : 'Спишется'}{' '}
           <b style={{ color: '#111827' }}>{total.toLocaleString()} сум</b>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button onClick={handleConduct} disabled={saving} style={{ ...btn('#059669'), opacity: saving ? 0.6 : 1 }}>
-            {saving ? 'Проводим...' : '✓ Провести занятие'}
+            {saving
+              ? (editing ? 'Сохраняем...' : 'Проводим...')
+              : (editing ? '✓ Сохранить изменения' : '✓ Провести занятие')}
           </button>
           <button onClick={onCancel} style={ghostBtn}>Отмена</button>
         </div>
       </div>
+
+      {editing && (
+        <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '10px' }}>
+          Правка пересчитает начисления на лицевых счетах и остатки по абонементам.
+        </p>
+      )}
 
       {error && (
         <p style={{

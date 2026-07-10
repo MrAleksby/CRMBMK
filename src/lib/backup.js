@@ -6,18 +6,19 @@ import { db, auth } from '../firebase'
 export async function downloadBackup() {
   if (auth.currentUser) await auth.currentUser.getIdToken()
 
-  const [clients, payments, expenses] = await Promise.all([
-    getDocs(collection(db, 'clients')),
-    getDocs(collection(db, 'payments')),
-    getDocs(collection(db, 'expenses')),
-  ])
+  // payments и expenses — старая модель. Пока не удалены, копируем и их:
+  // бэкап должен пережить миграцию на transactions/charges.
+  const names = [
+    'clients', 'transactions', 'charges', 'payments', 'expenses',
+    'groups', 'lessons', 'subscriptions',
+    'teachers', 'packages', 'accounts', 'categories', 'legalEntities',
+  ]
+  const snapshots = await Promise.all(names.map(name => getDocs(collection(db, name))))
 
   const dump = snap => snap.docs.map(d => ({ id: d.id, ...d.data() }))
   const data = {
     exportedAt: new Date().toISOString(),
-    clients: dump(clients),
-    payments: dump(payments),
-    expenses: dump(expenses),
+    ...Object.fromEntries(names.map((name, i) => [name, dump(snapshots[i])])),
   }
 
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })

@@ -1,0 +1,97 @@
+// Финансовая модель.
+//
+// Две разные по природе сущности лежат в разных коллекциях:
+//
+//   transactions — движение реальных денег. У каждой операции есть касса
+//                  и статья, поэтому отчёт по кассам сходится по построению.
+//   charges      — начисление ученику за проведённое занятие. Денег не двигает,
+//                  кассы не имеет: растёт долг на лицевом счёте.
+//
+// Смешивать их нельзя: иначе любой отчёт по кассам обязан помнить про фильтр,
+// и первая же забытая проверка испортит цифры.
+
+export const KIND_INCOME = 'income'
+export const KIND_EXPENSE = 'expense'
+export const KIND_SALARY = 'salary'
+
+// Знак операции в кассе. Начисления (charges) здесь не участвуют.
+const SIGN = { [KIND_INCOME]: 1, [KIND_EXPENSE]: -1, [KIND_SALARY]: -1 }
+
+export const TX_KINDS = [
+  { value: KIND_INCOME, label: 'Доход', icon: '💰', color: '#059669' },
+  { value: KIND_EXPENSE, label: 'Расход', icon: '📉', color: '#dc2626' },
+  { value: KIND_SALARY, label: 'Выплата ЗП', icon: '👥', color: '#dc2626' },
+]
+
+export const kindMeta = (kind) => TX_KINDS.find(k => k.value === kind) ?? TX_KINDS[0]
+
+// Firestore отдаёт Timestamp, форма — Date, бэкап — { seconds }.
+export function toJsDate(value) {
+  if (!value) return null
+  if (value instanceof Date) return value
+  if (typeof value.toDate === 'function') return value.toDate()
+  if (Number.isFinite(value.seconds)) return new Date(value.seconds * 1000)
+  return null
+}
+
+export function inPeriod(item, month, year) {
+  if (month === 'all') return true
+  const date = toJsDate(item.date)
+  if (!date) return false
+  return date.getMonth() === Number(month) && date.getFullYear() === year
+}
+
+export const sumAmount = (list) => list.reduce((total, item) => total + (item.amount || 0), 0)
+
+const ofKind = (transactions, kind) => transactions.filter(t => t.kind === kind)
+
+export const incomeTotal = (transactions) => sumAmount(ofKind(transactions, KIND_INCOME))
+export const expenseTotal = (transactions) => sumAmount(ofKind(transactions, KIND_EXPENSE))
+export const salaryTotal = (transactions) => sumAmount(ofKind(transactions, KIND_SALARY))
+
+// Сколько денег у компании: всё пришедшее минус всё выплаченное.
+// Начисления за занятия не участвуют — они не деньги, а долг ученика.
+export const companyBalance = (transactions) =>
+  transactions.reduce((total, t) => total + (SIGN[t.kind] ?? 0) * (t.amount || 0), 0)
+
+// Реализованная прибыль: заработано занятиями минус потрачено.
+// Считается по начислениям, а не по оплатам — предоплата ещё не заработана.
+export const realizedProfit = (charges, transactions) =>
+  sumAmount(charges) - expenseTotal(transactions) - salaryTotal(transactions)
+
+// Остаток по каждой кассе за всё время. Порядок — как в справочнике.
+export function accountTotals(transactions, accounts) {
+  const totals = new Map()
+  for (const t of transactions) {
+    const sign = SIGN[t.kind] ?? 0
+    totals.set(t.accountId, (totals.get(t.accountId) || 0) + sign * (t.amount || 0))
+  }
+  return accounts.map(account => ({
+    ...account,
+    total: totals.get(account.id) || 0,
+  }))
+}
+
+// Обороты по статьям за период. Пустые статьи не показываем.
+export function categoryTotals(transactions, categories) {
+  const totals = new Map()
+  for (const t of transactions) {
+    totals.set(t.categoryId, (totals.get(t.categoryId) || 0) + (t.amount || 0))
+  }
+  return categories
+    .map(category => ({ ...category, total: totals.get(category.id) || 0 }))
+    .filter(category => category.total > 0)
+}
+
+// Годы, за которые вообще есть записи. Текущий год всегда доступен для фильтра.
+export function availableYears(...lists) {
+  const years = new Set()
+  for (const list of lists) {
+    for (const item of list) {
+      const date = toJsDate(item.date)
+      if (date) years.add(date.getFullYear())
+    }
+  }
+  years.add(new Date().getFullYear())
+  return [...years].sort()
+}

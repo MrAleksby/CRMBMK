@@ -43,6 +43,36 @@ service cloud.firestore {
         && request.resource.data.category is string;
     }
 
+    // --- transactions: движение реальных денег ---
+    // Каждая операция обязана иметь кассу и статью, иначе отчёт по кассам
+    // не сойдётся. Начисления за занятия сюда не попадают — они в charges.
+    match /transactions/{id} {
+      allow read, delete: if isAllowed();
+      allow create, update: if isAllowed()
+        && request.resource.data.amount is number
+        && request.resource.data.amount >= 0
+        && request.resource.data.kind in ['income', 'expense', 'salary']
+        && request.resource.data.accountId is string
+        && request.resource.data.accountId.size() > 0
+        && request.resource.data.categoryId is string
+        && request.resource.data.categoryId.size() > 0
+        && request.resource.data.date is timestamp;
+    }
+
+    // --- charges: начисления ученику за проведённые занятия ---
+    // Денег не двигают, кассы не имеют. lessonId связывает с занятием
+    // и позволяет откатить проведение.
+    match /charges/{id} {
+      allow read, delete: if isAllowed();
+      allow create, update: if isAllowed()
+        && request.resource.data.amount is number
+        && request.resource.data.amount >= 0
+        && request.resource.data.clientId is string
+        && request.resource.data.clientId.size() > 0
+        && request.resource.data.lessons is number
+        && request.resource.data.date is timestamp;
+    }
+
     // --- группы (серии занятий) ---
     match /groups/{id} {
       allow read, delete: if isAllowed();

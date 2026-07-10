@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
 import { signOut } from 'firebase/auth'
 import { auth } from './firebase'
 import { useAuth } from './AuthContext'
@@ -10,7 +10,6 @@ import ClientCard from './pages/ClientCard'
 import Groups from './pages/Groups'
 import Lessons from './pages/Lessons'
 import Finance from './pages/Finance'
-import Expenses from './pages/Expenses'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
 
@@ -20,7 +19,6 @@ const NAV_ITEMS = [
   { to: '/groups', label: 'Группы', icon: '👥' },
   { to: '/lessons', label: 'Уроки', icon: '📅' },
   { to: '/finance', label: 'Финансы', icon: '💰' },
-  { to: '/expenses', label: 'Расходы', icon: '📉' },
   { to: '/settings', label: 'Настройки', icon: '⚙️' },
 ]
 
@@ -135,7 +133,8 @@ function App() {
             <Route path="/groups" element={<Groups />} />
             <Route path="/lessons" element={<Lessons />} />
             <Route path="/finance" element={<Finance />} />
-            <Route path="/expenses" element={<Expenses />} />
+            {/* Расходы переехали в «Финансы». Старые закладки не должны ломаться. */}
+            <Route path="/expenses" element={<Navigate to="/finance" replace />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>
