@@ -16,11 +16,11 @@ import Login from './pages/Login'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Дашборд', icon: '📊', end: true },
-  { to: '/leads', label: 'Лиды', icon: '🎯' },
-  { to: '/clients', label: 'Клиенты', icon: '👶' },
-  { to: '/groups', label: 'Группы', icon: '👥' },
   { to: '/lessons', label: 'Уроки', icon: '📅' },
+  { to: '/clients', label: 'Клиенты', icon: '👶' },
   { to: '/finance', label: 'Финансы', icon: '💰' },
+  { to: '/groups', label: 'Группы', icon: '👥' },
+  { to: '/leads', label: 'Лиды', icon: '🎯' },
   { to: '/settings', label: 'Настройки', icon: '⚙️' },
 ]
 
