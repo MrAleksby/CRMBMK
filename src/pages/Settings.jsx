@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { DIRECTORIES } from '../lib/directories'
 import DirectoryTable from '../components/DirectoryTable'
 import MigrationPanel from '../components/MigrationPanel'
+import AlfaImportPanel from '../components/AlfaImportPanel'
 
 const MIGRATION = 'migration'
+const IMPORT = 'import'
 
 const tab = (isActive) => ({
   background: isActive ? '#ede9fe' : 'transparent',
@@ -39,9 +41,14 @@ export default function Settings() {
         <button onClick={() => setActiveKey(MIGRATION)} style={tab(activeKey === MIGRATION)}>
           🔄 Перенос финансов
         </button>
+        <button onClick={() => setActiveKey(IMPORT)} style={tab(activeKey === IMPORT)}>
+          📥 Импорт из AlfaCRM
+        </button>
       </div>
 
-      {activeKey === MIGRATION ? <MigrationPanel /> : <DirectoryTable dir={dir} />}
+      {activeKey === MIGRATION ? <MigrationPanel />
+        : activeKey === IMPORT ? <AlfaImportPanel />
+        : <DirectoryTable dir={dir} />}
     </div>
   )
 }

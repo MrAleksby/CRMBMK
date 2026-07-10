@@ -41,6 +41,7 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
 
   const total = journalTotal(rows)
   const presentCount = rows.filter(r => r.status === 'present').length
+  const paidSkips = rows.filter(r => r.status !== 'present' && Number(r.amount) > 0).length
 
   if (rows.length === 0) {
     return (
@@ -77,14 +78,12 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
               }}>{ATTENDANCE[row.status].label}</span>
             </label>
 
-            {present ? (
-              <input type="number" min="0" placeholder="Сумма" style={inputStyle}
-                value={row.amount} onChange={e => update(row.clientId, { amount: e.target.value })} />
-            ) : (
-              <span style={{ fontSize: '13px', color: '#9ca3af', width: '130px', textAlign: 'right' }}>
-                не списывается
-              </span>
-            )}
+            {/* У отсутствующего сумма тоже вводится: пропуск без предупреждения
+                руководитель может решить списать. Пусто — значит прощён. */}
+            <input type="number" min="0" inputMode="numeric" style={inputStyle}
+              placeholder={present ? 'Сумма' : 'Не списывать'}
+              title={present ? undefined : 'Пропуск: оставьте пустым, если причина уважительная'}
+              value={row.amount} onChange={e => update(row.clientId, { amount: e.target.value })} />
           </div>
         )
       })}
@@ -94,6 +93,11 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
           {editing ? 'Пришло' : 'Придёт'} {presentCount} из {rows.length}.{' '}
           {editing ? 'Списано' : 'Спишется'}{' '}
           <b style={{ color: '#111827' }}>{total.toLocaleString()} сум</b>
+          {paidSkips > 0 && (
+            <span style={{ color: '#b45309' }}>
+              {' '}· платных пропусков: {paidSkips}
+            </span>
+          )}
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button onClick={handleConduct} disabled={saving} style={{ ...btn('#059669'), opacity: saving ? 0.6 : 1 }}>

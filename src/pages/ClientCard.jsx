@@ -9,7 +9,7 @@ import ErrorBanner from '../components/ErrorBanner'
 import AttendanceWidget from '../components/AttendanceWidget'
 import SubscriptionForm from '../components/SubscriptionForm'
 import {
-  remaining, lessonsLeft, subscriptionStatus, periodLabel as subPeriod,
+  lessonsLeft, subscriptionStatus, subscriptionPerLesson, periodLabel as subPeriod,
   formToSubscriptionDoc,
 } from '../lib/subscription'
 import {
@@ -337,12 +337,10 @@ export default function ClientCard() {
     }
   }
 
+  // Абонемент задаёт лишь цену занятия. Удаление не трогает ни деньги,
+  // ни проведённые занятия — пересчитается только остаток в уроках.
   const handleDeleteSubscription = async (sub) => {
-    const used = sub.lessonsUsed || 0
-    const message = used > 0
-      ? `Удалить абонемент «${sub.name}»?\n\nПо нему уже проведено уроков: ${used}. Списания денег останутся, вернётся только счётчик уроков.`
-      : `Удалить абонемент «${sub.name}»?`
-    if (!confirm(message)) return
+    if (!confirm(`Удалить абонемент «${sub.name}»?\n\nСписания и оплаты останутся. Изменится только остаток в уроках.`)) return
     try {
       await deleteDoc(doc(db, 'subscriptions', sub.id))
       await fetchData()
@@ -425,6 +423,8 @@ export default function ClientCard() {
   const birthday = formatBirthday(client.birthDate)
   const contacts = contactRows(client)
   const isPaid = balance >= 0
+  // Плюс — предоплаченные занятия, минус — неоплаченные проведённые.
+  const lessonsInStock = lessonsLeft(subscriptions, id, balance, charges, client)
   const periodLabel = filterMonth !== 'all' ? `${MONTHS_SHORT[filterMonth]} ${filterYear}` : 'за всё время'
 
   // Заказчик — тот, кто платит: юрлицо или родитель (мама приоритетнее).
@@ -669,8 +669,9 @@ export default function ClientCard() {
             <span style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>Общий остаток</span>
           </div>
           <div style={{ textAlign: 'right', marginBottom: '4px' }}>
-            <div style={{ fontSize: '16px', fontWeight: '700', color: '#7c3aed' }}>
-              {lessonsLeft(subscriptions, id)} уроков
+            <div style={{ fontSize: '16px', fontWeight: '700', color: lessonsInStock < 0 ? '#dc2626' : '#7c3aed' }}
+              title={lessonsInStock < 0 ? 'За столько занятий ученик ещё не заплатил' : undefined}>
+              {lessonsInStock} уроков
             </div>
             <div style={{ fontSize: '20px', fontWeight: '700', color: isPaid ? '#059669' : '#dc2626' }}>
               {balance.toLocaleString()} сум
@@ -754,7 +755,8 @@ export default function ClientCard() {
                       style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>✕</button>
                   </div>
                   <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                    Осталось {remaining(sub)} из {sub.lessonsTotal} · {Number(sub.price).toLocaleString()} сум
+                    {sub.lessonsTotal} уроков · {Number(sub.price).toLocaleString()} сум
+                    {subscriptionPerLesson(sub) && ` · ${subscriptionPerLesson(sub).toLocaleString()} сум за урок`}
                   </div>
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '3px' }}>
                     <span style={{

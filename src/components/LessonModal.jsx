@@ -191,12 +191,13 @@ export default function LessonModal({
                             <span style={{ color: record.amountCharged > 0 ? '#dc2626' : '#9ca3af' }}>
                               {record.amountCharged > 0 ? `−${record.amountCharged.toLocaleString()} сум` : 'не списано'}
                             </span>
-                          ) : present ? (
-                            <input type="number" min="0" style={{ ...inputStyle, width: '120px', textAlign: 'right' }}
-                              value={record.amount} placeholder="Сумма"
-                              onChange={e => update(record.clientId, { amount: e.target.value })} />
                           ) : (
-                            <span style={{ color: '#9ca3af' }}>не списывается</span>
+                            // Пропуск тоже может стоить денег, если ребёнок не предупредил.
+                            <input type="number" min="0" inputMode="numeric"
+                              style={{ ...inputStyle, width: '120px', textAlign: 'right' }}
+                              value={record.amount}
+                              placeholder={present ? 'Сумма' : 'Не списывать'}
+                              onChange={e => update(record.clientId, { amount: e.target.value })} />
                           )}
                         </td>
                       </tr>

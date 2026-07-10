@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { TX_KINDS, KIND_INCOME, KIND_SALARY } from '../lib/finance'
+import { TX_KINDS, KIND_INCOME, KIND_SALARY, KIND_REFUND } from '../lib/finance'
 import { emptyTransactionForm, categoriesForKind, validateTransactionForm, suggestPayer } from '../lib/transaction'
 
 const inputStyle = {
@@ -99,18 +99,20 @@ export default function TransactionForm({
           </select>
         </div>
 
-        {form.kind === KIND_INCOME && (
+        {(form.kind === KIND_INCOME || form.kind === KIND_REFUND) && (
           <>
             <div>
-              <label style={labelStyle}>Ученик</label>
-              <select style={inputStyle} value={form.clientId} onChange={setClient}>
-                <option value="">Не привязан</option>
+              <label style={labelStyle}>Ученик {form.kind === KIND_REFUND && '*'}</label>
+              <select style={inputStyle} value={form.clientId} onChange={setClient}
+                required={form.kind === KIND_REFUND}>
+                <option value="">{form.kind === KIND_REFUND ? 'Выберите…' : 'Не привязан'}</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.childName}</option>)}
               </select>
             </div>
             <div>
-              <label style={labelStyle}>Плательщик</label>
-              <input placeholder="Кто внёс деньги" style={inputStyle}
+              <label style={labelStyle}>{form.kind === KIND_REFUND ? 'Получатель' : 'Плательщик'}</label>
+              <input style={inputStyle}
+                placeholder={form.kind === KIND_REFUND ? 'Кому вернули' : 'Кто внёс деньги'}
                 value={form.payerName} onChange={set('payerName')} />
             </div>
           </>
@@ -138,6 +140,12 @@ export default function TransactionForm({
       {form.kind === KIND_INCOME && !form.clientId && (
         <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '10px' }}>
           Доход без ученика не влияет на его баланс — так проводят кешбеки и турниры.
+        </p>
+      )}
+
+      {form.kind === KIND_REFUND && (
+        <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '10px' }}>
+          Возврат уменьшает и кассу, и предоплату ученика.
         </p>
       )}
 

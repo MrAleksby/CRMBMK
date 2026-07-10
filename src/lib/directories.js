@@ -7,12 +7,13 @@ export const FIELD_COUNT = 'count'
 export const FIELD_SELECT = 'select'
 export const FIELD_HANDLE = 'handle'
 
-// Типы операций. «Выплата ЗП» стоит отдельно от расходов — так же, как в AlfaCRM,
-// где это самостоятельный тип документа.
+// Типы операций. «Выплата ЗП» и «Возврат клиенту» стоят отдельно от расходов —
+// так же, как в AlfaCRM, где это самостоятельные типы документа.
 export const CATEGORY_KINDS = [
   { value: 'income', label: '📈 Доход' },
   { value: 'expense', label: '📉 Расход' },
   { value: 'salary', label: '👥 Выплата ЗП' },
+  { value: 'refund', label: '↩️ Возврат клиенту' },
 ]
 
 // Порядок внутри типа — как перечислил владелец, поэтому фиксируем его полем order.
@@ -36,6 +37,8 @@ const CATEGORY_SEED = [
   { name: 'Зарплата тренера', kind: 'salary' },
   { name: 'Процент менеджера', kind: 'salary' },
   { name: 'Аутсорс', kind: 'salary' },
+
+  { name: 'Возврат средств', kind: 'refund' },
 ].map((row, index) => ({ ...row, order: index }))
 
 export const DIRECTORIES = [

@@ -13,14 +13,21 @@
 export const KIND_INCOME = 'income'
 export const KIND_EXPENSE = 'expense'
 export const KIND_SALARY = 'salary'
+export const KIND_REFUND = 'refund'
 
 // Знак операции в кассе. Начисления (charges) здесь не участвуют.
-const SIGN = { [KIND_INCOME]: 1, [KIND_EXPENSE]: -1, [KIND_SALARY]: -1 }
+const SIGN = {
+  [KIND_INCOME]: 1,
+  [KIND_EXPENSE]: -1,
+  [KIND_SALARY]: -1,
+  [KIND_REFUND]: -1,
+}
 
 export const TX_KINDS = [
   { value: KIND_INCOME, label: 'Доход', icon: '💰', color: '#059669' },
   { value: KIND_EXPENSE, label: 'Расход', icon: '📉', color: '#dc2626' },
   { value: KIND_SALARY, label: 'Выплата ЗП', icon: '👥', color: '#dc2626' },
+  { value: KIND_REFUND, label: 'Возврат клиенту', icon: '↩️', color: '#dc2626' },
 ]
 
 export const kindMeta = (kind) => TX_KINDS.find(k => k.value === kind) ?? TX_KINDS[0]

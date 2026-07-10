@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { collection, getDocs, doc, updateDoc, deleteDoc, writeBatch, increment } from 'firebase/firestore'
+import { collection, getDocs, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import ErrorBanner from '../components/ErrorBanner'
@@ -111,26 +111,20 @@ export default function Lessons() {
     try {
       const attendance = journalToAttendance(rows)
 
-      // Списываем урок с абонемента ученика, если он есть. Номер абонемента
-      // запоминаем в attendance, чтобы при откате вернуть урок именно ему.
-      const used = {}
+      // Абонемент помечаем у пришедших — это след истории, по какой цене считалось
+      // занятие. Счётчик уроков не трогаем: остаток выводится из денег.
       for (const record of attendance) {
         if (record.status !== 'present') continue
         const sub = activeSubscription(subscriptions, record.clientId)
-        if (!sub) continue
-        record.subscriptionId = sub.id
-        used[sub.id] = (used[sub.id] || 0) + 1
+        if (sub) record.subscriptionId = sub.id
       }
 
       const batch = writeBatch(db)
       batch.update(doc(db, 'lessons', lesson.id), { status: 'conducted', attendance })
 
-      for (const [subId, count] of Object.entries(used)) {
-        batch.update(doc(db, 'subscriptions', subId), { lessonsUsed: increment(count) })
-      }
-
+      // Начисление создаём по сумме, а не по факту прихода: пропуск бывает платным.
       for (const record of attendance) {
-        if (record.status !== 'present' || record.amountCharged <= 0) continue
+        if (record.amountCharged <= 0) continue
         batch.set(doc(collection(db, 'charges')), {
           clientId: record.clientId,
           clientName: record.clientName,
@@ -167,9 +161,6 @@ export default function Lessons() {
       const batch = writeBatch(db)
       batch.update(doc(db, 'lessons', lesson.id), { attendance: plan.attendance })
 
-      for (const [subId, delta] of plan.subscriptionDelta) {
-        batch.update(doc(db, 'subscriptions', subId), { lessonsUsed: increment(delta) })
-      }
       for (const chargeId of plan.chargesToDelete) {
         batch.delete(doc(db, 'charges', chargeId))
       }
@@ -202,22 +193,12 @@ export default function Lessons() {
   // Без этого долг остался бы висеть за занятие, которого не было.
   const chargesOf = (lessonId) => charges.filter(c => c.lessonId === lessonId)
 
+  // Абонементы откат не трогает: остаток уроков считается из денег, а деньги
+  // возвращаются вместе с удалением начислений.
   const rollbackCharges = (batch, lessonId) => {
     const related = chargesOf(lessonId)
     for (const charge of related) batch.delete(doc(db, 'charges', charge.id))
     return related.length
-  }
-
-  // Возврат занятия должен вернуть и уроки на абонементы, иначе они сгорят.
-  const rollbackSubscriptions = (batch, lesson) => {
-    const returned = {}
-    for (const record of lesson.attendance || []) {
-      if (!record.subscriptionId || record.status !== 'present') continue
-      returned[record.subscriptionId] = (returned[record.subscriptionId] || 0) + 1
-    }
-    for (const [subId, count] of Object.entries(returned)) {
-      batch.update(doc(db, 'subscriptions', subId), { lessonsUsed: increment(-count) })
-    }
   }
 
   const handleReturnToPlanned = async (lesson) => {
@@ -232,7 +213,6 @@ export default function Lessons() {
     try {
       const batch = writeBatch(db)
       rollbackCharges(batch, lesson.id)
-      rollbackSubscriptions(batch, lesson)
       batch.update(doc(db, 'lessons', lesson.id), { status: 'planned', attendance: [] })
       await batch.commit()
       await fetchData()
@@ -255,7 +235,6 @@ export default function Lessons() {
     try {
       const batch = writeBatch(db)
       rollbackCharges(batch, lesson.id)
-      rollbackSubscriptions(batch, lesson)
       batch.update(doc(db, 'lessons', lesson.id), { status: 'cancelled', attendance: [] })
       await batch.commit()
       await fetchData()
@@ -343,9 +322,14 @@ export default function Lessons() {
   const modalLesson = lessons.find(l => l.id === modalId) || null
 
   // Остаток уроков по абонементам — показываем в модалке рядом с именем.
+  // Остаток в уроках выводится из денег, поэтому нужны и баланс, и начисления ученика.
+  const chargesBy = {}
+  for (const charge of charges) (chargesBy[charge.clientId] ||= []).push(charge)
+
   const lessonsLeftBy = {}
   for (const client of clients) {
-    lessonsLeftBy[client.id] = lessonsLeft(subscriptions, client.id)
+    lessonsLeftBy[client.id] = lessonsLeft(
+      subscriptions, client.id, balances[client.id] || 0, chargesBy[client.id] || [], client)
   }
 
   const query = search.trim().toLowerCase()

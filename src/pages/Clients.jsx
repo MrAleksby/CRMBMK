@@ -119,6 +119,15 @@ export default function Clients() {
   const balances = useMemo(() => clientBalances(transactions, charges), [transactions, charges])
   const getBalance = (clientId) => balances.get(clientId) || 0
 
+  const chargesBy = useMemo(() => {
+    const map = new Map()
+    for (const charge of charges) {
+      if (!map.has(charge.clientId)) map.set(charge.clientId, [])
+      map.get(charge.clientId).push(charge)
+    }
+    return map
+  }, [charges])
+
   const handleAddClient = async (data) => {
     setSaving(true)
     try {
@@ -291,7 +300,13 @@ export default function Clients() {
                       <span style={{ color: balance < 0 ? '#dc2626' : '#111827', fontWeight: balance !== 0 ? '600' : '400' }}>
                         {balance.toLocaleString()} сум
                       </span>
-                      <span style={{ color: '#9ca3af' }}> / {lessonsLeft(subscriptions, c.id)} уроков</span>
+                      {(() => {
+                        // Минус — за столько занятий ученик ещё не заплатил.
+                        const left = lessonsLeft(subscriptions, c.id, balance, chargesBy.get(c.id) || [], c)
+                        return (
+                          <span style={{ color: left < 0 ? '#dc2626' : '#9ca3af' }}> / {left} уроков</span>
+                        )
+                      })()}
                     </td>
 
                     <td style={td(isLast)}>

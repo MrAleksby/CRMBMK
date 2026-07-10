@@ -4,7 +4,7 @@ import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import { MONTHS_SHORT } from '../lib/constants'
 import {
-  TX_KINDS, KIND_INCOME, KIND_EXPENSE, KIND_SALARY, kindMeta,
+  TX_KINDS, KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, kindMeta,
   toJsDate, inPeriod, sumAmount, availableYears,
   incomeTotal, expenseTotal, salaryTotal,
   companyBalance, realizedProfit, accountTotals, categoryTotals,
@@ -34,6 +34,7 @@ const TABS = [
   { value: KIND_INCOME, label: '💰 Доходы' },
   { value: KIND_EXPENSE, label: '📉 Расходы' },
   { value: KIND_SALARY, label: '👥 Выплаты ЗП' },
+  { value: KIND_REFUND, label: '↩️ Возвраты' },
   { value: CHARGES, label: '🏃 Занятия' },
 ]
 

@@ -2,7 +2,7 @@
 // Вынесено из компонента, чтобы денежную логику можно было прогнать без React.
 
 import { toAmount } from './amount'
-import { KIND_INCOME, KIND_SALARY } from './finance'
+import { KIND_INCOME, KIND_SALARY, KIND_REFUND } from './finance'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -41,6 +41,8 @@ export function validateTransactionForm(form) {
   if (!form.accountId) return 'Выберите кассу'
   if (!form.categoryId) return 'Выберите статью'
   if (form.kind === KIND_SALARY && !form.teacherId) return 'Выберите педагога'
+  // Возврат уменьшает предоплату конкретного ребёнка — без него операция бессмысленна.
+  if (form.kind === KIND_REFUND && !form.clientId) return 'Выберите ученика, которому вернули деньги'
   return null
 }
 
@@ -62,7 +64,8 @@ export function buildTransaction(form, { clients = [], teachers = [] } = {}) {
   }
 
   // Доход может быть ничей: кешбек банка или призовой фонд турнира.
-  if (form.kind === KIND_INCOME) {
+  // Возврат — всегда конкретному ребёнку, это проверяет валидация.
+  if (form.kind === KIND_INCOME || form.kind === KIND_REFUND) {
     if (form.clientId) {
       doc.clientId = form.clientId
       doc.clientName = client?.childName || ''

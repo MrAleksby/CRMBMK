@@ -33,20 +33,24 @@ export function buildJournal(lesson, clients, subscriptions = []) {
       clientName: client?.childName || 'Удалённый ученик',
       status: previous?.status || 'present',
       amount: previous
-        ? String(previous.amountCharged ?? '')
+        ? String(previous.amountCharged || '')
         : String(suggestedPrice(client, subscriptions) ?? ''),
     }
   })
 }
 
-// Итог журнала: сколько ученик заплатит за это занятие.
-// У отсутствующих сумма не берётся — пропустил, значит не платит.
+// Сколько списать с ученика за это занятие.
+//
+// Пропуск не означает «бесплатно». Если ребёнок не предупредил, руководитель
+// решает списать, и менеджер вводит сумму вручную. Уважительная причина —
+// поле остаётся пустым. Так это устроено в AlfaCRM, и в перенесённой истории
+// такой случай есть.
 export function journalToAttendance(rows) {
   return rows.map(row => ({
     clientId: row.clientId,
     clientName: row.clientName,
     status: row.status,
-    amountCharged: row.status === 'present' ? (Number(row.amount) || 0) : 0,
+    amountCharged: Number(row.amount) || 0,
   }))
 }
 
@@ -55,41 +59,27 @@ export function journalToAttendance(rows) {
 // Сумма занятия живёт в двух местах: в журнале (attendance[].amountCharged)
 // и на лицевом счёте ученика (charges.amount). Менять их порознь нельзя —
 // разъедутся. Функция считает, что именно нужно сделать, чтобы после правки
-// journal, charges и абонементы описывали одно и то же.
+// журнал и начисления описывали одно и то же.
 //
-// activeSubFor(clientId) — абонемент, с которого списать урок вернувшемуся ученику.
+// Абонементы трогать не нужно: остаток уроков выводится из денег, а деньги
+// пересчитаются сами, как только начисления встанут на место.
+//
+// activeSubFor(clientId) — абонемент, действовавший у ученика. Пишется в журнал
+// как след истории: по нему видно, по какой цене считалось занятие.
 export function planAttendanceUpdate(oldAttendance, rows, { charges, activeSubFor }) {
   const before = new Map((oldAttendance || []).map(a => [a.clientId, a]))
   const chargeOf = new Map(charges.map(c => [c.clientId, c]))
 
   const attendance = []
-  const subscriptionDelta = new Map()
   const chargesToCreate = []
   const chargesToUpdate = []
   const chargesToDelete = []
 
-  const bumpSub = (subId, delta) => {
-    if (!subId) return
-    subscriptionDelta.set(subId, (subscriptionDelta.get(subId) || 0) + delta)
-  }
-
   for (const row of rows) {
     const old = before.get(row.clientId)
-    const wasPresent = old?.status === 'present'
-    const nowPresent = row.status === 'present'
-    const amount = nowPresent ? (Number(row.amount) || 0) : 0
+    // Сумма не зависит от посещения: платный пропуск списывает деньги.
+    const amount = Number(row.amount) || 0
     const charge = chargeOf.get(row.clientId)
-
-    // Урок с абонемента списан при проведении. Пропуск возвращает его обратно,
-    // возвращение ученика — списывает снова, уже с действующего абонемента.
-    let subscriptionId = old?.subscriptionId
-    if (wasPresent && !nowPresent) {
-      bumpSub(subscriptionId, -1)
-      subscriptionId = undefined
-    } else if (!wasPresent && nowPresent) {
-      subscriptionId = activeSubFor(row.clientId) || undefined
-      bumpSub(subscriptionId, 1)
-    }
 
     const record = {
       clientId: row.clientId,
@@ -97,6 +87,10 @@ export function planAttendanceUpdate(oldAttendance, rows, { charges, activeSubFo
       status: row.status,
       amountCharged: amount,
     }
+    // Абонемент помечаем только у пришедшего: пропуск занятия не даёт.
+    const subscriptionId = row.status === 'present'
+      ? (old?.subscriptionId || activeSubFor(row.clientId) || undefined)
+      : undefined
     if (subscriptionId) record.subscriptionId = subscriptionId
     attendance.push(record)
 
@@ -116,13 +110,17 @@ export function planAttendanceUpdate(oldAttendance, rows, { charges, activeSubFo
     if (!kept.has(charge.clientId)) chargesToDelete.push(charge.id)
   }
 
-  return { attendance, subscriptionDelta, chargesToCreate, chargesToUpdate, chargesToDelete }
+  return { attendance, chargesToCreate, chargesToUpdate, chargesToDelete }
 }
 
 export function validateJournal(rows) {
   for (const row of rows) {
-    if (row.status !== 'present') continue
-    if (row.amount === '') return `Укажите сумму для «${row.clientName}»`
+    // У отсутствующего пустая сумма — норма: пропуск по уважительной причине.
+    if (row.status === 'present' && row.amount === '') {
+      return `Укажите сумму для «${row.clientName}»`
+    }
+    if (row.amount === '') continue
+
     const amount = Number(row.amount)
     if (!Number.isFinite(amount) || amount < 0) {
       return `Сумма «${row.clientName}» должна быть неотрицательным числом`
@@ -132,7 +130,7 @@ export function validateJournal(rows) {
 }
 
 export const journalTotal = (rows) =>
-  rows.reduce((sum, r) => sum + (r.status === 'present' ? (Number(r.amount) || 0) : 0), 0)
+  rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0)
 
 export const lessonTypeLabel = (type) =>
   LESSON_TYPES.find(t => t.value === type)?.label || 'Групповой'
@@ -153,7 +151,12 @@ export function attendanceTile(lesson, clientId) {
   }
   if (lesson.status === 'conducted') {
     if (record?.status === 'absent') {
-      return { icon: '✗', background: '#fef3c7', color: '#b45309', title: 'Пропуск' }
+      // Розовый — деньги списаны, жёлтый — пропуск прощён. Цвет = деньги.
+      const charged = (record?.amountCharged ?? 0) > 0
+      return charged
+        ? { icon: '✗', background: '#fee2e2', color: '#dc2626',
+            title: `Пропуск в долг, ${record.amountCharged.toLocaleString()} сум` }
+        : { icon: '✗', background: '#fef3c7', color: '#b45309', title: 'Пропуск прощён' }
     }
     const paid = (record?.amountCharged ?? 0) > 0
     return paid
