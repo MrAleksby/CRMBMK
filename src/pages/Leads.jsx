@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { collection, getDocs, addDoc, doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore'
+import { collection, getDocs, getDoc, addDoc, doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import ErrorBanner from '../components/ErrorBanner'
@@ -424,8 +424,17 @@ export default function Leads() {
   // не при простом просмотре. Поэтому открытие окна не меняет ни воронку, ни число
   // клиентов. Запись помечена статусом «лид» и скрыта из списка клиентов; вся
   // история переходит клиенту при конверсии, потому что clientId не меняется.
+  // Карточку ученика могли удалить из «Клиентов», а clientId на лиде остался.
+  // Такая ссылка ведёт в никуда: писать по ней оплату или занятие нельзя.
+  const liveClientId = async (lead) => {
+    if (!lead.clientId) return null
+    const snap = await getDoc(doc(db, 'clients', lead.clientId))
+    return snap.exists() ? lead.clientId : null
+  }
+
   const ensureLeadClient = async (lead) => {
-    if (lead.clientId) return lead.clientId
+    const existing = await liveClientId(lead)
+    if (existing) return existing
     const ref = doc(collection(db, 'clients'))
     await setDoc(ref, {
       ...formToDoc(clientFormFromLead(lead, emptyClientForm())),
@@ -459,9 +468,10 @@ export default function Leads() {
   // просто снимаем статус «лид», история остаётся на том же ученике. Если карточки
   // ещё нет — создаём ученика из формы, как раньше.
   const handleConvert = (clientData) => run(async () => {
+    const existing = await liveClientId(open)
     const batch = writeBatch(db)
-    if (open.clientId) {
-      batch.update(doc(db, 'clients', open.clientId), { ...clientData, status: 'active' })
+    if (existing) {
+      batch.update(doc(db, 'clients', existing), { ...clientData, status: 'active' })
       batch.update(doc(db, 'leads', open.id), { archived: true, stage: 'paid', rejectReason: '' })
     } else {
       const clientRef = doc(collection(db, 'clients'))
