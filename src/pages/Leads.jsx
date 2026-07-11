@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { collection, getDocs, addDoc, doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
@@ -236,11 +236,91 @@ function Modal({ children, onClose }) {
   )
 }
 
+// Оплата за пробное прямо из окна лида. Клиент-лид создаётся при сохранении.
+function LeadPayForm({ lead, accounts, categories, saving, onSubmit, onCancel }) {
+  const [f, setF] = useState({
+    amount: '', date: new Date().toISOString().slice(0, 10),
+    accountId: accounts[0]?.id || '', categoryId: categories[0]?.id || '', comment: '',
+  })
+  const set = k => e => setF({ ...f, [k]: e.target.value })
+  const submit = () => {
+    if (!Number(f.amount) || !f.accountId || !f.categoryId) return
+    onSubmit({ ...f, amount: Number(f.amount), date: new Date(`${f.date}T12:00:00`) })
+  }
+  return (
+    <div style={card}>
+      <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', margin: '0 0 12px' }}>
+        💰 Оплата за пробное: {lead.childName}
+      </h3>
+      {accounts.length === 0 || categories.length === 0 ? (
+        <p style={{ fontSize: '13px', color: '#b91c1c' }}>Сначала заведите кассы и доходные статьи в Настройках.</p>
+      ) : (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+            <div><label style={fLabel}>Сумма *</label>
+              <input type="number" min="0" style={{ ...inputStyle, width: '100%' }} value={f.amount} onChange={set('amount')} /></div>
+            <div><label style={fLabel}>Дата *</label>
+              <input type="date" style={{ ...inputStyle, width: '100%' }} value={f.date} onChange={set('date')} /></div>
+            <div><label style={fLabel}>Касса *</label>
+              <select style={{ ...inputStyle, width: '100%' }} value={f.accountId} onChange={set('accountId')}>
+                {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
+            <div><label style={fLabel}>Статья *</label>
+              <select style={{ ...inputStyle, width: '100%' }} value={f.categoryId} onChange={set('categoryId')}>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+          </div>
+          <div style={{ marginBottom: '14px' }}><label style={fLabel}>Комментарий</label>
+            <input style={{ ...inputStyle, width: '100%' }} value={f.comment} onChange={set('comment')} placeholder="Оплата пробного" /></div>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button onClick={submit} disabled={saving} style={primaryBtn(saving)}>{saving ? 'Сохраняем...' : 'Принять оплату'}</button>
+            <button onClick={onCancel} style={ghostBtn}>Отмена</button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// Назначение пробного занятия из окна лида. Создаёт занятие со звёздочкой в календаре.
+function LeadTrialForm({ lead, staff, saving, onSubmit, onCancel }) {
+  const [f, setF] = useState({
+    date: new Date().toISOString().slice(0, 10), timeFrom: '11:00', timeTo: '12:00', teacherId: '',
+  })
+  const set = k => e => setF({ ...f, [k]: e.target.value })
+  return (
+    <div style={card}>
+      <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', margin: '0 0 12px' }}>
+        ✱ Пробное занятие: {lead.childName}
+      </h3>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
+        <div><label style={fLabel}>Дата *</label>
+          <input type="date" style={{ ...inputStyle, width: '100%' }} value={f.date} onChange={set('date')} /></div>
+        <div><label style={fLabel}>Педагог</label>
+          <select style={{ ...inputStyle, width: '100%' }} value={f.teacherId} onChange={set('teacherId')}>
+            <option value="">Не задан</option>
+            {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+        <div><label style={fLabel}>Начало</label>
+          <input type="time" style={{ ...inputStyle, width: '100%' }} value={f.timeFrom} onChange={set('timeFrom')} /></div>
+        <div><label style={fLabel}>Конец</label>
+          <input type="time" style={{ ...inputStyle, width: '100%' }} value={f.timeTo} onChange={set('timeTo')} /></div>
+      </div>
+      <div style={{ display: 'flex', gap: '10px' }}>
+        <button onClick={() => onSubmit(f)} disabled={saving || !f.date} style={primaryBtn(saving || !f.date)}>
+          {saving ? 'Создаём...' : 'Назначить'}
+        </button>
+        <button onClick={onCancel} style={ghostBtn}>Отмена</button>
+      </div>
+    </div>
+  )
+}
+
+const fLabel = { fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }
+
 export default function Leads() {
-  const navigate = useNavigate()
   const [leads, setLeads] = useState([])
   const [staff, setStaff] = useState([])
   const [legalEntities, setLegalEntities] = useState([])
+  const [accounts, setAccounts] = useState([])
+  const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -257,14 +337,19 @@ export default function Leads() {
     setLoadError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [ls, ts, les] = await withTimeout(Promise.all([
+      const [ls, ts, les, acc, cat] = await withTimeout(Promise.all([
         getDocs(collection(db, 'leads')),
         getDocs(collection(db, 'teachers')),
         getDocs(collection(db, 'legalEntities')),
+        getDocs(collection(db, 'accounts')),
+        getDocs(collection(db, 'categories')),
       ]))
-      setLeads(ls.docs.map(d => ({ id: d.id, ...d.data() })))
-      setStaff(ts.docs.map(d => ({ id: d.id, ...d.data() })).filter(s => s.active !== false))
-      setLegalEntities(les.docs.map(d => ({ id: d.id, ...d.data() })))
+      const rows = s => s.docs.map(d => ({ id: d.id, ...d.data() }))
+      setLeads(rows(ls))
+      setStaff(rows(ts).filter(s => s.active !== false))
+      setLegalEntities(rows(les))
+      setAccounts(rows(acc).filter(a => a.active !== false))
+      setCategories(rows(cat).filter(c => c.kind === 'income' && c.active !== false))
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -335,22 +420,39 @@ export default function Leads() {
 
   // Ученик и пометка на лиде пишутся одной транзакцией: лид без clientId
   // вернулся бы в воронку, а клиент остался бы дублем.
-  // Открыть карточку лида. Карточка — это запись-ученик со статусом «лид»:
-  // на ней назначают пробное и принимают оплату, а в список клиентов она не
-  // попадает (фильтр в Clients.jsx). Заводим её при первом открытии; вся история
-  // остаётся при конверсии, потому что clientId не меняется.
-  const handleOpenCard = (lead) => run(async () => {
-    let clientId = lead.clientId
-    if (!clientId) {
-      const ref = doc(collection(db, 'clients'))
-      await setDoc(ref, {
-        ...formToDoc(clientFormFromLead(lead, emptyClientForm())),
-        status: 'lead', createdAt: new Date(),
-      })
-      await updateDoc(doc(db, 'leads', lead.id), { clientId: ref.id })
-      clientId = ref.id
-    }
-    navigate(`/clients/${clientId}`)
+  // Клиент-лид заводится ЛЕНИВО — только при реальном действии (оплата, пробное),
+  // не при простом просмотре. Поэтому открытие окна не меняет ни воронку, ни число
+  // клиентов. Запись помечена статусом «лид» и скрыта из списка клиентов; вся
+  // история переходит клиенту при конверсии, потому что clientId не меняется.
+  const ensureLeadClient = async (lead) => {
+    if (lead.clientId) return lead.clientId
+    const ref = doc(collection(db, 'clients'))
+    await setDoc(ref, {
+      ...formToDoc(clientFormFromLead(lead, emptyClientForm())),
+      status: 'lead', createdAt: new Date(),
+    })
+    await updateDoc(doc(db, 'leads', lead.id), { clientId: ref.id })
+    return ref.id
+  }
+
+  const handlePay = (data) => run(async () => {
+    const clientId = await ensureLeadClient(open)
+    await addDoc(collection(db, 'transactions'), {
+      kind: 'income', clientId, clientName: open.childName,
+      amount: data.amount, accountId: data.accountId, categoryId: data.categoryId,
+      comment: data.comment || 'Оплата пробного', date: data.date, createdAt: new Date(),
+    })
+    closeModal()
+  })
+
+  const handleTrial = (data) => run(async () => {
+    const clientId = await ensureLeadClient(open)
+    await addDoc(collection(db, 'lessons'), {
+      type: 'trial', status: 'planned', studentIds: [clientId], groupId: null, groupName: '',
+      date: data.date, timeFrom: data.timeFrom, timeTo: data.timeTo,
+      teacherId: data.teacherId || '', topic: '', attendance: [],
+    })
+    closeModal()
   })
 
   // Сделать клиентом. Если карточка уже заведена (лид ходил на пробное, платил) —
@@ -564,9 +666,14 @@ export default function Leads() {
 
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {!isConverted(open) && (
-                <button onClick={() => handleOpenCard(open)} disabled={saving} style={primaryBtn(saving)}>
-                  🗂 Открыть карточку
-                </button>
+                <>
+                  <button onClick={() => setMode('pay')} disabled={saving} style={primaryBtn(saving)}>
+                    💰 Принять оплату
+                  </button>
+                  <button onClick={() => setMode('trial')} disabled={saving} style={ghostBtn}>
+                    ✱ Назначить пробное
+                  </button>
+                </>
               )}
               <button onClick={() => setMode('edit')} style={ghostBtn}>✎ Править</button>
               {!isConverted(open) && (
@@ -620,6 +727,20 @@ export default function Leads() {
               <button onClick={() => setMode('view')} style={ghostBtn}>Отмена</button>
             </div>
           </div>
+        </Modal>
+      )}
+
+      {open && mode === 'pay' && (
+        <Modal onClose={() => setMode('view')}>
+          <LeadPayForm lead={open} accounts={accounts} categories={categories} saving={saving}
+            onSubmit={handlePay} onCancel={() => setMode('view')} />
+        </Modal>
+      )}
+
+      {open && mode === 'trial' && (
+        <Modal onClose={() => setMode('view')}>
+          <LeadTrialForm lead={open} staff={staff} saving={saving}
+            onSubmit={handleTrial} onCancel={() => setMode('view')} />
         </Modal>
       )}
 

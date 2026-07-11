@@ -209,6 +209,8 @@ export default function Clients() {
     if (filterBalance === 'paid') return balance >= 0
     return true
   })
+  // Лиды держат карточку, но учениками не считаются.
+  const clientsCount = clients.filter(c => (c.status || 'active') !== 'lead').length
   const filtered = sortClients(matching, sortKey, sortDir, { balance: getBalance })
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -224,7 +226,7 @@ export default function Clients() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
         <div>
           <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: 0 }}>👶 Клиенты</h2>
-          <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>{clients.length} учеников в базе</p>
+          <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>{clientsCount} учеников в базе</p>
         </div>
       </div>
 
@@ -274,7 +276,7 @@ export default function Clients() {
         </div>
         <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
           Отображены строки {rangeFrom} — {rangeTo}. Всего {filtered.length}
-          {filtered.length !== clients.length && ` из ${clients.length}`}.
+          {filtered.length !== clientsCount && ` из ${clientsCount}`}.
         </p>
       </div>
 
