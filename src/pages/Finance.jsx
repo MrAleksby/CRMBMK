@@ -124,6 +124,10 @@ export default function Finance() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
 
+  // Статей больше, чем касс, и список уезжал далеко вниз. Показываем столько же
+  // строк, сколько в соседнем блоке касс, — карточки встают вровень.
+  const [showAllCategories, setShowAllCategories] = useState(false)
+
   // Выделение строк галочками: действия применяются к отмеченным, как в AlfaCRM.
   const selection = useSelection(transactions)
 
@@ -287,6 +291,13 @@ export default function Finance() {
   const accountsReport = useMemo(() => accountTotals(transactions, accounts), [transactions, accounts])
   const categoriesReport = useMemo(() => categoryTotals(periodTx, categories), [periodTx, categories])
 
+  // Обрезаем по числу касс: тогда обе карточки заканчиваются на одной линии,
+  // а хвост статей прячется под «Показать ещё».
+  const visibleCategories = showAllCategories
+    ? categoriesReport
+    : categoriesReport.slice(0, Math.max(accountsReport.length, 3))
+  const hiddenCategories = categoriesReport.length - visibleCategories.length
+
   const years = useMemo(() => availableYears(transactions), [transactions])
 
   // Таблица только по фактическим деньгам.
@@ -438,12 +449,21 @@ export default function Finance() {
             <p style={{ color: '#6b7280', fontSize: '13px', margin: 0 }}>Нет операций за период</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {categoriesReport.map(c => (
+              {visibleCategories.map(c => (
                 <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                   <span style={{ color: '#4b5563' }}>{c.name}</span>
                   <span style={{ color: kindMeta(c.kind).color, fontWeight: '600' }}>{money(c.total)}</span>
                 </div>
               ))}
+
+              {hiddenCategories > 0 && (
+                <button onClick={() => setShowAllCategories(v => !v)} style={{
+                  background: 'transparent', border: 'none', padding: '4px 0 0',
+                  color: '#7c3aed', fontSize: '13px', cursor: 'pointer', textAlign: 'left',
+                }}>
+                  {showAllCategories ? '▴ Свернуть' : `▾ Показать ещё ${hiddenCategories}`}
+                </button>
+              )}
             </div>
           )}
         </div>
