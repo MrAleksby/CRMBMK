@@ -13,7 +13,7 @@ import { clientBalances } from '../lib/balance'
 import { useSelection } from '../lib/selection'
 import ActionToolbar from '../components/ActionToolbar'
 import {
-  getAge, ageLabel, contactRows, statusInfo, genderInfo, searchText, sortClients,
+  getAge, ageLabel, contactRows, contactTitle, statusInfo, genderInfo, searchText, sortClients,
   CLIENT_STATUSES, instagramUrl, telegramUrl, phoneUrl,
 } from '../lib/client'
 
@@ -409,7 +409,7 @@ export default function Clients() {
                               <a href={phoneUrl(phone)} style={{ ...link, color: '#7c3aed' }}>📞 {phone}</a>
                               {(r.name || r.telegram) && (
                                 <span style={{ color: '#6b7280' }}>
-                                  {' '}({[r.name, r.role.toLowerCase()].filter(Boolean).join(' ')}
+                                  {' '}({contactTitle(r)}
                                   {r.telegram && ' '}
                                   {r.telegram && (
                                     <a href={telegramUrl(r.telegram)} target="_blank" rel="noreferrer" style={link}>@{r.telegram}</a>

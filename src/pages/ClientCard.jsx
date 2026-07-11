@@ -16,7 +16,7 @@ import {
   paymentFromForm,
 } from '../lib/subscription'
 import {
-  getAge, ageLabel, formatBirthday, contactRows, sourceInfo, genderInfo, statusInfo,
+  getAge, ageLabel, formatBirthday, contactRows, contactTitle, sourceInfo, genderInfo, statusInfo,
   clientToForm, instagramUrl, telegramUrl, phoneUrl, parentPhones, isLeadClient,
 } from '../lib/client'
 import { MONTHS_SHORT } from '../lib/constants'
@@ -824,7 +824,7 @@ export default function ClientCard() {
               <div style={{ fontSize: '13px', color: '#111827' }}>🏛️ {legalPayer.name}</div>
             ) : mainParent ? (
               <div style={{ fontSize: '13px', color: '#111827' }}>
-                {mainParent.icon} {mainParent.name || mainParent.role}
+                {mainParent.icon} {contactTitle(mainParent)}
                 {mainParent.telegram && (
                   <>
                     {' '}
@@ -846,7 +846,7 @@ export default function ClientCard() {
             {contacts.length === 0 && <span style={notSet}>(не задано)</span>}
             {contacts.map(r => (
               <div key={r.role} style={{ fontSize: '12px', color: '#4b5563', marginBottom: '6px' }}>
-                <div style={{ color: '#6b7280' }}>{r.icon} {r.role} {r.name}</div>
+                <div style={{ color: '#6b7280' }}>{r.icon} {contactTitle(r)}</div>
                 {parentPhones(r).map((phone, i) => (
                   <div key={`${phone}-${i}`}><a href={phoneUrl(phone)} style={link}>{phone}</a></div>
                 ))}

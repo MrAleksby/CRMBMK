@@ -122,6 +122,18 @@ export const phoneUrl = (phone) => `tel:${phone.replace(/[^\d+]/g, '')}`
 
 const hasAnyContact = (p) => Boolean(p && (p.name || parentPhones(p).length || p.instagram || p.telegram))
 
+// Как подписать контакт: «Самира мама», «Мама» (если имени нет), «Дилноза папа».
+//
+// В выгрузке из AlfaCRM роль часто уже вписана в само имя — «Самира мама».
+// Дописывать её механически нельзя: получалось «Самира мама мама».
+export function contactTitle(row) {
+  const name = (row?.name || '').trim()
+  const role = (row?.role || '').trim()
+  if (!name) return role
+  if (!role) return name
+  return name.toLowerCase().includes(role.toLowerCase()) ? name : `${name} ${role.toLowerCase()}`
+}
+
 // Строки контактов для карточки. У клиентов, заведённых до этой формы,
 // был один безымянный родитель в parentName/phone/email — показываем его как есть.
 export function contactRows(client) {
