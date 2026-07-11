@@ -603,13 +603,38 @@ export default function Leads() {
     closeModal()
   })
 
-  const handleDelete = (lead) => {
-    if (!confirm(`Удалить лид «${lead.childName}»? Восстановить его будет нельзя.`)) return
-    run(async () => {
-      await deleteDoc(doc(db, 'leads', lead.id))
-      closeModal()
-    })
-  }
+  // Удаление лида должно убрать за собой и карточку-лида, иначе в базе остаётся
+  // сирота: ученика нет в списке клиентов (статус «лид»), а лида, из которого он
+  // родился, уже нет — найти такую запись можно только по прямой ссылке.
+  // Но если за карточкой стоят деньги или занятия, удалять её нельзя: это реальная
+  // история. Тогда карточка остаётся и становится обычным учеником («активен»).
+  const handleDelete = (lead) => run(async () => {
+    const clientId = await liveClientId(lead)
+    let hasHistory = false
+
+    if (clientId) {
+      const [tx, ch, les] = await withTimeout(Promise.all([
+        getDocs(fsQuery(collection(db, 'transactions'), where('clientId', '==', clientId))),
+        getDocs(fsQuery(collection(db, 'charges'), where('clientId', '==', clientId))),
+        getDocs(fsQuery(collection(db, 'lessons'), where('studentIds', 'array-contains', clientId))),
+      ]))
+      hasHistory = !tx.empty || !ch.empty || !les.empty
+    }
+
+    const warning = hasHistory
+      ? `Удалить лид «${lead.childName}»? У него есть оплаты или занятия — карточка ученика останется в «Клиентах» вместе с историей.`
+      : `Удалить лид «${lead.childName}»? Восстановить его будет нельзя.`
+    if (!confirm(warning)) return
+
+    const batch = writeBatch(db)
+    batch.delete(doc(db, 'leads', lead.id))
+    if (clientId) {
+      if (hasHistory) batch.update(doc(db, 'clients', clientId), { status: 'active' })
+      else batch.delete(doc(db, 'clients', clientId))
+    }
+    await batch.commit()
+    closeModal()
+  })
 
   const onDragStart = (e, lead) => {
     e.dataTransfer.setData('text/plain', lead.id)
