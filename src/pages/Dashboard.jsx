@@ -5,6 +5,7 @@ import { readCollection, readClientMoney, invalidate } from '../lib/store'
 import ErrorBanner from '../components/ErrorBanner'
 import { KIND_INCOME, incomeTotal, toJsDate } from '../lib/finance'
 import { clientBalances, debtAndPrepaid } from '../lib/balance'
+import { isLeadClient } from '../lib/client'
 
 const card = {
   background: '#ffffff',
@@ -48,6 +49,10 @@ export default function Dashboard() {
   const balances = useMemo(() => clientBalances(transactions, charges), [transactions, charges])
   const getClientBalance = (clientId) => balances.get(clientId) || 0
 
+  // Карточки лидов лежат в той же коллекции, но учениками ещё не стали —
+  // в списке «Клиенты» их нет, и в счётчике быть не должно.
+  const students = clients.filter(c => !isLeadClient(c))
+
   const totalIncome = incomeTotal(transactions)
   const { debt: totalDebt } = debtAndPrepaid(balances)
   const debtors = clients.filter(c => getClientBalance(c.id) < 0)
@@ -75,7 +80,7 @@ export default function Dashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
         <div style={card}>
           <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '8px' }}>Клиентов</p>
-          <p style={{ fontSize: '22px', fontWeight: '700', color: '#7c3aed', margin: 0 }}>{clients.length}</p>
+          <p style={{ fontSize: '22px', fontWeight: '700', color: '#7c3aed', margin: 0 }}>{students.length}</p>
         </div>
         <div style={card}>
           <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '8px' }}>Получено</p>
