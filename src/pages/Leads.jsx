@@ -667,9 +667,9 @@ export default function Leads() {
 
   return (
     <div style={{ maxWidth: '1500px' }}>
-      <div style={{ marginBottom: '20px' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: 0 }}>🎯 Лиды</h2>
-        <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>
+      <div style={{ marginBottom: '14px' }}>
+        <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0 }}>🎯 Лиды</h2>
+        <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
           Воронка от первого обращения до оплаты
         </p>
       </div>

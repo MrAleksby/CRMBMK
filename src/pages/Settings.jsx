@@ -34,9 +34,9 @@ export default function Settings() {
 
   return (
     <div style={{ maxWidth: '900px' }}>
-      <div style={{ marginBottom: '20px' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: 0 }}>⚙️ Настройки</h2>
-        <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>
+      <div style={{ marginBottom: '14px' }}>
+        <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0 }}>⚙️ Настройки</h2>
+        <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
           Справочники: на них опираются уроки, абонементы и финансы
         </p>
       </div>

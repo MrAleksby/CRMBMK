@@ -69,9 +69,9 @@ export default function Dashboard() {
   return (
     <div style={{ maxWidth: '960px' }}>
       {/* Header */}
-      <div style={{ marginBottom: '24px' }}>
-        <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: 0 }}>📊 Дашборд</h2>
-        <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>Общая статистика центра</p>
+      <div style={{ marginBottom: '14px' }}>
+        <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0 }}>📊 Дашборд</h2>
+        <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>Общая статистика центра</p>
       </div>
 
       <ErrorBanner message={loadError} onRetry={fetchData} />

@@ -605,7 +605,7 @@ export default function ClientCard() {
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                   {gender && <span style={{ fontSize: '20px' }} title={gender.label}>{gender.icon}</span>}
-                  <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: 0 }}>{client.childName}</h2>
+                  <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: 0 }}>{client.childName}</h2>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
                   <span style={chip(status.background, status.color)}>{status.label}</span>

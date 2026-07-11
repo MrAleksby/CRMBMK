@@ -225,10 +225,10 @@ export default function Groups() {
 
   return (
     <div style={{ maxWidth: '1000px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
         <div>
-          <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#111827', margin: 0 }}>👥 Группы</h2>
-          <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '4px' }}>
+          <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0 }}>👥 Группы</h2>
+          <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
             Серия занятий: расписание и состав учеников
           </p>
         </div>
