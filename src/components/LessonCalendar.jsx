@@ -32,8 +32,9 @@ function lessonStyle(lesson) {
   return { background: '#ede9fe', border: '#ddd6fe', color: '#5b21b6' }
 }
 
-// compact — не хватает высоты на список детей (месяц, соседние занятия).
-// dense — не хватает ещё и ширины: несколько занятий делят колонку недели.
+// compact — плитка низкая (месяц, соседние занятия в неделе): имён показываем
+// меньше и мельче. dense — вдобавок узкая (несколько занятий делят колонку недели).
+// Состав виден во всех режимах: длинные имена обрезаются многоточием, а не прячутся.
 function LessonChip({ lesson, clients, onOpen, compact, dense }) {
   const style = lessonStyle(lesson)
   const names = lessonStudentNames(lesson, clients)
@@ -42,11 +43,13 @@ function LessonChip({ lesson, clients, onOpen, compact, dense }) {
   const mark = lesson.status === 'conducted' ? '✓ ' : lesson.status === 'cancelled' ? '⊖ ' : ''
   // Название: у группового — имя группы, у пробного — звёздочка и «Пробный».
   const heading = trial ? '✱ Пробный' : (lesson.groupName || lessonTypeLabel(lesson.type))
-  const title = `${lesson.timeFrom}–${lesson.timeTo} · ${heading}`
+  const title = `${lesson.timeFrom}–${lesson.timeTo} · ${heading}\n${names.join(', ')}`
 
-  // В тесной плитке помещается только час начала и число детей: диапазон времени,
-  // название и значок статуса туда не влезают, а статус и так виден по цвету
-  // и зачёркиванию. Остальное — в подсказке и в карточке занятия.
+  // Сколько имён показать и каким шрифтом — по тесноте плитки. Лишние сворачиваются
+  // в «…ещё N», чтобы плитка не растягивалась и не наезжала на соседние.
+  const maxNames = dense ? 5 : compact ? 4 : 12
+  const nameFont = dense ? '9px' : compact ? '10px' : '11px'
+
   return (
     <div onClick={() => onOpen(lesson)} title={title} style={{
       background: style.background, border: `1px solid ${style.border}`,
@@ -58,26 +61,25 @@ function LessonChip({ lesson, clients, onOpen, compact, dense }) {
         fontSize: dense ? '10px' : '11px', fontWeight: '700', color: style.color,
         whiteSpace: 'nowrap',
       }}>
-        {dense ? lesson.timeFrom : `${mark}${lesson.timeFrom}–${lesson.timeTo}`}
+        {dense ? `${mark}${lesson.timeFrom}` : `${mark}${lesson.timeFrom}–${lesson.timeTo}`}
       </div>
 
-      {!dense && (
-        <div style={{ fontSize: '12px', color: style.color, fontWeight: '600' }}>
-          {trial && <span title="Пробный урок">✱ </span>}
-          {lesson.groupName || (trial ? 'Пробный' : lessonTypeLabel(lesson.type))}
-        </div>
-      )}
+      <div style={{
+        fontSize: dense ? '10px' : '12px', color: style.color, fontWeight: '600',
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>
+        {trial && <span title="Пробный урок">✱ </span>}
+        {lesson.groupName || (trial ? 'Пробный' : lessonTypeLabel(lesson.type))}
+      </div>
 
-      {!compact && names.length > 0 && (
-        <div style={{ fontSize: '11px', color: style.color, marginTop: '4px', lineHeight: 1.5 }}>
-          {names.slice(0, 8).map((n, i) => <div key={`${n}-${i}`}>· {n}</div>)}
-          {names.length > 8 && <div>…и ещё {names.length - 8}</div>}
-        </div>
-      )}
-
-      {compact && (
-        <div style={{ fontSize: dense ? '10px' : '11px', color: style.color, whiteSpace: 'nowrap' }}>
-          {trial ? '✱ ' : '👶 '}{names.length}
+      {names.length > 0 && (
+        <div style={{ fontSize: nameFont, color: style.color, marginTop: dense ? '2px' : '4px', lineHeight: 1.35 }}>
+          {names.slice(0, maxNames).map((n, i) => (
+            <div key={`${n}-${i}`} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              · {n}
+            </div>
+          ))}
+          {names.length > maxNames && <div>…ещё {names.length - maxNames}</div>}
         </div>
       )}
     </div>
