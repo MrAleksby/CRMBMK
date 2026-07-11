@@ -167,7 +167,7 @@ export default function AttendanceWidget({ lessons, clients, teachers = [], clie
           background: 'transparent', border: 'none', padding: '0 0 8px',
           color: '#7c3aed', fontSize: '12px', cursor: 'pointer',
         }}>
-          {showAll ? '▴ Скрыть старые' : `▾ Показать ещё ${hidden} (старые)`}
+          {showAll ? '▴ Свернуть' : `▾ Показать ещё ${hidden}`}
         </button>
       )}
 
