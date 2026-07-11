@@ -337,6 +337,9 @@ export default function ClientCard() {
 
   // Членство в группе — это принадлежность, а не подписка на все занятия.
   // На конкретные занятия ученик записывается отдельно, ниже.
+  // Добавление в группу — только членство: на конкретные занятия ученика
+  // записывают отдельно, в блоке «Записать на занятия». Дети ходят не на все
+  // уроки группы, а на 1–2 наперёд, поэтому авто-запись на всё была бы неверной.
   const handleJoinGroup = async (groupId) => {
     const group = groups.find(g => g.id === groupId)
     if (!group) return
@@ -355,6 +358,8 @@ export default function ClientCard() {
     }
   }
 
+  // Выход из группы — только из состава. Уже назначенные занятия остаются:
+  // если надо, ученика снимают с них отдельно в блоке ниже.
   const handleLeaveGroup = async (group) => {
     if (!confirm(`Убрать ученика из группы «${group.name}»?\n\nЗаписи на уже назначенные занятия останутся — снимите их отдельно, если нужно.`)) return
     setSaving(true)
@@ -645,8 +650,8 @@ export default function ClientCard() {
                 </button>
                 <button style={btn()} onClick={() => setForm({
                   open: true, type: 'charge', amount: '', sessions: '', description: '', date: today,
-                })}>
-                  🏃 Записать занятие
+                })} title="Списание за занятие без урока в календаре — например индивидуальное вне группы">
+                  ➖ Списать за занятие
                 </button>
               </div>
             )}
@@ -654,7 +659,7 @@ export default function ClientCard() {
             {form.open && (
               <div style={{ background: '#f7f8fa', borderRadius: '12px', padding: '14px', marginBottom: '14px' }}>
                 <p style={{ fontWeight: '600', fontSize: '14px', marginBottom: '12px', color: form.type === KIND_INCOME ? '#059669' : '#7c3aed' }}>
-                  {form.type === KIND_INCOME ? '💰 Принять оплату' : '🏃 Записать занятие'}
+                  {form.type === KIND_INCOME ? '💰 Принять оплату' : '➖ Списать за занятие'}
                 </p>
 
                 {form.type === KIND_INCOME && (accounts.length === 0 || incomeCategories.length === 0) ? (
