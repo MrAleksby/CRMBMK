@@ -10,7 +10,7 @@ const card = {
   background: '#ffffff',
   border: '1px solid #e5e7eb',
   borderRadius: '16px',
-  padding: '20px',
+  padding: '16px 18px',
 }
 
 export default function Dashboard() {
@@ -75,11 +75,11 @@ export default function Dashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
         <div style={card}>
           <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '8px' }}>Клиентов</p>
-          <p style={{ fontSize: '36px', fontWeight: '700', color: '#7c3aed', margin: 0 }}>{clients.length}</p>
+          <p style={{ fontSize: '22px', fontWeight: '700', color: '#7c3aed', margin: 0 }}>{clients.length}</p>
         </div>
         <div style={card}>
           <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '8px' }}>Получено</p>
-          <p style={{ fontSize: '28px', fontWeight: '700', color: '#059669', margin: 0 }}>{totalIncome.toLocaleString()} сум</p>
+          <p style={{ fontSize: '18px', fontWeight: '700', color: '#059669', margin: 0 }}>{totalIncome.toLocaleString()} сум</p>
         </div>
         <div style={{
           ...card,
@@ -89,7 +89,7 @@ export default function Dashboard() {
           <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '8px' }}>
             Долги {debtors.length > 0 && <span style={{ color: '#dc2626' }}>({debtors.length} клиент{debtors.length > 1 ? 'а' : ''})</span>}
           </p>
-          <p style={{ fontSize: '28px', fontWeight: '700', color: totalDebt > 0 ? '#dc2626' : '#6b7280', margin: 0 }}>
+          <p style={{ fontSize: '18px', fontWeight: '700', color: totalDebt > 0 ? '#dc2626' : '#6b7280', margin: 0 }}>
             {totalDebt.toLocaleString()} сум
           </p>
         </div>

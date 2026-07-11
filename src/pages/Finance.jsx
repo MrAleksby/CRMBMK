@@ -96,15 +96,18 @@ function pageNumbers(current, total) {
   return result
 }
 
+// Суммы длинные (девять знаков), и крупные цифры съедали пол-экрана.
+// Держим их компактными: карточка — сводка, а не заголовок.
 function Metric({ label, value, color = '#111827', tint }) {
   return (
     <div style={{
       ...card,
+      padding: '14px 16px',
       background: tint || '#ffffff',
       border: `1px solid ${tint ? 'transparent' : '#e5e7eb'}`,
     }}>
-      <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>{label}</p>
-      <p style={{ fontSize: '18px', fontWeight: '700', color, margin: 0 }}>{value}</p>
+      <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>{label}</p>
+      <p style={{ fontSize: '15px', fontWeight: '700', color, margin: 0 }}>{value}</p>
     </div>
   )
 }
