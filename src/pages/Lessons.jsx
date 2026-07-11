@@ -5,7 +5,7 @@ import { db, auth } from '../firebase'
 import { useAuth } from '../AuthContext'
 import { canManage, teacherIdOf } from '../lib/access'
 import { withTimeout, describeError } from '../lib/withTimeout'
-import { clientMoneyQuery } from '../lib/finance'
+import { readCollection, readClientMoney, invalidate } from '../lib/store'
 import ErrorBanner from '../components/ErrorBanner'
 import LessonJournal from '../components/LessonJournal'
 import LessonForm from '../components/LessonForm'
@@ -79,37 +79,38 @@ export default function Lessons() {
   const manages = canManage(user?.uid, profile)
   const myTeacherId = teacherIdOf(user?.uid, profile)
 
-  const fetchData = async () => {
+  const fetchData = async (force = false) => {
     setLoadError('')
+    // После своей записи читаем заново — и сбрасываем кэш целиком, иначе соседняя
+    // страница (например, «Финансы») покажет ленту без только что принятой оплаты.
+    if (force) invalidate()
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const rows = s => s.docs.map(d => ({ id: d.id, ...d.data() }))
 
-      const [ls, cs, ts] = await withTimeout(Promise.all([
-        getDocs(collection(db, 'lessons')),
-        getDocs(collection(db, 'clients')),
-        getDocs(collection(db, 'teachers')),
-      ]))
+      const [allLessons, cs, ts] = await Promise.all([
+        readCollection('lessons', { force }),
+        readCollection('clients', { force }),
+        readCollection('teachers', { force }),
+      ])
       // Чужие занятия педагогу не показываем. Если админ не привязал аккаунт
       // к строке справочника, teacherId пуст — и расписание останется пустым.
-      const allLessons = rows(ls)
       setLessons(manages ? allLessons : allLessons.filter(l => l.teacherId === myTeacherId))
-      setClients(rows(cs))
-      setTeachers(rows(ts))
+      setClients(cs)
+      setTeachers(ts)
 
       // Педагогу деньги не отдаются — ни оплаты, ни списания, ни абонементы.
       // Запрашивать их бессмысленно: правила Firestore откажут, и страница
       // упала бы с ошибкой вместо расписания.
       if (!manages) return
 
-      const [tx, ch, ss] = await withTimeout(Promise.all([
-        getDocs(clientMoneyQuery(db)),
-        getDocs(collection(db, 'charges')),
-        getDocs(collection(db, 'subscriptions')),
-      ]))
-      setTransactions(rows(tx))
-      setCharges(rows(ch))
-      setSubscriptions(rows(ss))
+      const [tx, ch, ss] = await Promise.all([
+        readClientMoney({ force }),
+        readCollection('charges', { force }),
+        readCollection('subscriptions', { force }),
+      ])
+      setTransactions(tx)
+      setCharges(ch)
+      setSubscriptions(ss)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -161,7 +162,7 @@ export default function Lessons() {
       await batch.commit()
       setJournalId(null)
       setModalId(null)
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -202,7 +203,7 @@ export default function Lessons() {
       await batch.commit()
       setJournalId(null)
       setModalId(null)
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -237,7 +238,7 @@ export default function Lessons() {
       rollbackCharges(batch, lesson.id)
       batch.update(doc(db, 'lessons', lesson.id), { status: 'planned', attendance: [] })
       await batch.commit()
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -259,7 +260,7 @@ export default function Lessons() {
       rollbackCharges(batch, lesson.id)
       batch.update(doc(db, 'lessons', lesson.id), { status: 'cancelled', attendance: [] })
       await batch.commit()
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -303,7 +304,7 @@ export default function Lessons() {
     try {
       await updateDoc(doc(db, 'lessons', lesson.id), { studentIds: ids })
       setStudentsId(null)
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -326,7 +327,7 @@ export default function Lessons() {
       })
       await batch.commit()
       setCreating(false)
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))

@@ -20,7 +20,8 @@ import {
   clientToForm, instagramUrl, telegramUrl, phoneUrl, parentPhones, isLeadClient,
 } from '../lib/client'
 import { MONTHS_SHORT } from '../lib/constants'
-import { KIND_INCOME, toJsDate, inPeriod as inMonth, availableYears, clientMoneyQuery } from '../lib/finance'
+import { KIND_INCOME, toJsDate, inPeriod as inMonth, availableYears } from '../lib/finance'
+import { readCollection, readClientMoney, invalidate } from '../lib/store'
 import { categoriesForKind } from '../lib/transaction'
 import { clientBalance } from '../lib/balance'
 import { sortItems, getDirectory } from '../lib/directories'
@@ -176,45 +177,47 @@ export default function ClientCard() {
   const { user, profile } = useAuth()
   const manages = canManage(user?.uid, profile)
 
-  const fetchData = async () => {
+  const fetchData = async (force = false) => {
     setLoadError('')
+    // После своей записи читаем заново — и сбрасываем кэш целиком, иначе соседняя
+    // страница (например, «Финансы») покажет ленту без только что принятой оплаты.
+    if (force) invalidate()
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const rows = snapshot => snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
 
-      const [snap, les, ls, gs, ts, cs] = await withTimeout(Promise.all([
-        getDoc(doc(db, 'clients', id)),
-        getDocs(collection(db, 'legalEntities')),
-        getDocs(collection(db, 'lessons')),
-        getDocs(collection(db, 'groups')),
-        getDocs(collection(db, 'teachers')),
-        getDocs(collection(db, 'clients')),
-      ]))
+      const [snap, les, ls, gs, ts, cs] = await Promise.all([
+        withTimeout(getDoc(doc(db, 'clients', id))),
+        readCollection('legalEntities', { force }),
+        readCollection('lessons', { force }),
+        readCollection('groups', { force }),
+        readCollection('teachers', { force }),
+        readCollection('clients', { force }),
+      ])
       setClient(snap.exists() ? { id: snap.id, ...snap.data() } : null)
-      setLegalEntities(rows(les))
-      setLessons(rows(ls))
-      setGroups(rows(gs))
-      setTeachers(rows(ts))
-      setAllClients(rows(cs))
+      setLegalEntities(les)
+      setLessons(ls)
+      setGroups(gs)
+      setTeachers(ts)
+      setAllClients(cs)
 
       // Педагогу карточка нужна ради возраста, аллергий и телефона родителя.
       // Деньги — оплаты, начисления, абонементы, кассы — ему не отдаются вовсе.
       if (!manages) return
 
-      const [tx, ch, ss, pk, acc, cat] = await withTimeout(Promise.all([
-        getDocs(clientMoneyQuery(db)),
-        getDocs(collection(db, 'charges')),
-        getDocs(collection(db, 'subscriptions')),
-        getDocs(collection(db, 'packages')),
-        getDocs(collection(db, 'accounts')),
-        getDocs(collection(db, 'categories')),
-      ]))
-      setTransactions(rows(tx).filter(t => t.clientId === id))
-      setCharges(rows(ch).filter(c => c.clientId === id))
-      setSubscriptions(rows(ss).filter(x => x.clientId === id))
-      setPackages(rows(pk))
-      setAccounts(sortItems(getDirectory('accounts'), rows(acc)))
-      setCategories(sortItems(getDirectory('categories'), rows(cat)))
+      const [tx, ch, ss, pk, acc, cat] = await Promise.all([
+        readClientMoney({ force }),
+        readCollection('charges', { force }),
+        readCollection('subscriptions', { force }),
+        readCollection('packages', { force }),
+        readCollection('accounts', { force }),
+        readCollection('categories', { force }),
+      ])
+      setTransactions(tx.filter(t => t.clientId === id))
+      setCharges(ch.filter(c => c.clientId === id))
+      setSubscriptions(ss.filter(x => x.clientId === id))
+      setPackages(pk)
+      setAccounts(sortItems(getDirectory('accounts'), acc))
+      setCategories(sortItems(getDirectory('categories'), cat))
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -272,7 +275,7 @@ export default function ClientCard() {
         createdAt: new Date(),
       })
       setForm({ open: false })
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -286,7 +289,7 @@ export default function ClientCard() {
     try {
       await updateDoc(doc(db, 'clients', id), data)
       setEditing(false)
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -331,7 +334,7 @@ export default function ClientCard() {
       }
       await batch.commit()
       setPickedLessons([])
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -354,7 +357,7 @@ export default function ClientCard() {
         studentIds: [...new Set([...(group.studentIds || []), id])],
       })
       setPickGroup('')
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -372,7 +375,7 @@ export default function ClientCard() {
       await updateDoc(doc(db, 'groups', group.id), {
         studentIds: (group.studentIds || []).filter(s => s !== id),
       })
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -397,7 +400,7 @@ export default function ClientCard() {
         { ...paymentFromForm(form, id, client.childName, pkg?.name), createdAt: now })
       await batch.commit()
       setIssuing(false)
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -419,7 +422,7 @@ export default function ClientCard() {
         status: editingSub.status || 'active',
       })
       setEditingSub(null)
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -433,7 +436,7 @@ export default function ClientCard() {
   const handleArchiveSubscription = async (sub) => {
     try {
       await updateDoc(doc(db, 'subscriptions', sub.id), { status: 'archived' })
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -443,7 +446,7 @@ export default function ClientCard() {
   const handleRestoreSubscription = async (sub) => {
     try {
       await updateDoc(doc(db, 'subscriptions', sub.id), { status: 'active' })
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -456,7 +459,7 @@ export default function ClientCard() {
     if (!confirm(`Удалить абонемент «${sub.name}»?\n\nСписания и оплаты останутся. Изменится только остаток в уроках.`)) return
     try {
       await deleteDoc(doc(db, 'subscriptions', sub.id))
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -475,7 +478,7 @@ export default function ClientCard() {
       await updateDoc(doc(db, 'lessons', lesson.id), {
         studentIds: (lesson.studentIds || []).filter(s => s !== id),
       })
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -494,7 +497,7 @@ export default function ClientCard() {
     if (!confirm('Удалить запись? Баланс пересчитается.')) return
     try {
       await deleteDoc(doc(db, entry._charge ? 'charges' : 'transactions', entry.id))
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))

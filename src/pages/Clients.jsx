@@ -5,7 +5,7 @@ import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import { useAuth } from '../AuthContext'
 import { canManage } from '../lib/access'
-import { clientMoneyQuery } from '../lib/finance'
+import { readCollection, readClientMoney, invalidate } from '../lib/store'
 import ClientForm from '../components/ClientForm'
 import ErrorBanner from '../components/ErrorBanner'
 import { lessonsLeft } from '../lib/subscription'
@@ -113,31 +113,33 @@ export default function Clients() {
   const manages = canManage(user?.uid, profile)
   const columns = manages ? COLUMNS : COLUMNS.filter(col => col.key !== 'balance')
 
-  const fetchData = async () => {
+  const fetchData = async (force = false) => {
     setLoadError('')
+    // После своей записи читаем заново — и сбрасываем кэш целиком, иначе соседняя
+    // страница (например, «Финансы») покажет ленту без только что принятой оплаты.
+    if (force) invalidate()
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const rows = s => s.docs.map(d => ({ id: d.id, ...d.data() }))
 
-      const [cs, les] = await withTimeout(Promise.all([
-        getDocs(collection(db, 'clients')),
-        getDocs(collection(db, 'legalEntities')),
-      ]))
-      setClients(rows(cs))
-      setLegalEntities(rows(les))
+      const [cs, les] = await Promise.all([
+        readCollection('clients', { force }),
+        readCollection('legalEntities', { force }),
+      ])
+      setClients(cs)
+      setLegalEntities(les)
 
       // Педагогу списки учеников нужны (состав, аллергии, телефон родителя),
       // а деньги — нет: правила Firestore ему их и не отдадут.
       if (!manages) return
 
-      const [tx, ch, ss] = await withTimeout(Promise.all([
-        getDocs(clientMoneyQuery(db)),
-        getDocs(collection(db, 'charges')),
-        getDocs(collection(db, 'subscriptions')),
-      ]))
-      setTransactions(rows(tx))
-      setCharges(rows(ch))
-      setSubscriptions(rows(ss))
+      const [tx, ch, ss] = await Promise.all([
+        readClientMoney({ force }),
+        readCollection('charges', { force }),
+        readCollection('subscriptions', { force }),
+      ])
+      setTransactions(tx)
+      setCharges(ch)
+      setSubscriptions(ss)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -166,7 +168,7 @@ export default function Clients() {
     try {
       await addDoc(collection(db, 'clients'), { ...data, createdAt: new Date() })
       setShowAddClient(false)
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -205,7 +207,7 @@ export default function Clients() {
         await batch.commit()
       }
       selection.clear()
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))

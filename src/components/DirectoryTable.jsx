@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore'
 import { db, auth } from '../firebase'
+import { invalidate } from '../lib/store'
 import { toAmount, toCount } from '../lib/amount'
 import { normalizeHandle } from '../lib/client'
 import { withTimeout, describeError } from '../lib/withTimeout'
@@ -93,6 +94,9 @@ export default function DirectoryTable({ dir }) {
     setError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
+      // Справочник правят прямо здесь, а кассы и тарифы читают другие страницы.
+      // Поэтому читаем всегда свежее и заодно сбрасываем общий кэш.
+      invalidate(dir.key)
       const snap = await withTimeout(getDocs(collection(db, dir.key)))
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       setItems(sortItems(dir, data))

@@ -3,6 +3,7 @@
 import { collection, doc, writeBatch, getDocs } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { nextOrder } from './directories'
+import { invalidate } from './store'
 
 // Firestore не принимает больше 500 операций в одной транзакции.
 const BATCH_LIMIT = 400
@@ -40,6 +41,7 @@ export async function applyMigration({ transactions, charges }) {
     for (const row of part) batch.set(doc(collection(db, 'charges')), row)
     await batch.commit()
   }
+  invalidate()
   return { transactions: transactions.length, charges: charges.length }
 }
 

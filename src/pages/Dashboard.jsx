@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { collection, getDocs } from 'firebase/firestore'
-import { db, auth } from '../firebase'
+import { auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
+import { readCollection, readClientMoney, invalidate } from '../lib/store'
 import ErrorBanner from '../components/ErrorBanner'
-import { KIND_INCOME, incomeTotal, toJsDate, clientMoneyQuery } from '../lib/finance'
+import { KIND_INCOME, incomeTotal, toJsDate } from '../lib/finance'
 import { clientBalances, debtAndPrepaid } from '../lib/balance'
 
 const card = {
@@ -20,18 +20,21 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
 
-  const fetchData = async () => {
+  const fetchData = async (force = false) => {
     setLoadError('')
+    // После своей записи читаем заново — и сбрасываем кэш целиком, иначе соседняя
+    // страница (например, «Финансы») покажет ленту без только что принятой оплаты.
+    if (force) invalidate()
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [clientsSnap, txSnap, chargesSnap] = await withTimeout(Promise.all([
-        getDocs(collection(db, 'clients')),
-        getDocs(clientMoneyQuery(db)),
-        getDocs(collection(db, 'charges')),
-      ]))
-      setClients(clientsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-      setTransactions(txSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-      setCharges(chargesSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      const [cs, tx, ch] = await Promise.all([
+        readCollection('clients', { force }),
+        readClientMoney({ force }),
+        readCollection('charges', { force }),
+      ])
+      setClients(cs)
+      setTransactions(tx)
+      setCharges(ch)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))

@@ -10,6 +10,7 @@ import { db, auth } from '../firebase'
 import { clientBalance } from '../lib/balance'
 import { toJsDate, KIND_INCOME, KIND_REFUND } from '../lib/finance'
 import { withTimeout, describeError } from '../lib/withTimeout'
+import { readCollection, invalidate } from '../lib/store'
 import ErrorBanner from '../components/ErrorBanner'
 import LeadForm from '../components/LeadForm'
 import ClientForm from '../components/ClientForm'
@@ -404,23 +405,25 @@ export default function Leads() {
   const [reason, setReason] = useState(REJECT_REASONS[0].value)
   const [dragOver, setDragOver] = useState(null)
 
-  const fetchData = async () => {
+  const fetchData = async (force = false) => {
     setLoadError('')
+    // После своей записи читаем заново — и сбрасываем кэш целиком, иначе соседняя
+    // страница (например, «Финансы») покажет ленту без только что принятой оплаты.
+    if (force) invalidate()
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [ls, ts, les, acc, cat] = await withTimeout(Promise.all([
-        getDocs(collection(db, 'leads')),
-        getDocs(collection(db, 'teachers')),
-        getDocs(collection(db, 'legalEntities')),
-        getDocs(collection(db, 'accounts')),
-        getDocs(collection(db, 'categories')),
-      ]))
-      const rows = s => s.docs.map(d => ({ id: d.id, ...d.data() }))
-      setLeads(rows(ls))
-      setStaff(rows(ts).filter(s => s.active !== false))
-      setLegalEntities(rows(les))
-      setAccounts(rows(acc).filter(a => a.active !== false))
-      setCategories(rows(cat).filter(c => c.kind === 'income' && c.active !== false))
+      const [ls, ts, les, acc, cat] = await Promise.all([
+        readCollection('leads', { force }),
+        readCollection('teachers', { force }),
+        readCollection('legalEntities', { force }),
+        readCollection('accounts', { force }),
+        readCollection('categories', { force }),
+      ])
+      setLeads(ls)
+      setStaff(ts.filter(s => s.active !== false))
+      setLegalEntities(les)
+      setAccounts(acc.filter(a => a.active !== false))
+      setCategories(cat.filter(c => c.kind === 'income' && c.active !== false))
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -497,7 +500,7 @@ export default function Leads() {
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
       await action()
-      await fetchData()
+      await fetchData(true)
       setMoneyTick(t => t + 1)
     } catch (e) {
       console.error(e)

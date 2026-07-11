@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { collection, getDocs, doc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
+import { readCollection, invalidate } from '../lib/store'
 import { useAuth } from '../AuthContext'
 import { canManage } from '../lib/access'
 import ErrorBanner from '../components/ErrorBanner'
@@ -51,20 +52,23 @@ export default function Groups() {
   const { user, profile } = useAuth()
   const manages = canManage(user?.uid, profile)
 
-  const fetchData = async () => {
+  const fetchData = async (force = false) => {
     setLoadError('')
+    // После своей записи читаем заново — и сбрасываем кэш целиком, иначе соседняя
+    // страница (например, «Финансы») покажет ленту без только что принятой оплаты.
+    if (force) invalidate()
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [gs, ls, cs, ts] = await withTimeout(Promise.all([
-        getDocs(collection(db, 'groups')),
-        getDocs(collection(db, 'lessons')),
-        getDocs(collection(db, 'clients')),
-        getDocs(collection(db, 'teachers')),
-      ]))
-      setGroups(gs.docs.map(d => ({ id: d.id, ...d.data() })))
-      setLessons(ls.docs.map(d => ({ id: d.id, ...d.data() })))
-      setClients(cs.docs.map(d => ({ id: d.id, ...d.data() })))
-      setTeachers(ts.docs.map(d => ({ id: d.id, ...d.data() })))
+      const [gs, ls, cs, ts] = await Promise.all([
+        readCollection('groups', { force }),
+        readCollection('lessons', { force }),
+        readCollection('clients', { force }),
+        readCollection('teachers', { force }),
+      ])
+      setGroups(gs)
+      setLessons(ls)
+      setClients(cs)
+      setTeachers(ts)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -113,7 +117,7 @@ export default function Groups() {
       }
       await batch.commit()
       setCreating(false)
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -181,7 +185,7 @@ export default function Groups() {
 
       await batch.commit()
       setEditingId(null)
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -208,7 +212,7 @@ export default function Groups() {
       batch.delete(doc(db, 'groups', group.id))
       for (const lesson of removable) batch.delete(doc(db, 'lessons', lesson.id))
       await batch.commit()
-      await fetchData()
+      await fetchData(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))

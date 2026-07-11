@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { collection, getDocs, addDoc, updateDoc, writeBatch, doc } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
+import { readCollection, invalidate } from '../lib/store'
 import { MONTHS_SHORT } from '../lib/constants'
 import {
   KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, kindMeta,
@@ -147,27 +148,32 @@ export default function Finance() {
     setPage(1)
   }
 
-  const fetchAll = async () => {
+  const fetchAll = async (force = false) => {
     setLoadError('')
+    // После своей записи читаем заново — и сбрасываем кэш целиком, иначе соседняя
+    // страница (например, «Финансы») покажет ленту без только что принятой оплаты.
+    if (force) invalidate()
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [tx, ch, acc, cat, cl, te, pk] = await withTimeout(Promise.all([
-        getDocs(collection(db, 'transactions')),
-        getDocs(collection(db, 'charges')),
-        getDocs(collection(db, 'accounts')),
-        getDocs(collection(db, 'categories')),
-        getDocs(collection(db, 'clients')),
-        getDocs(collection(db, 'teachers')),
-        getDocs(collection(db, 'packages')),
-      ]))
-      const rows = snap => snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      setTransactions(rows(tx))
-      setCharges(rows(ch))
-      setAccounts(sortItems(getDirectory('accounts'), rows(acc)))
-      setCategories(sortItems(getDirectory('categories'), rows(cat)))
-      setClients(rows(cl).sort((a, b) => String(a.childName || '').localeCompare(String(b.childName || ''), 'ru')))
-      setTeachers(rows(te))
-      setPackages(rows(pk))
+      // Здесь нужны все операции целиком, включая расходы и зарплаты, — это
+      // касса компании. Отсюда и отдельный ключ кэша: у остальных страниц
+      // в памяти лежат только оплаты и возвраты.
+      const [tx, ch, acc, cat, cl, te, pk] = await Promise.all([
+        readCollection('transactions', { force }),
+        readCollection('charges', { force }),
+        readCollection('accounts', { force }),
+        readCollection('categories', { force }),
+        readCollection('clients', { force }),
+        readCollection('teachers', { force }),
+        readCollection('packages', { force }),
+      ])
+      setTransactions(tx)
+      setCharges(ch)
+      setAccounts(sortItems(getDirectory('accounts'), acc))
+      setCategories(sortItems(getDirectory('categories'), cat))
+      setClients([...cl].sort((a, b) => String(a.childName || '').localeCompare(String(b.childName || ''), 'ru')))
+      setTeachers(te)
+      setPackages(pk)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -204,7 +210,7 @@ export default function Finance() {
         await addDoc(collection(db, 'transactions'), { ...buildTransaction(form, { clients, teachers }), createdAt: now })
       }
       setShowForm(false)
-      await fetchAll()
+      await fetchAll(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -221,7 +227,7 @@ export default function Finance() {
       await updateDoc(doc(db, 'transactions', editing.id), buildTransaction(form, { clients, teachers }))
       setEditing(null)
       selection.clear()
-      await fetchAll()
+      await fetchAll(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -252,7 +258,7 @@ export default function Finance() {
       for (const row of chosen) batch.delete(doc(db, 'transactions', row.id))
       await batch.commit()
       selection.clear()
-      await fetchAll()
+      await fetchAll(true)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))

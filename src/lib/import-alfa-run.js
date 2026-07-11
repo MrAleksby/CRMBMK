@@ -2,6 +2,7 @@
 
 import { collection, doc, getDocs, writeBatch, setDoc } from 'firebase/firestore'
 import { db, auth } from '../firebase'
+import { invalidate } from './store'
 
 const BATCH_LIMIT = 400
 
@@ -70,6 +71,7 @@ export async function clearCollections(names, onProgress = () => {}) {
     }
     onProgress(`очищено: ${name} (${snapshot.size})`)
   }
+  invalidate()
 }
 
 // Порядок важен: справочники раньше того, что на них ссылается.
@@ -92,6 +94,8 @@ export async function writeImport(plan, onProgress = () => {}) {
     written[name] = docs.length
     onProgress(`записано: ${name} (${docs.length})`)
   }
+  // Импорт переписывает коллекции целиком — всё, что лежит в памяти, устарело.
+  invalidate()
   return written
 }
 
