@@ -20,7 +20,6 @@ import {
 const PAGE_SIZE = 50
 
 // Колонки таблицы. Клик по заголовку сортирует, как в AlfaCRM.
-// «Дата след. посещения» пока не считается, сортировать нечего.
 const COLUMNS = [
   { key: 'name', label: 'ФИО' },
   { key: 'balance', label: 'Общий остаток' },
@@ -54,8 +53,6 @@ const td = (isLast) => ({
 })
 
 const link = { color: '#4b5563', textDecoration: 'none' }
-
-const muted = { color: '#dc2626', fontStyle: 'italic', fontSize: '11px' }
 
 // Формат даты рождения под ФИО: «10 лет (04.09.2015)»
 function birthLine(client) {
@@ -348,7 +345,6 @@ export default function Clients() {
                     </span>
                   </th>
                 ))}
-                <th style={th}>Дата след. посещения</th>
               </tr>
             </thead>
             <tbody>
@@ -402,7 +398,7 @@ export default function Clients() {
                       }}>{status.label}</span>
                     </td>
 
-                    <td style={td(isLast)}>
+                    <td style={{ ...td(isLast), minWidth: '260px' }}>
                       {contacts.length === 0 && <span style={{ color: '#9ca3af' }}>—</span>}
                       {contacts.map(r => (
                         <div key={r.role} style={{ marginBottom: '4px' }}>
@@ -429,12 +425,8 @@ export default function Clients() {
                       ))}
                     </td>
 
-                    <td style={{ ...td(isLast), maxWidth: '180px' }}>
+                    <td style={{ ...td(isLast), maxWidth: '220px' }}>
                       {c.notes || <span style={{ color: '#9ca3af' }}>—</span>}
-                    </td>
-
-                    <td style={td(isLast)}>
-                      <span style={muted}>(не задано)</span>
                     </td>
 
                   </tr>
