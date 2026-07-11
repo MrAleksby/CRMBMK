@@ -12,14 +12,14 @@ import {
 
 const navBtn = {
   background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px',
-  padding: '6px 12px', fontSize: '13px', color: '#4b5563', cursor: 'pointer',
+  padding: '4px 10px', fontSize: '12px', color: '#4b5563', cursor: 'pointer',
 }
 
 const viewBtn = (active) => ({
   background: active ? '#7c3aed' : '#ffffff',
   color: active ? '#fff' : '#4b5563',
   border: `1px solid ${active ? '#7c3aed' : '#e5e7eb'}`,
-  padding: '6px 14px', fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+  padding: '4px 12px', fontSize: '12px', fontWeight: '600', cursor: 'pointer',
 })
 
 // Цвет занятия: проведённое зелёное, отменённое серое и зачёркнутое,
@@ -346,10 +346,10 @@ export default function LessonCalendar({
   const openFull = (lesson) => { setPreview(null); onOpen(lesson) }
 
   return (
-    <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '16px' }}>
+    <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '12px 16px 16px' }}>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        marginBottom: '16px', gap: '12px', flexWrap: 'wrap',
+        marginBottom: '10px', gap: '10px', flexWrap: 'wrap',
       }}>
         <div style={{ display: 'flex', gap: '6px' }}>
           <button onClick={() => onDateChange(shiftDate(date, view, -1))} style={navBtn}>‹</button>
@@ -357,7 +357,7 @@ export default function LessonCalendar({
           <button onClick={() => onDateChange(new Date())} style={navBtn}>Сегодня</button>
         </div>
 
-        <h3 style={{ fontSize: '17px', fontWeight: '600', color: '#111827', margin: 0 }}>
+        <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: 0 }}>
           {rangeTitle(date, view)}
         </h3>
 
