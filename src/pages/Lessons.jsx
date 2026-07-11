@@ -400,6 +400,7 @@ export default function Lessons() {
         <LessonCalendar
           lessons={lessons}
           clients={clients}
+          teachers={teachers}
           view={view}
           date={calendarDate}
           onViewChange={setView}

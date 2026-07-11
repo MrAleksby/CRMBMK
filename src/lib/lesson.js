@@ -10,10 +10,27 @@ export const ATTENDANCE = {
 }
 
 export const LESSON_TYPES = [
-  { value: 'group', label: 'Групповой' },
-  { value: 'individual', label: 'Индивидуальный' },
-  { value: 'trial', label: 'Пробный' },
+  { value: 'group', label: 'Групповой', icon: '👥' },
+  { value: 'individual', label: 'Индивидуальный', icon: '🧑' },
+  { value: 'trial', label: 'Пробный', icon: '✱' },
 ]
+
+// Пробное занятие: помечено звёздочкой, как в AlfaCRM. Ребёнок пришёл впервые,
+// группы у него ещё нет.
+export const isTrial = (lesson) => lesson?.type === 'trial'
+
+export const lessonTypeIcon = (type) =>
+  LESSON_TYPES.find(t => t.value === type)?.icon || '👥'
+
+// Список имён учеников занятия по составу. Для проведённого берём из журнала
+// (там зафиксирован факт), для запланированного — из studentIds.
+export function lessonStudentNames(lesson, clients) {
+  const byId = new Map(clients.map(c => [c.id, c.childName]))
+  if (lesson.status === 'conducted' && lesson.attendance?.length) {
+    return lesson.attendance.map(a => a.clientName || byId.get(a.clientId) || '—')
+  }
+  return (lesson.studentIds || []).map(id => byId.get(id) || '—')
+}
 
 // Подсказка суммы по цепочке: абонемент → персональная цена ребёнка → пусто.
 // Пустое поле означает, что менеджер введёт сумму сам.

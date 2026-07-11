@@ -1,8 +1,13 @@
+import { useState } from 'react'
 import { LESSON_STATUSES, todayISO } from '../lib/group'
 import {
   VIEWS, WEEKDAY_SHORT, HOUR_HEIGHT, DAY_START_HOUR, DAY_END_HOUR,
   hours, monthGrid, weekDays, lessonsOn, lessonBox, rangeTitle, shiftDate, toISO,
+  durationMinutes,
 } from '../lib/calendar'
+import {
+  isTrial, lessonTypeLabel, lessonTypeIcon, lessonStudentNames, formatLessonDate,
+} from '../lib/lesson'
 
 const navBtn = {
   background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px',
@@ -30,12 +35,13 @@ function lessonStyle(lesson) {
 // dense — не хватает ещё и ширины: несколько занятий делят колонку недели.
 function LessonChip({ lesson, clients, onOpen, compact, dense }) {
   const style = lessonStyle(lesson)
-  const names = (lesson.studentIds || [])
-    .map(id => clients.find(c => c.id === id)?.childName)
-    .filter(Boolean)
+  const names = lessonStudentNames(lesson, clients)
+  const trial = isTrial(lesson)
 
   const mark = lesson.status === 'conducted' ? '✓ ' : lesson.status === 'cancelled' ? '⊖ ' : ''
-  const title = `${lesson.timeFrom}–${lesson.timeTo} · ${lesson.groupName || 'Занятие'}`
+  // Название: у группового — имя группы, у пробного — звёздочка и «Пробный».
+  const heading = trial ? '✱ Пробный' : (lesson.groupName || lessonTypeLabel(lesson.type))
+  const title = `${lesson.timeFrom}–${lesson.timeTo} · ${heading}`
 
   // В тесной плитке помещается только час начала и число детей: диапазон времени,
   // название и значок статуса туда не влезают, а статус и так виден по цвету
@@ -56,22 +62,133 @@ function LessonChip({ lesson, clients, onOpen, compact, dense }) {
 
       {!dense && (
         <div style={{ fontSize: '12px', color: style.color, fontWeight: '600' }}>
-          {lesson.groupName || 'Занятие'}
+          {trial && <span title="Пробный урок">✱ </span>}
+          {lesson.groupName || (trial ? 'Пробный' : lessonTypeLabel(lesson.type))}
         </div>
       )}
 
       {!compact && names.length > 0 && (
         <div style={{ fontSize: '11px', color: style.color, marginTop: '4px', lineHeight: 1.5 }}>
-          {names.slice(0, 8).map(n => <div key={n}>· {n}</div>)}
+          {names.slice(0, 8).map((n, i) => <div key={`${n}-${i}`}>· {n}</div>)}
           {names.length > 8 && <div>…и ещё {names.length - 8}</div>}
         </div>
       )}
 
       {compact && (
         <div style={{ fontSize: dense ? '10px' : '11px', color: style.color, whiteSpace: 'nowrap' }}>
-          👶 {names.length}
+          {trial ? '✱ ' : '👶 '}{names.length}
         </div>
       )}
+    </div>
+  )
+}
+
+// Превью занятия — компактное окно по клику на плитку, как в AlfaCRM.
+// Показывает состав и, если занятие проведено, фактические суммы списаний.
+// «Открыть занятие» ведёт в полную карточку, где проводят и правят журнал.
+function LessonPreview({ lesson, clients, teachers, onOpen, onClose }) {
+  const style = lessonStyle(lesson)
+  const status = LESSON_STATUSES[lesson.status] ?? LESSON_STATUSES.planned
+  const teacher = teachers.find(t => t.id === lesson.teacherId)
+  const conducted = lesson.status === 'conducted'
+  const trial = isTrial(lesson)
+
+  // Проведённое несёт фактические суммы в журнале; запланированное — только состав.
+  const rows = conducted && lesson.attendance?.length
+    ? lesson.attendance.map(a => ({
+        key: a.clientId,
+        name: a.clientName || clients.find(c => c.id === a.clientId)?.childName || '—',
+        present: a.status === 'present',
+        amount: a.amountCharged || 0,
+      }))
+    : lessonStudentNames(lesson, clients).map((name, i) => ({ key: `${name}-${i}`, name, amount: null }))
+
+  const total = conducted ? rows.reduce((s, r) => s + (r.amount || 0), 0) : null
+
+  const line = { display: 'grid', gridTemplateColumns: '96px 1fr', gap: '10px', padding: '5px 0', fontSize: '13px' }
+  const muted = { color: '#6b7280' }
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'rgba(17, 24, 39, 0.35)',
+      display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      padding: '60px 16px', zIndex: 90, overflowY: 'auto',
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: '#ffffff', borderRadius: '14px', width: '100%', maxWidth: '380px',
+        border: '1px solid #e5e7eb', overflow: 'hidden',
+        boxShadow: '0 12px 32px rgba(17, 24, 39, 0.18)',
+      }}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          padding: '12px 16px', borderBottom: '1px solid #e5e7eb', background: style.background,
+        }}>
+          <span style={{ fontSize: '14px', fontWeight: '700', color: style.color }}>
+            {trial ? '✱ ' : `${lessonTypeIcon(lesson.type)} `}{lessonTypeLabel(lesson.type)} · {status.label}
+          </span>
+          <button onClick={onClose} style={{
+            background: 'transparent', border: 'none', fontSize: '16px', color: '#6b7280', cursor: 'pointer',
+          }}>✕</button>
+        </div>
+
+        <div style={{ padding: '12px 16px' }}>
+          <div style={line}>
+            <span style={muted}>Время</span>
+            <span>{formatLessonDate(lesson.date)}, {lesson.timeFrom}–{lesson.timeTo}
+              <span style={muted}> ({durationMinutes(lesson)} мин.)</span></span>
+          </div>
+          <div style={line}>
+            <span style={muted}>Педагог</span>
+            <span>{teacher ? teacher.name : <span style={{ color: '#dc2626', fontStyle: 'italic' }}>(не задан)</span>}</span>
+          </div>
+          <div style={line}>
+            <span style={muted}>{trial ? 'Пробный' : 'Группа'}</span>
+            <span>{lesson.groupName || <span style={muted}>без группы</span>}</span>
+          </div>
+
+          <div style={{ borderTop: '1px solid #f3f4f6', marginTop: '8px', paddingTop: '8px' }}>
+            <div style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginBottom: '4px' }}>
+              Состав ({rows.length})
+            </div>
+            {rows.length === 0 ? (
+              <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0' }}>Учеников нет</p>
+            ) : rows.map((r, i) => (
+              <div key={r.key} style={{
+                display: 'flex', justifyContent: 'space-between', gap: '8px',
+                fontSize: '13px', padding: '4px 0',
+                borderTop: i === 0 ? 'none' : '1px solid #f3f4f6',
+                color: conducted && !r.present ? '#9ca3af' : '#111827',
+              }}>
+                <span>{i + 1}. {r.name}</span>
+                {r.amount !== null && (
+                  <span style={{ color: r.amount > 0 ? '#dc2626' : '#9ca3af', whiteSpace: 'nowrap' }}>
+                    {r.amount > 0 ? `${r.amount.toLocaleString()} сум` : '—'}
+                  </span>
+                )}
+              </div>
+            ))}
+            {total !== null && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', fontSize: '13px', fontWeight: '700' }}>
+                <span>Списано</span>
+                <span style={{ color: '#111827' }}>{total.toLocaleString()} сум</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px', padding: '12px 16px', borderTop: '1px solid #e5e7eb', background: '#f7f8fa' }}>
+          <button onClick={() => onOpen(lesson)} style={{
+            background: '#7c3aed', color: '#fff', border: 'none', padding: '9px 16px',
+            borderRadius: '10px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', flex: 1,
+          }}>
+            {conducted ? '✎ Открыть занятие' : '✓ Открыть и провести'}
+          </button>
+          <button onClick={onClose} style={{
+            background: 'transparent', color: '#6b7280', border: '1px solid #e5e7eb',
+            padding: '9px 14px', borderRadius: '10px', fontSize: '13px', cursor: 'pointer',
+          }}>Закрыть</button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -200,8 +317,15 @@ function MonthGrid({ date, lessons, clients, onOpen }) {
   )
 }
 
-export default function LessonCalendar({ lessons, clients, view, date, onViewChange, onDateChange, onOpen }) {
+export default function LessonCalendar({
+  lessons, clients, teachers = [], view, date, onViewChange, onDateChange, onOpen,
+}) {
   const days = view === 'day' ? [date] : weekDays(date)
+  // Клик по плитке сначала показывает превью; полную карточку открывает
+  // «Открыть занятие» внутри превью. Так задумано в AlfaCRM: сперва заглянуть.
+  const [preview, setPreview] = useState(null)
+
+  const openFull = (lesson) => { setPreview(null); onOpen(lesson) }
 
   return (
     <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '16px', padding: '16px' }}>
@@ -230,8 +354,18 @@ export default function LessonCalendar({ lessons, clients, view, date, onViewCha
       </div>
 
       {view === 'month'
-        ? <MonthGrid date={date} lessons={lessons} clients={clients} onOpen={onOpen} />
-        : <TimeGrid days={days} lessons={lessons} clients={clients} onOpen={onOpen} />}
+        ? <MonthGrid date={date} lessons={lessons} clients={clients} onOpen={setPreview} />
+        : <TimeGrid days={days} lessons={lessons} clients={clients} onOpen={setPreview} />}
+
+      {preview && (
+        <LessonPreview
+          lesson={preview}
+          clients={clients}
+          teachers={teachers}
+          onOpen={openFull}
+          onClose={() => setPreview(null)}
+        />
+      )}
     </div>
   )
 }
