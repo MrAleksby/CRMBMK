@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import StudentChecklist from './StudentChecklist'
 import { LESSON_STATUSES } from '../lib/group'
 import {
@@ -175,16 +176,19 @@ export default function LessonModal({
                     return (
                       <tr key={record.clientId} style={{ borderTop: '1px solid #f3f4f6' }}>
                         <td style={{ padding: '8px 0' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: conducted ? 'default' : 'pointer' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <input type="checkbox" checked={present} disabled={conducted}
                               onChange={() => update(record.clientId, { status: present ? 'absent' : 'present' })} />
-                            <span style={{ color: balance < 0 ? '#dc2626' : '#111827' }}>
+                            {/* Имя ведёт на карточку ученика — у тёзок так видно, кто это.
+                                Новая вкладка, чтобы не потерять журнал занятия. */}
+                            <Link to={`/clients/${record.clientId}`} target="_blank" rel="noreferrer"
+                              style={{ color: balance < 0 ? '#dc2626' : '#7c3aed', textDecoration: 'none' }}>
                               {record.clientName}
-                            </span>
+                            </Link>
                             <span style={{ fontSize: '12px', color: balance < 0 ? '#dc2626' : '#6b7280' }}>
                               ({left > 0 ? `${left} ост` : `${balance.toLocaleString()} сум`})
                             </span>
-                          </label>
+                          </div>
                         </td>
                         <td style={{ padding: '8px 0', textAlign: 'right' }}>
                           {conducted ? (

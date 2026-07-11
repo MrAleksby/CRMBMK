@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { LESSON_STATUSES, todayISO } from '../lib/group'
 import {
   VIEWS, WEEKDAY_SHORT, HOUR_HEIGHT, DAY_START_HOUR, DAY_END_HOUR,
@@ -96,12 +97,16 @@ function LessonPreview({ lesson, clients, teachers, onOpen, onClose }) {
   // Проведённое несёт фактические суммы в журнале; запланированное — только состав.
   const rows = conducted && lesson.attendance?.length
     ? lesson.attendance.map(a => ({
-        key: a.clientId,
+        clientId: a.clientId,
         name: a.clientName || clients.find(c => c.id === a.clientId)?.childName || '—',
         present: a.status === 'present',
         amount: a.amountCharged || 0,
       }))
-    : lessonStudentNames(lesson, clients).map((name, i) => ({ key: `${name}-${i}`, name, amount: null }))
+    : (lesson.studentIds || []).map(id => ({
+        clientId: id,
+        name: clients.find(c => c.id === id)?.childName || '—',
+        amount: null,
+      }))
 
   const total = conducted ? rows.reduce((s, r) => s + (r.amount || 0), 0) : null
 
@@ -153,13 +158,21 @@ function LessonPreview({ lesson, clients, teachers, onOpen, onClose }) {
             {rows.length === 0 ? (
               <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0' }}>Учеников нет</p>
             ) : rows.map((r, i) => (
-              <div key={r.key} style={{
+              <div key={r.clientId || i} style={{
                 display: 'flex', justifyContent: 'space-between', gap: '8px',
                 fontSize: '13px', padding: '4px 0',
                 borderTop: i === 0 ? 'none' : '1px solid #f3f4f6',
-                color: conducted && !r.present ? '#9ca3af' : '#111827',
               }}>
-                <span>{i + 1}. {r.name}</span>
+                {/* Имя — ссылка на карточку ученика: у тёзок так понятно, кто есть кто.
+                    Открываем в новой вкладке, чтобы не потерять окно занятия. */}
+                <span style={{ color: conducted && !r.present ? '#9ca3af' : '#111827' }}>
+                  {i + 1}.{' '}
+                  {r.clientId ? (
+                    <Link to={`/clients/${r.clientId}`} target="_blank" rel="noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      style={{ color: '#7c3aed', textDecoration: 'none' }}>{r.name}</Link>
+                  ) : r.name}
+                </span>
                 {r.amount !== null && (
                   <span style={{ color: r.amount > 0 ? '#dc2626' : '#9ca3af', whiteSpace: 'nowrap' }}>
                     {r.amount > 0 ? `${r.amount.toLocaleString()} сум` : '—'}
@@ -251,10 +264,11 @@ function TimeGrid({ days, lessons, clients, onOpen }) {
                     position: 'absolute', top: `${box.top}px`, height: `${box.height}px`,
                     left: `${index * width}%`, width: `calc(${width}% - 4px)`, padding: '0 2px',
                   }}>
-                    {/* В режиме «День» колонка одна и широкая: там даже соседние
-                        занятия показываются полностью, тесно только в неделе. */}
+                    {/* Тесно только в неделе: там колонки узкие и делятся между
+                        занятиями. В режиме «День» колонка широкая — даже несколько
+                        занятий показывают полный состав, как в AlfaCRM. */}
                     <LessonChip lesson={lesson} clients={clients} onOpen={onOpen}
-                      compact={dayLessons.length > 1}
+                      compact={days.length > 1 && dayLessons.length > 1}
                       dense={days.length > 1 && dayLessons.length > 1} />
                   </div>
                 )
