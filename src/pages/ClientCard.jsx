@@ -18,6 +18,7 @@ import {
 import {
   getAge, ageLabel, formatBirthday, contactRows, contactTitle, sourceInfo, genderInfo, statusInfo,
   clientToForm, instagramUrl, telegramUrl, phoneUrl, parentPhones, isLeadClient,
+  clientHistory, whyKeepClient, STATUS_DROPPED,
 } from '../lib/client'
 import { MONTHS_SHORT } from '../lib/constants'
 import { KIND_INCOME, toJsDate, inPeriod as inMonth, availableYears } from '../lib/finance'
@@ -300,20 +301,56 @@ export default function ClientCard() {
 
   // Одной транзакцией: иначе оборванное удаление оставит платежи без клиента,
   // и они будут вечно висеть в отчётах.
+  // Ученика с историей не удаляем: вместе с ним ушли бы оплаты, а они лежали
+  // в кассе — доходы и остатки за прошлые месяцы поехали бы. Вместо этого статус
+  // «Бросил». Удалять можно только пустую карточку (дубль, ошибка ввода).
   const handleDeleteClient = async () => {
-    if (!confirm('Удалить ученика? Вместе с ним удалятся его оплаты, начисления и абонементы.')) return
+    const history = clientHistory(id, { transactions, charges, lessons })
+    if (!history.isEmpty) {
+      alert(whyKeepClient(client, history))
+      return
+    }
+    if (!confirm(`Удалить «${client.childName}»? Карточка пустая: ни оплат, ни проведённых занятий.`)) return
+
     setSaving(true)
     try {
       const batch = writeBatch(db)
-      for (const t of transactions) batch.delete(doc(db, 'transactions', t.id))
-      for (const c of charges) batch.delete(doc(db, 'charges', c.id))
       for (const s of subscriptions) batch.delete(doc(db, 'subscriptions', s.id))
+
+      // Убираем из состава занятий и групп: иначе в журнале останется
+      // «ученик без имени» — ссылка на карточку, которой уже нет.
+      for (const lesson of lessons.filter(l => (l.studentIds || []).includes(id))) {
+        batch.update(doc(db, 'lessons', lesson.id), {
+          studentIds: (lesson.studentIds || []).filter(x => x !== id),
+          attendance: (lesson.attendance || []).filter(a => a.clientId !== id),
+        })
+      }
+      for (const group of groups.filter(g => (g.studentIds || []).includes(id))) {
+        batch.update(doc(db, 'groups', group.id), {
+          studentIds: (group.studentIds || []).filter(x => x !== id),
+        })
+      }
+
       batch.delete(doc(db, 'clients', id))
       await batch.commit()
       navigate('/clients')
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
+      setSaving(false)
+    }
+  }
+
+  const handleDrop = async () => {
+    if (!confirm(`Перевести «${client.childName}» в статус «Бросил»? Он уйдёт из рабочего списка, история сохранится.`)) return
+    setSaving(true)
+    try {
+      await updateDoc(doc(db, 'clients', id), { status: STATUS_DROPPED })
+      await fetchData(true)
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    } finally {
       setSaving(false)
     }
   }
@@ -623,6 +660,9 @@ export default function ClientCard() {
               {manages && (
                 <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                   <button onClick={() => setEditing(true)} style={secondaryBtn}>Изменить</button>
+                  {(client.status || 'active') !== STATUS_DROPPED && !isLead && (
+                    <button onClick={handleDrop} disabled={saving} style={secondaryBtn}>Бросил</button>
+                  )}
                   <button onClick={handleDeleteClient} style={secondaryBtn}>Удалить</button>
                 </div>
               )}

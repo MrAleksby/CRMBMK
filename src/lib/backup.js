@@ -6,12 +6,16 @@ import { db, auth } from '../firebase'
 export async function downloadBackup() {
   if (auth.currentUser) await auth.currentUser.getIdToken()
 
+  // Список полный: заводя новую коллекцию, добавлять её сюда, иначе она молча
+  // не попадёт в копию. Так уже терялись `leads` — воронку завели позже бэкапа.
+  //
   // payments и expenses — старая модель. Пока не удалены, копируем и их:
   // бэкап должен пережить миграцию на transactions/charges.
   const names = [
-    'clients', 'transactions', 'charges', 'payments', 'expenses',
+    'clients', 'leads', 'transactions', 'charges', 'payments', 'expenses',
     'groups', 'lessons', 'subscriptions',
     'teachers', 'packages', 'accounts', 'categories', 'legalEntities',
+    'users',
   ]
   const snapshots = await Promise.all(names.map(name => getDocs(collection(db, name))))
 

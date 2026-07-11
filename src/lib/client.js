@@ -45,6 +45,45 @@ export const CLIENT_STATUSES = [
 // Лид держит карточку ученика, но клиентом ещё не стал.
 export const isLeadClient = (client) => (client?.status || 'active') === 'lead'
 
+export const STATUS_DROPPED = 'dropped'
+
+// Можно ли удалять ученика.
+//
+// Удаление стирает и его оплаты — а деньги реально были получены и лежали
+// в кассе. Стерев их, мы задним числом уменьшим доходы, баланс компании
+// и остаток кассы за уже закрытые месяцы: отчёты поедут.
+//
+// Поэтому ученика с историей удалять нельзя вообще — его переводят в статус
+// «Бросил»: из рабочего списка уходит, прошлое остаётся нетронутым.
+// Удаление живёт только для мусора: дубль, ошибка ввода, тестовая запись.
+export function clientHistory(clientId, { transactions = [], charges = [], lessons = [] }) {
+  const paid = transactions.filter(t => t.clientId === clientId && t.kind === 'income')
+  const charged = charges.filter(c => c.clientId === clientId)
+  const attended = lessons.filter(l =>
+    l.status === 'conducted' && (l.studentIds || []).includes(clientId))
+
+  return {
+    payments: paid.length,
+    paidTotal: paid.reduce((s, t) => s + (t.amount || 0), 0),
+    charges: charged.length,
+    lessons: attended.length,
+    // Пустая карточка — ни денег, ни проведённых занятий. Только её и удаляем.
+    isEmpty: paid.length === 0 && charged.length === 0 && attended.length === 0,
+  }
+}
+
+// Человеческое объяснение, почему удалять нельзя.
+export function whyKeepClient(client, history) {
+  const parts = []
+  if (history.lessons) parts.push(`проведённых занятий: ${history.lessons}`)
+  if (history.payments) parts.push(`оплат: ${history.payments} на ${history.paidTotal.toLocaleString()} сум`)
+  if (history.charges && !history.lessons) parts.push(`списаний: ${history.charges}`)
+  return `У ученика «${client.childName}» есть история — ${parts.join(', ')}.\n\n`
+    + 'Удаление стёрло бы и его оплаты, а деньги реально были в кассе: доходы, '
+    + 'баланс компании и остатки по кассам за прошлые месяцы изменились бы задним числом.\n\n'
+    + 'Переведите его в статус «Бросил» — он уйдёт из рабочего списка, а история сохранится.'
+}
+
 export const statusInfo = (client) =>
   CLIENT_STATUSES.find(s => s.value === (client.status || 'active')) ?? CLIENT_STATUSES[0]
 

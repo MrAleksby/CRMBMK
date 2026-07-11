@@ -1,3 +1,74 @@
+  // Удалять можно только пустые карточки. У кого есть оплаты или проведённые
+  // занятия — статус «Бросил»: стерев его оплаты, мы задним числом изменили бы
+  // доходы и остатки по кассам за прошлые месяцы.
+  const handleDeleteSelected = async () => {
+    const chosen = selection.rows
+    if (chosen.length === 0) return
+
+    const withHistory = chosen
+      .map(c => ({ client: c, history: clientHistory(c.id, { transactions, charges, lessons }) }))
+      .filter(x => !x.history.isEmpty)
+
+    if (withHistory.length > 0) {
+      const [first] = withHistory
+      const tail = withHistory.length > 1
+        ? `\n\nВсего таких учеников среди отмеченных: ${withHistory.length}.`
+        : ''
+      alert(whyKeepClient(first.client, first.history) + tail)
+      return
+    }
+
+    const names = chosen.slice(0, 3).map(c => c.childName).join(', ')
+    const more = chosen.length > 3 ? ` и ещё ${chosen.length - 3}` : ''
+    const message = chosen.length === 1
+      ? `Удалить «${chosen[0].childName}»? Карточка пустая: ни оплат, ни проведённых занятий.`
+      : `Удалить учеников: ${chosen.length} (${names}${more})?\n\nВсе карточки пустые: ни оплат, ни проведённых занятий.`
+    if (!confirm(message)) return
+
+    const ids = new Set(chosen.map(c => c.id))
+    const refs = [
+      ...subscriptions.filter(s => ids.has(s.clientId)).map(s => doc(db, 'subscriptions', s.id)),
+      ...chosen.map(c => doc(db, 'clients', c.id)),
+    ]
+
+    setSaving(true)
+    try {
+      for (let i = 0; i < refs.length; i += 400) {
+        const batch = writeBatch(db)
+        for (const ref of refs.slice(i, i + 400)) batch.delete(ref)
+        await batch.commit()
+      }
+
+      // Чистим состав занятий и групп — иначе останется ссылка на карточку,
+      // которой больше нет, и в журнале появится «ученик без имени».
+      const touchedLessons = lessons.filter(l => (l.studentIds || []).some(x => ids.has(x)))
+      const touchedGroups = groups.filter(g => (g.studentIds || []).some(x => ids.has(x)))
+      for (let i = 0; i < touchedLessons.length + touchedGroups.length; i += 400) {
+        const batch = writeBatch(db)
+        for (const l of touchedLessons.slice(i, i + 400)) {
+          batch.update(doc(db, 'lessons', l.id), {
+            studentIds: (l.studentIds || []).filter(x => !ids.has(x)),
+            attendance: (l.attendance || []).filter(a => !ids.has(a.clientId)),
+          })
+        }
+        for (const g of touchedGroups.slice(i, i + 400)) {
+          batch.update(doc(db, 'groups', g.id), {
+            studentIds: (g.studentIds || []).filter(x => !ids.has(x)),
+          })
+        }
+        await batch.commit()
+      }
+
+      selection.clear()
+      await fetchData(true)
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { collection, getDocs, addDoc, doc, writeBatch } from 'firebase/firestore'
@@ -15,6 +86,7 @@ import ActionToolbar from '../components/ActionToolbar'
 import {
   getAge, ageLabel, contactRows, contactTitle, statusInfo, genderInfo, searchText, sortClients,
   CLIENT_STATUSES, instagramUrl, telegramUrl, phoneUrl,
+  clientHistory, whyKeepClient,
 } from '../lib/client'
 
 const PAGE_SIZE = 50
@@ -82,6 +154,8 @@ export default function Clients() {
   const [transactions, setTransactions] = useState([])
   const [charges, setCharges] = useState([])
   const [legalEntities, setLegalEntities] = useState([])
+  const [lessons, setLessons] = useState([])
+  const [groups, setGroups] = useState([])
   const [subscriptions, setSubscriptions] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -118,12 +192,16 @@ export default function Clients() {
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
 
-      const [cs, les] = await Promise.all([
+      const [cs, les, ls, gs] = await Promise.all([
         readCollection('clients', { force }),
         readCollection('legalEntities', { force }),
+        readCollection('lessons', { force }),
+        readCollection('groups', { force }),
       ])
       setClients(cs)
       setLegalEntities(les)
+      setLessons(ls)
+      setGroups(gs)
 
       // Педагогу списки учеников нужны (состав, аллергии, телефон родителя),
       // а деньги — нет: правила Firestore ему их и не отдадут.
