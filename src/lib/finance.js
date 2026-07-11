@@ -119,8 +119,18 @@ export function sortTransactions(list, key, direction, labels = {}) {
   return [...list].sort((a, b) => {
     const left = value(a)
     const right = value(b)
-    if (typeof left === 'number' && typeof right === 'number') return sign * (left - right)
-    return sign * String(left).localeCompare(String(right), 'ru')
+    const cmp = typeof left === 'number' && typeof right === 'number'
+      ? left - right
+      : String(left).localeCompare(String(right), 'ru')
+    if (cmp !== 0) return sign * cmp
+
+    // При равном ключе (обычно — операции одного дня) порядок задаёт время
+    // создания: свежедобавленная встаёт выше при сортировке «сначала новые».
+    // Дата операции хранится как полдень, поэтому сама по себе очерёдности
+    // внутри дня не даёт. У старых записей createdAt нет — они уходят вниз дня.
+    const ca = toJsDate(a.createdAt)?.getTime() || 0
+    const cb = toJsDate(b.createdAt)?.getTime() || 0
+    return sign * (ca - cb)
   })
 }
 

@@ -254,6 +254,7 @@ export default function ClientCard() {
           categoryId: form.categoryId,
           comment: form.description || '',
           date,
+          createdAt: new Date(),
         })
       } else {
         await addDoc(collection(db, 'charges'), {
@@ -376,13 +377,14 @@ export default function ClientCard() {
   const handleIssueSubscription = async (form, pkg) => {
     setSaving(true)
     try {
+      const now = new Date()
       const batch = writeBatch(db)
       batch.set(doc(collection(db, 'subscriptions')), {
         ...formToSubscriptionDoc(form, pkg, id),
-        createdAt: new Date(),
+        createdAt: now,
       })
       batch.set(doc(collection(db, 'transactions')),
-        paymentFromForm(form, id, client.childName, pkg?.name))
+        { ...paymentFromForm(form, id, client.childName, pkg?.name), createdAt: now })
       await batch.commit()
       setIssuing(false)
       await fetchData()

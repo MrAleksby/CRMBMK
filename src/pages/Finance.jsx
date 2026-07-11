@@ -185,21 +185,23 @@ export default function Finance() {
         ? packages.find(p => p.id === form.subscriptionPackageId)
         : null
 
+      // createdAt задаёт порядок операций одного дня: свежая — сверху.
+      const now = new Date()
       if (pkg && form.clientId) {
         // Доход и назначенный абонемент — одной транзакцией: оборванная запись
         // оставила бы либо оплату без абонемента, либо абонемент без денег.
         const batch = writeBatch(db)
-        batch.set(doc(collection(db, 'transactions')), buildTransaction(form, { clients, teachers }))
+        batch.set(doc(collection(db, 'transactions')), { ...buildTransaction(form, { clients, teachers }), createdAt: now })
         batch.set(doc(collection(db, 'subscriptions')), {
           ...formToSubscriptionDoc(
             { packageId: pkg.id, startDate: form.date, endDate: endDateFromWeeks(form.date, form.subscriptionWeeks), note: '' },
             pkg, form.clientId,
           ),
-          createdAt: new Date(),
+          createdAt: now,
         })
         await batch.commit()
       } else {
-        await addDoc(collection(db, 'transactions'), buildTransaction(form, { clients, teachers }))
+        await addDoc(collection(db, 'transactions'), { ...buildTransaction(form, { clients, teachers }), createdAt: now })
       }
       setShowForm(false)
       await fetchAll()
