@@ -1,11 +1,15 @@
 import { useState } from 'react'
 import { DIRECTORIES } from '../lib/directories'
+import { useAuth } from '../AuthContext'
+import { isAdmin } from '../lib/access'
 import DirectoryTable from '../components/DirectoryTable'
 import MigrationPanel from '../components/MigrationPanel'
 import AlfaImportPanel from '../components/AlfaImportPanel'
+import StaffPanel from '../components/StaffPanel'
 
 const MIGRATION = 'migration'
 const IMPORT = 'import'
+const STAFF = 'staff'
 
 const tab = (isActive) => ({
   background: isActive ? '#ede9fe' : 'transparent',
@@ -22,6 +26,11 @@ const tab = (isActive) => ({
 export default function Settings() {
   const [activeKey, setActiveKey] = useState(DIRECTORIES[0].key)
   const dir = DIRECTORIES.find(d => d.key === activeKey) ?? DIRECTORIES[0]
+
+  // Доступом управляет только админ. Правила Firestore проверяют то же самое,
+  // так что скрытая вкладка — удобство, а не защита.
+  const { user, profile } = useAuth()
+  const admin = isAdmin(user?.uid, profile)
 
   return (
     <div style={{ maxWidth: '900px' }}>
@@ -44,10 +53,17 @@ export default function Settings() {
         <button onClick={() => setActiveKey(IMPORT)} style={tab(activeKey === IMPORT)}>
           📥 Импорт из AlfaCRM
         </button>
+        {/* Не «Сотрудники»: так уже называется справочник педагогов. Здесь — вход в систему. */}
+        {admin && (
+          <button onClick={() => setActiveKey(STAFF)} style={tab(activeKey === STAFF)}>
+            🔑 Доступ в систему
+          </button>
+        )}
       </div>
 
       {activeKey === MIGRATION ? <MigrationPanel />
         : activeKey === IMPORT ? <AlfaImportPanel />
+        : activeKey === STAFF ? (admin ? <StaffPanel /> : null)
         : <DirectoryTable dir={dir} />}
     </div>
   )

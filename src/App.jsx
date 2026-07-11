@@ -3,7 +3,9 @@ import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-do
 import { signOut } from 'firebase/auth'
 import { auth } from './firebase'
 import { useAuth } from './AuthContext'
+import { isApproved } from './lib/access'
 import { downloadBackup } from './lib/backup'
+import AccessPending from './pages/AccessPending'
 import Dashboard from './pages/Dashboard'
 import Clients from './pages/Clients'
 import ClientCard from './pages/ClientCard'
@@ -34,7 +36,7 @@ const navItem = (isActive) => ({
 })
 
 function App() {
-  const user = useAuth()
+  const { user, profile } = useAuth()
   const [backingUp, setBackingUp] = useState(false)
 
   const handleBackup = async () => {
@@ -49,8 +51,9 @@ function App() {
     }
   }
 
-  // Загрузка
-  if (user === undefined) {
+  // Загрузка: ждём и аккаунт, и его профиль — иначе одобренный сотрудник
+  // на миг увидел бы экран «доступ не выдан».
+  if (user === undefined || (user && profile === undefined)) {
     return (
       <div style={{
         minHeight: '100vh', background: '#f1f2f4',
@@ -63,6 +66,10 @@ function App() {
 
   // Не авторизован
   if (!user) return <Login />
+
+  // Аккаунт есть, но доступ ещё не выдан. Данных всё равно не покажем:
+  // то же условие стоит в правилах Firestore.
+  if (!isApproved(user.uid, profile)) return <AccessPending user={user} />
 
   // Авторизован
   return (

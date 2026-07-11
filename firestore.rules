@@ -2,13 +2,47 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Доступ разрешён только пользователям из whitelist.
-    // ВАЖНО: замени ВСТАВЬ_UID_ВЛАДЕЛЬЦА на реальный UID
-    // (Firebase Console → Authentication → Users → колонка User UID).
-    // Для нескольких сотрудников — добавь их UID в этот список через запятую.
-    function isAllowed() {
+    // Доступ к данным даёт админ, а не факт регистрации. У каждого аккаунта есть
+    // документ в `users`; решает поле `approved`. Регистрация сама по себе не
+    // открывает ничего: новый аккаунт создаёт себе заявку с approved: false.
+    //
+    // Владелец зашит здесь же. Иначе получился бы замкнутый круг: одобрить
+    // первого админа некому, а сам себя он одобрить не может.
+    function isOwner() {
       return request.auth != null
-        && request.auth.uid in ['XqJUnm47gIPjQPJfKUTvgWnS0un2'];
+        && request.auth.uid == 'XqJUnm47gIPjQPJfKUTvgWnS0un2';
+    }
+
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasProfile() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAllowed() {
+      return isOwner() || (hasProfile() && profile().approved == true);
+    }
+
+    function isAdmin() {
+      return isOwner()
+        || (hasProfile() && profile().approved == true && profile().role == 'admin');
+    }
+
+    // --- users: кто пущен в систему ---
+    // Создать можно только заявку на самого себя и только неодобренную:
+    // иначе любой зарегистрировавшийся выписал бы себе доступ сам.
+    // Одобряет и меняет роль только админ.
+    match /users/{uid} {
+      allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.approved == false
+        && request.resource.data.role == 'staff'
+        && request.resource.data.email is string;
+      allow update, delete: if isAdmin();
     }
 
     // --- clients ---

@@ -27,6 +27,8 @@ jobs:
           VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          # Без секрета код-приглашение окажется пустым, и регистрация пустит любого.
+          VITE_INVITE_CODE: ${{ secrets.VITE_INVITE_CODE }}
 
       - uses: peaceiris/actions-gh-pages@v4
         with:
