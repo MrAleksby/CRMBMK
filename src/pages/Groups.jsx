@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom'
 import { collection, getDocs, doc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
+import { useAuth } from '../AuthContext'
+import { canManage } from '../lib/access'
 import ErrorBanner from '../components/ErrorBanner'
 import GroupForm from '../components/GroupForm'
 import {
@@ -44,6 +46,10 @@ export default function Groups() {
   const [editingId, setEditingId] = useState(null)
   const [expandedId, setExpandedId] = useState(null)
   const [searchParams] = useSearchParams()
+
+  // Педагог группы только смотрит: расписание и состав. Правит менеджер.
+  const { user, profile } = useAuth()
+  const manages = canManage(user?.uid, profile)
 
   const fetchData = async () => {
     setLoadError('')
@@ -222,7 +228,7 @@ export default function Groups() {
             Серия занятий: расписание и состав учеников
           </p>
         </div>
-        {!creating && !editingId && (
+        {manages && !creating && !editingId && (
           <button onClick={() => setCreating(true)} style={btn()}>+ Создать группу</button>
         )}
       </div>
@@ -292,8 +298,12 @@ export default function Groups() {
                   <button onClick={() => setExpandedId(expanded ? null : group.id)} style={secondaryBtn}>
                     {expanded ? 'Скрыть занятия' : 'Занятия'}
                   </button>
-                  <button onClick={() => { setCreating(false); setEditingId(group.id) }} style={secondaryBtn}>Изменить</button>
-                  <button onClick={() => handleDelete(group)} style={secondaryBtn}>Удалить</button>
+                  {manages && (
+                    <>
+                      <button onClick={() => { setCreating(false); setEditingId(group.id) }} style={secondaryBtn}>Изменить</button>
+                      <button onClick={() => handleDelete(group)} style={secondaryBtn}>Удалить</button>
+                    </>
+                  )}
                 </div>
               </div>
 

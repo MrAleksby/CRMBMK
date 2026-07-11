@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { collection, getDocs, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
+import { useAuth } from '../AuthContext'
+import { canManage, teacherIdOf } from '../lib/access'
 import { withTimeout, describeError } from '../lib/withTimeout'
+import { clientMoneyQuery } from '../lib/finance'
 import ErrorBanner from '../components/ErrorBanner'
 import LessonJournal from '../components/LessonJournal'
 import LessonForm from '../components/LessonForm'
@@ -70,24 +73,43 @@ export default function Lessons() {
   const [search, setSearch] = useState('')
   const [searchParams] = useSearchParams()
 
+  // Педагог видит только свои занятия и только смотрит: провести занятие —
+  // значит списать деньги, а это работа менеджера.
+  const { user, profile } = useAuth()
+  const manages = canManage(user?.uid, profile)
+  const myTeacherId = teacherIdOf(user?.uid, profile)
+
   const fetchData = async () => {
     setLoadError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [ls, cs, ts, tx, ch, ss] = await withTimeout(Promise.all([
+      const rows = s => s.docs.map(d => ({ id: d.id, ...d.data() }))
+
+      const [ls, cs, ts] = await withTimeout(Promise.all([
         getDocs(collection(db, 'lessons')),
         getDocs(collection(db, 'clients')),
         getDocs(collection(db, 'teachers')),
-        getDocs(collection(db, 'transactions')),
+      ]))
+      // Чужие занятия педагогу не показываем. Если админ не привязал аккаунт
+      // к строке справочника, teacherId пуст — и расписание останется пустым.
+      const allLessons = rows(ls)
+      setLessons(manages ? allLessons : allLessons.filter(l => l.teacherId === myTeacherId))
+      setClients(rows(cs))
+      setTeachers(rows(ts))
+
+      // Педагогу деньги не отдаются — ни оплаты, ни списания, ни абонементы.
+      // Запрашивать их бессмысленно: правила Firestore откажут, и страница
+      // упала бы с ошибкой вместо расписания.
+      if (!manages) return
+
+      const [tx, ch, ss] = await withTimeout(Promise.all([
+        getDocs(clientMoneyQuery(db)),
         getDocs(collection(db, 'charges')),
         getDocs(collection(db, 'subscriptions')),
       ]))
-      setLessons(ls.docs.map(d => ({ id: d.id, ...d.data() })))
-      setClients(cs.docs.map(d => ({ id: d.id, ...d.data() })))
-      setTeachers(ts.docs.map(d => ({ id: d.id, ...d.data() })))
-      setTransactions(tx.docs.map(d => ({ id: d.id, ...d.data() })))
-      setCharges(ch.docs.map(d => ({ id: d.id, ...d.data() })))
-      setSubscriptions(ss.docs.map(d => ({ id: d.id, ...d.data() })))
+      setTransactions(rows(tx))
+      setCharges(rows(ch))
+      setSubscriptions(rows(ss))
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -361,7 +383,7 @@ export default function Lessons() {
             Журнал занятий: присутствие и списания
           </p>
         </div>
-        {!creating && <button onClick={() => setCreating(true)} style={btn()}>+ Разовое занятие</button>}
+        {manages && !creating && <button onClick={() => setCreating(true)} style={btn()}>+ Разовое занятие</button>}
       </div>
 
       <ErrorBanner message={loadError} onRetry={fetchData} />
@@ -406,6 +428,7 @@ export default function Lessons() {
           onViewChange={setView}
           onDateChange={setCalendarDate}
           onOpen={lesson => setModalId(lesson.id)}
+          hideMoney={!manages}
         />
       )}
 
@@ -423,6 +446,7 @@ export default function Lessons() {
           onReturn={handleReturnToPlanned}
           onCancelLesson={handleCancel}
           onSaveStudents={handleSaveStudents}
+          readOnly={!manages}
         />
       )}
 
@@ -487,8 +511,9 @@ export default function Lessons() {
                   </div>
                 </div>
 
+                {/* Педагог занятие не проводит и не правит: суммы списаний вводит менеджер. */}
                 <div style={{ display: 'flex', gap: '8px', flexShrink: 0, flexWrap: 'wrap' }}>
-                  {lesson.status === 'planned' && (
+                  {manages && lesson.status === 'planned' && (
                     <>
                       <button onClick={() => setJournalId(open ? null : lesson.id)} style={btn('#059669')}>
                         {open ? 'Закрыть журнал' : 'Провести'}
@@ -500,7 +525,7 @@ export default function Lessons() {
                       <button onClick={() => handleDelete(lesson)} style={secondaryBtn}>Удалить</button>
                     </>
                   )}
-                  {lesson.status === 'conducted' && (
+                  {manages && lesson.status === 'conducted' && (
                     <>
                       <button onClick={() => setJournalId(open ? null : lesson.id)} style={secondaryBtn}>
                         {open ? 'Закрыть журнал' : '✎ Изменить журнал'}
@@ -510,7 +535,7 @@ export default function Lessons() {
                       </button>
                     </>
                   )}
-                  {lesson.status === 'cancelled' && (
+                  {manages && lesson.status === 'cancelled' && (
                     <>
                       <button onClick={() => handleRestore(lesson)} style={secondaryBtn}>Восстановить</button>
                       <button onClick={() => handleDelete(lesson)} style={secondaryBtn}>Удалить</button>

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
-import { ROLES, ROLE_STAFF, isOwner } from '../lib/access'
+import { ROLES, ROLE_TEACHER, isOwner } from '../lib/access'
 import ErrorBanner from './ErrorBanner'
 
 const btn = (color = '#7c3aed') => ({
@@ -22,6 +22,11 @@ const th = {
 
 const td = { fontSize: '13px', color: '#111827', padding: '12px', borderBottom: '1px solid #e5e7eb' }
 
+const select = {
+  background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px',
+  padding: '6px 8px', fontSize: '13px', color: '#111827', outline: 'none',
+}
+
 const chip = (bg, color) => ({
   display: 'inline-block', background: bg, color,
   borderRadius: '6px', padding: '3px 9px', fontSize: '12px', fontWeight: '600',
@@ -32,6 +37,7 @@ const chip = (bg, color) => ({
 // условие стоит в правилах Firestore, не только на экране.
 export default function StaffPanel() {
   const [users, setUsers] = useState([])
+  const [teachers, setTeachers] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -40,8 +46,12 @@ export default function StaffPanel() {
     setLoadError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const snap = await withTimeout(getDocs(collection(db, 'users')))
+      const [snap, teachersSnap] = await withTimeout(Promise.all([
+        getDocs(collection(db, 'users')),
+        getDocs(collection(db, 'teachers')),
+      ]))
       setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setTeachers(teachersSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter(t => t.active !== false))
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -72,6 +82,11 @@ export default function StaffPanel() {
   const setRole = (u, role) => run(() =>
     updateDoc(doc(db, 'users', u.id), { role }))
 
+  // Педагог должен видеть «свои» уроки, а занятия ссылаются на строку справочника
+  // `teachers`, а не на аккаунт. Без этой привязки его расписание пустое.
+  const setTeacherId = (u, teacherId) => run(() =>
+    updateDoc(doc(db, 'users', u.id), { teacherId }))
+
   // Удаляем только заявку. Сам аккаунт в Firebase Auth остаётся — убрать его
   // можно лишь в консоли, из браузера это не сделать.
   const remove = (u) => {
@@ -96,14 +111,33 @@ export default function StaffPanel() {
         {isOwner(u.id) ? (
           <span style={chip('#ede9fe', '#5b21b6')}>Владелец</span>
         ) : (
-          <select value={u.role || ROLE_STAFF} disabled={saving}
-            onChange={e => setRole(u, e.target.value)}
-            style={{
-              background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px',
-              padding: '6px 8px', fontSize: '13px', color: '#111827', outline: 'none',
-            }}>
-            {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-          </select>
+          <>
+            <select value={u.role || ROLE_TEACHER} disabled={saving}
+              onChange={e => setRole(u, e.target.value)}
+              style={select}>
+              {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+            </select>
+            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px', maxWidth: '190px' }}>
+              {ROLES.find(r => r.value === (u.role || ROLE_TEACHER))?.hint}
+            </div>
+
+            {/* Педагогу нужна строка справочника: занятия ссылаются на неё, а не на аккаунт. */}
+            {(u.role || ROLE_TEACHER) === ROLE_TEACHER && (
+              <div style={{ marginTop: '6px' }}>
+                <select value={u.teacherId || ''} disabled={saving}
+                  onChange={e => setTeacherId(u, e.target.value)}
+                  style={select}>
+                  <option value="">Кто это в справочнике…</option>
+                  {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+                {!u.teacherId && (
+                  <div style={{ fontSize: '11px', color: '#b45309', marginTop: '4px', maxWidth: '190px' }}>
+                    Не выбран — расписание будет пустым
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
       </td>
       <td style={td}>

@@ -4,6 +4,8 @@ import { collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, writeBa
 import { db, auth } from '../firebase'
 import { toAmount } from '../lib/amount'
 import { withTimeout, describeError } from '../lib/withTimeout'
+import { useAuth } from '../AuthContext'
+import { canManage } from '../lib/access'
 import ClientForm from '../components/ClientForm'
 import ErrorBanner from '../components/ErrorBanner'
 import AttendanceWidget from '../components/AttendanceWidget'
@@ -18,7 +20,7 @@ import {
   clientToForm, instagramUrl, telegramUrl, phoneUrl, parentPhones, isLeadClient,
 } from '../lib/client'
 import { MONTHS_SHORT } from '../lib/constants'
-import { KIND_INCOME, toJsDate, inPeriod as inMonth, availableYears } from '../lib/finance'
+import { KIND_INCOME, toJsDate, inPeriod as inMonth, availableYears, clientMoneyQuery } from '../lib/finance'
 import { categoriesForKind } from '../lib/transaction'
 import { clientBalance } from '../lib/balance'
 import { sortItems, getDirectory } from '../lib/directories'
@@ -170,33 +172,45 @@ export default function ClientCard() {
   const [filterYear, setFilterYear] = useState(new Date().getFullYear())
   const [form, setForm] = useState({ open: false })
 
+  // Педагог карточку только смотрит: ни денег, ни правки, ни записи на занятия.
+  const { user, profile } = useAuth()
+  const manages = canManage(user?.uid, profile)
+
   const fetchData = async () => {
     setLoadError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [snap, tx, ch, les, ls, gs, ts, cs, ss, pk, acc, cat] = await withTimeout(Promise.all([
+      const rows = snapshot => snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+
+      const [snap, les, ls, gs, ts, cs] = await withTimeout(Promise.all([
         getDoc(doc(db, 'clients', id)),
-        getDocs(collection(db, 'transactions')),
-        getDocs(collection(db, 'charges')),
         getDocs(collection(db, 'legalEntities')),
         getDocs(collection(db, 'lessons')),
         getDocs(collection(db, 'groups')),
         getDocs(collection(db, 'teachers')),
         getDocs(collection(db, 'clients')),
-        getDocs(collection(db, 'subscriptions')),
-        getDocs(collection(db, 'packages')),
-        getDocs(collection(db, 'accounts')),
-        getDocs(collection(db, 'categories')),
       ]))
-      const rows = snapshot => snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
       setClient(snap.exists() ? { id: snap.id, ...snap.data() } : null)
-      setTransactions(rows(tx).filter(t => t.clientId === id))
-      setCharges(rows(ch).filter(c => c.clientId === id))
       setLegalEntities(rows(les))
       setLessons(rows(ls))
       setGroups(rows(gs))
       setTeachers(rows(ts))
       setAllClients(rows(cs))
+
+      // Педагогу карточка нужна ради возраста, аллергий и телефона родителя.
+      // Деньги — оплаты, начисления, абонементы, кассы — ему не отдаются вовсе.
+      if (!manages) return
+
+      const [tx, ch, ss, pk, acc, cat] = await withTimeout(Promise.all([
+        getDocs(clientMoneyQuery(db)),
+        getDocs(collection(db, 'charges')),
+        getDocs(collection(db, 'subscriptions')),
+        getDocs(collection(db, 'packages')),
+        getDocs(collection(db, 'accounts')),
+        getDocs(collection(db, 'categories')),
+      ]))
+      setTransactions(rows(tx).filter(t => t.clientId === id))
+      setCharges(rows(ch).filter(c => c.clientId === id))
       setSubscriptions(rows(ss).filter(x => x.clientId === id))
       setPackages(rows(pk))
       setAccounts(sortItems(getDirectory('accounts'), rows(acc)))
@@ -592,19 +606,23 @@ export default function ClientCard() {
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
                   <span style={chip(status.background, status.color)}>{status.label}</span>
-                  <span style={chip(isPaid ? '#dcfce7' : '#fee2e2', isPaid ? '#059669' : '#dc2626')}>
-                    {isPaid ? '✅ Оплачено' : '🔴 Долг'}
-                  </span>
+                  {manages && (
+                    <span style={chip(isPaid ? '#dcfce7' : '#fee2e2', isPaid ? '#059669' : '#dc2626')}>
+                      {isPaid ? '✅ Оплачено' : '🔴 Долг'}
+                    </span>
+                  )}
                   {gender && <span style={chip('#f3f4f6', '#4b5563')}>{gender.icon} {gender.label}</span>}
                   {age !== null && <span style={chip('#f3f4f6', '#4b5563')}>{ageLabel(age)}</span>}
                   {birthday && <span style={chip('#f3f4f6', '#4b5563')}>🎂 {birthday}</span>}
                   {source && <span style={chip('#ede9fe', '#5b21b6')}>{source.icon} {source.label}</span>}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                <button onClick={() => setEditing(true)} style={secondaryBtn}>Изменить</button>
-                <button onClick={handleDeleteClient} style={secondaryBtn}>Удалить</button>
-              </div>
+              {manages && (
+                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                  <button onClick={() => setEditing(true)} style={secondaryBtn}>Изменить</button>
+                  <button onClick={handleDeleteClient} style={secondaryBtn}>Удалить</button>
+                </div>
+              )}
             </div>
 
             {client.notes && (
@@ -629,7 +647,8 @@ export default function ClientCard() {
             />
           </div>
 
-          {/* Уроки и оплаты */}
+          {/* Уроки и оплаты. Педагогу денег не показываем — у него их и нет в загрузке. */}
+          {manages && (
           <div style={panel}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '10px', flexWrap: 'wrap' }}>
               <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#111827', margin: 0 }}>
@@ -764,10 +783,14 @@ export default function ClientCard() {
               </div>
             )}
           </div>
+          )}
         </div>
 
         {/* ПРАВАЯ КОЛОНКА — сводка */}
         <aside style={{ ...panel, position: 'sticky', top: '20px' }}>
+          {/* Остаток, платежи и цена занятия — деньги. Педагог их не видит. */}
+          {manages && (
+          <>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
             <span style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>Общий остаток</span>
           </div>
@@ -789,6 +812,8 @@ export default function ClientCard() {
               <SummaryRow label="Цена занятия">{client.lessonPrice.toLocaleString()} сум</SummaryRow>
             )}
           </div>
+          </>
+          )}
 
           <SummaryBlock title="Педагог">
             <span style={notSet}>(не задано)</span>
@@ -837,7 +862,7 @@ export default function ClientCard() {
             )}
           </SummaryBlock>
 
-          {!isLead && (
+          {!isLead && manages && (
           <SummaryBlock
             title="Абонементы"
             action={!issuing && !editingSub && (
@@ -914,8 +939,10 @@ export default function ClientCard() {
                 fontSize: '13px', marginBottom: '4px', gap: '8px',
               }}>
                 <Link to={`/groups?open=${group.id}`} style={link}>👥 {group.name}</Link>
-                <button onClick={() => handleLeaveGroup(group)} disabled={saving} title="Убрать из группы"
-                  style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>✕</button>
+                {manages && (
+                  <button onClick={() => handleLeaveGroup(group)} disabled={saving} title="Убрать из группы"
+                    style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>✕</button>
+                )}
               </div>
             ))}
 
@@ -926,7 +953,7 @@ export default function ClientCard() {
               </div>
             ))}
 
-            {availableGroups.length > 0 && (
+            {manages && availableGroups.length > 0 && (
               <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
                 <select style={{ ...inputStyle, fontSize: '13px', padding: '6px 8px' }}
                   value={pickGroup} onChange={e => setPickGroup(e.target.value)}>
@@ -951,8 +978,10 @@ export default function ClientCard() {
                   {new Date(lesson.date).toLocaleDateString('ru')}
                   <span style={{ color: '#6b7280' }}> {lesson.timeFrom}</span>
                 </span>
-                <button onClick={() => handleLeaveLesson(lesson)} disabled={saving} title="Снять с занятия"
-                  style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>✕</button>
+                {manages && (
+                  <button onClick={() => handleLeaveLesson(lesson)} disabled={saving} title="Снять с занятия"
+                    style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>✕</button>
+                )}
               </div>
             ))}
             {myUpcoming.length > 6 && (
@@ -960,8 +989,9 @@ export default function ClientCard() {
             )}
           </SummaryBlock>
 
-          {/* Лида на занятия записывают из воронки — кнопкой «Назначить пробное». */}
-          {!isLead && (
+          {/* Лида на занятия записывают из воронки — кнопкой «Назначить пробное».
+              Педагог состав не меняет: это работа менеджера. */}
+          {!isLead && manages && (
           <SummaryBlock title="Записать на занятия">
             <select style={{ ...inputStyle, fontSize: '13px', padding: '6px 8px', marginBottom: '8px' }}
               value={filterGroup} onChange={e => { setFilterGroup(e.target.value); setPickedLessons([]) }}>

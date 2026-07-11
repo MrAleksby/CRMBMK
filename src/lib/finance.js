@@ -10,10 +10,22 @@
 // Смешивать их нельзя: иначе любой отчёт по кассам обязан помнить про фильтр,
 // и первая же забытая проверка испортит цифры.
 
+import { collection, query, where } from 'firebase/firestore'
+
 export const KIND_INCOME = 'income'
 export const KIND_EXPENSE = 'expense'
 export const KIND_SALARY = 'salary'
 export const KIND_REFUND = 'refund'
+
+// Деньги ученика: оплаты и возвраты. Только они входят в баланс (см. balance.js),
+// поэтому всем страницам, кроме «Финансов», больше ничего и не нужно.
+//
+// Запрашивать их отдельно — не оптимизация, а требование прав: менеджеру расходы
+// и зарплаты не отдаются вовсе, и запрос всей коллекции ему просто откажут.
+export const CLIENT_MONEY_KINDS = [KIND_INCOME, KIND_REFUND]
+
+export const clientMoneyQuery = (db) =>
+  query(collection(db, 'transactions'), where('kind', 'in', CLIENT_MONEY_KINDS))
 
 // Знак операции в кассе. Начисления (charges) здесь не участвуют.
 const SIGN = {

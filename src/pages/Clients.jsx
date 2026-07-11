@@ -3,6 +3,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import { collection, getDocs, addDoc, doc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
+import { useAuth } from '../AuthContext'
+import { canManage } from '../lib/access'
+import { clientMoneyQuery } from '../lib/finance'
 import ClientForm from '../components/ClientForm'
 import ErrorBanner from '../components/ErrorBanner'
 import { lessonsLeft } from '../lib/subscription'
@@ -105,22 +108,36 @@ export default function Clients() {
   const navigate = useNavigate()
   const selection = useSelection(clients)
 
+  // Педагогу деньги не показываем: ни остатка, ни долга, ни фильтра по балансу.
+  const { user, profile } = useAuth()
+  const manages = canManage(user?.uid, profile)
+  const columns = manages ? COLUMNS : COLUMNS.filter(col => col.key !== 'balance')
+
   const fetchData = async () => {
     setLoadError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [cs, tx, ch, les, ss] = await withTimeout(Promise.all([
+      const rows = s => s.docs.map(d => ({ id: d.id, ...d.data() }))
+
+      const [cs, les] = await withTimeout(Promise.all([
         getDocs(collection(db, 'clients')),
-        getDocs(collection(db, 'transactions')),
-        getDocs(collection(db, 'charges')),
         getDocs(collection(db, 'legalEntities')),
+      ]))
+      setClients(rows(cs))
+      setLegalEntities(rows(les))
+
+      // Педагогу списки учеников нужны (состав, аллергии, телефон родителя),
+      // а деньги — нет: правила Firestore ему их и не отдадут.
+      if (!manages) return
+
+      const [tx, ch, ss] = await withTimeout(Promise.all([
+        getDocs(clientMoneyQuery(db)),
+        getDocs(collection(db, 'charges')),
         getDocs(collection(db, 'subscriptions')),
       ]))
-      setClients(cs.docs.map(d => ({ id: d.id, ...d.data() })))
-      setTransactions(tx.docs.map(d => ({ id: d.id, ...d.data() })))
-      setCharges(ch.docs.map(d => ({ id: d.id, ...d.data() })))
-      setLegalEntities(les.docs.map(d => ({ id: d.id, ...d.data() })))
-      setSubscriptions(ss.docs.map(d => ({ id: d.id, ...d.data() })))
+      setTransactions(rows(tx))
+      setCharges(rows(ch))
+      setSubscriptions(rows(ss))
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -250,12 +267,14 @@ export default function Clients() {
           <option value="all">Все статусы</option>
           {CLIENT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
-        <select style={{ ...inputStyle, width: '170px' }} value={filterBalance}
-          onChange={e => { setFilterBalance(e.target.value); setPage(1) }}>
-          <option value="all">Любой баланс</option>
-          <option value="paid">✅ Есть баланс</option>
-          <option value="debt">🔴 Долг</option>
-        </select>
+        {manages && (
+          <select style={{ ...inputStyle, width: '170px' }} value={filterBalance}
+            onChange={e => { setFilterBalance(e.target.value); setPage(1) }}>
+            <option value="all">Любой баланс</option>
+            <option value="paid">✅ Есть баланс</option>
+            <option value="debt">🔴 Долг</option>
+          </select>
+        )}
       </div>
 
       {/* Счётчик и пагинация */}
@@ -280,7 +299,9 @@ export default function Clients() {
         </p>
       </div>
 
-      {/* Кнопки стоят прямо над таблицей: они работают с отмеченными строками. */}
+      {/* Кнопки стоят прямо над таблицей: они работают с отмеченными строками.
+          Педагог учеников не заводит и не удаляет — он их только смотрит. */}
+      {manages && (
       <ActionToolbar
         count={selection.count}
         busy={saving}
@@ -291,6 +312,7 @@ export default function Clients() {
         onDelete={handleDeleteSelected}
         onClear={selection.clear}
       />
+      )}
 
       {/* Таблица */}
       {filtered.length === 0 ? (
@@ -314,7 +336,7 @@ export default function Clients() {
                     onChange={() => selection.toggleVisible(visible)} />
                 </th>
                 <th style={{ ...th, width: '50px' }} />
-                {COLUMNS.map(col => (
+                {columns.map(col => (
                   <th key={col.key} style={{ ...th, cursor: 'pointer', userSelect: 'none' }}
                     onClick={() => toggleSort(col.key)}
                     title="Нажмите, чтобы отсортировать">
@@ -356,6 +378,7 @@ export default function Clients() {
                       {birth && <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{birth}</div>}
                     </td>
 
+                    {manages && (
                     <td style={{ ...td(isLast), whiteSpace: 'nowrap' }}>
                       <span style={{ color: balance < 0 ? '#dc2626' : '#111827', fontWeight: balance !== 0 ? '600' : '400' }}>
                         {balance.toLocaleString()} сум
@@ -368,6 +391,7 @@ export default function Clients() {
                         )
                       })()}
                     </td>
+                    )}
 
                     <td style={td(isLast)}>
                       <span style={{

@@ -47,9 +47,11 @@ const ghostBtn = {
 
 const notSet = { color: '#dc2626', fontStyle: 'italic' }
 
+// `readOnly` — карточка глазами педагога: состав и кто был, но ни сумм, ни
+// балансов, ни кнопок. Списание — это деньги, их вводит менеджер.
 export default function LessonModal({
   lesson, clients, teachers, balances, lessonsLeftBy = {}, subscriptions = [], saving,
-  onClose, onConduct, onReturn, onCancelLesson, onSaveStudents,
+  onClose, onConduct, onReturn, onCancelLesson, onSaveStudents, readOnly = false,
 }) {
   const conducted = lesson.status === 'conducted'
   const [rows, setRows] = useState(() => buildJournal(lesson, clients, subscriptions))
@@ -139,7 +141,7 @@ export default function LessonModal({
               <span style={{ fontSize: '13px', fontWeight: '600', color: '#111827' }}>
                 Кто был? ({displayRows.length})
               </span>
-              {!conducted && (
+              {!conducted && !readOnly && (
                 <button onClick={() => setEditingStudents(!editingStudents)} style={ghostBtn}>
                   {editingStudents ? 'Готово' : 'Изменить состав'}
                 </button>
@@ -163,9 +165,11 @@ export default function LessonModal({
                     <th style={{ textAlign: 'left', padding: '6px 0', color: '#6b7280', fontSize: '12px', fontWeight: '600' }}>
                       Состояние клиента
                     </th>
-                    <th style={{ textAlign: 'right', padding: '6px 0', color: '#6b7280', fontSize: '12px', fontWeight: '600', width: '150px' }}>
-                      Списание
-                    </th>
+                    {!readOnly && (
+                      <th style={{ textAlign: 'right', padding: '6px 0', color: '#6b7280', fontSize: '12px', fontWeight: '600', width: '150px' }}>
+                        Списание
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -177,19 +181,23 @@ export default function LessonModal({
                       <tr key={record.clientId} style={{ borderTop: '1px solid #f3f4f6' }}>
                         <td style={{ padding: '8px 0' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <input type="checkbox" checked={present} disabled={conducted}
+                            <input type="checkbox" checked={present} disabled={conducted || readOnly}
                               onChange={() => update(record.clientId, { status: present ? 'absent' : 'present' })} />
                             {/* Имя ведёт на карточку ученика — у тёзок так видно, кто это.
                                 Новая вкладка, чтобы не потерять журнал занятия. */}
                             <Link to={`/clients/${record.clientId}`} target="_blank" rel="noreferrer"
-                              style={{ color: balance < 0 ? '#dc2626' : '#7c3aed', textDecoration: 'none' }}>
+                              style={{ color: (!readOnly && balance < 0) ? '#dc2626' : '#7c3aed', textDecoration: 'none' }}>
                               {record.clientName}
                             </Link>
-                            <span style={{ fontSize: '12px', color: balance < 0 ? '#dc2626' : '#6b7280' }}>
-                              ({left > 0 ? `${left} ост` : `${balance.toLocaleString()} сум`})
-                            </span>
+                            {/* Остаток и долг — деньги: педагогу их не показываем. */}
+                            {!readOnly && (
+                              <span style={{ fontSize: '12px', color: balance < 0 ? '#dc2626' : '#6b7280' }}>
+                                ({left > 0 ? `${left} ост` : `${balance.toLocaleString()} сум`})
+                              </span>
+                            )}
                           </div>
                         </td>
+                        {!readOnly && (
                         <td style={{ padding: '8px 0', textAlign: 'right' }}>
                           {conducted ? (
                             <span style={{ color: record.amountCharged > 0 ? '#dc2626' : '#9ca3af' }}>
@@ -204,6 +212,7 @@ export default function LessonModal({
                               onChange={e => update(record.clientId, { amount: e.target.value })} />
                           )}
                         </td>
+                        )}
                       </tr>
                     )
                   })}
@@ -211,7 +220,7 @@ export default function LessonModal({
               </table>
             )}
 
-            {!editingStudents && displayRows.length > 0 && (
+            {!readOnly && !editingStudents && displayRows.length > 0 && (
               <p style={{ fontSize: '13px', color: '#4b5563', marginTop: '12px' }}>
                 {conducted ? 'Списано' : 'Спишется'}:{' '}
                 <b style={{ color: '#111827' }}>{total.toLocaleString()} сум</b>
@@ -231,7 +240,7 @@ export default function LessonModal({
           display: 'flex', gap: '10px', padding: '14px 20px',
           borderTop: '1px solid #e5e7eb', background: '#f7f8fa', flexWrap: 'wrap',
         }}>
-          {lesson.status === 'planned' && !editingStudents && (
+          {!readOnly && lesson.status === 'planned' && !editingStudents && (
             <>
               <button onClick={handleConduct} disabled={saving || displayRows.length === 0}
                 style={{ ...btn('#059669'), opacity: (saving || displayRows.length === 0) ? 0.6 : 1 }}>
@@ -240,7 +249,7 @@ export default function LessonModal({
               <button onClick={() => onCancelLesson(lesson)} style={ghostBtn}>Отменить занятие</button>
             </>
           )}
-          {conducted && (
+          {!readOnly && conducted && (
             <button onClick={() => onReturn(lesson)} disabled={saving} style={ghostBtn}>
               ↩ Вернуть в запланированные
             </button>

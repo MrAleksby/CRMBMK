@@ -31,16 +31,30 @@ service cloud.firestore {
         || (hasProfile() && profile().approved == true && profile().role == 'admin');
     }
 
+    // Менеджер ведёт операционку и принимает деньги от родителей, но кассы
+    // компании не видит. Педагог (роль по умолчанию) только смотрит: правит
+    // журнал и суммы менеджер.
+    function canManage() {
+      return isAdmin()
+        || (hasProfile() && profile().approved == true && profile().role == 'manager');
+    }
+
+    // Оплата и возврат привязаны к ученику — это его лицевой счёт, работа
+    // менеджера. Расход и зарплата — касса компании, только админ.
+    function clientMoney(kind) {
+      return kind == 'income' || kind == 'refund';
+    }
+
     // --- users: кто пущен в систему ---
-    // Создать можно только заявку на самого себя и только неодобренную:
-    // иначе любой зарегистрировавшийся выписал бы себе доступ сам.
-    // Одобряет и меняет роль только админ.
+    // Создать можно только заявку на самого себя, неодобренную и с самой
+    // безобидной ролью: иначе любой зарегистрировавшийся выписал бы себе
+    // доступ и права сам. Одобряет и меняет роль только админ.
     match /users/{uid} {
       allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
       allow create: if request.auth != null
         && request.auth.uid == uid
         && request.resource.data.approved == false
-        && request.resource.data.role == 'staff'
+        && request.resource.data.role == 'teacher'
         && request.resource.data.email is string;
       allow update, delete: if isAdmin();
     }
@@ -50,9 +64,12 @@ service cloud.firestore {
     // нет поштучной валидации: писать может только whitelist из isAllowed(),
     // денежных полей в клиенте нет. Проверяем лишь непустое имя ребёнка.
     // Валидацию значений выполняет форма (src/lib/client.js).
+    // Педагогу карточка нужна: состав занятия, возраст, аллергии, телефон
+    // родителя. Денег в самом клиенте нет — они в transactions и charges.
     match /clients/{id} {
-      allow read, delete: if isAllowed();
-      allow create, update: if isAllowed()
+      allow read: if isAllowed();
+      allow delete: if canManage();
+      allow create, update: if canManage()
         && request.resource.data.childName is string
         && request.resource.data.childName.size() > 0
         && request.resource.data.childName.size() <= 200;
@@ -62,9 +79,10 @@ service cloud.firestore {
     // Денег у лида нет. clientId непустой означает «стал клиентом»,
     // archived без clientId — отказ. Этап ограничен списком, иначе карточка
     // выпадет из канбана: колонки строятся ровно по этим шести значениям.
+    // Воронка — работа менеджера. Педагогу лиды не показываем вовсе.
     match /leads/{id} {
-      allow read, delete: if isAllowed();
-      allow create, update: if isAllowed()
+      allow read, delete: if canManage();
+      allow create, update: if canManage()
         && request.resource.data.childName is string
         && request.resource.data.childName.size() > 0
         && request.resource.data.childName.size() <= 200
@@ -73,31 +91,29 @@ service cloud.firestore {
         && request.resource.data.archived is bool;
     }
 
-    // --- payments ---
+    // --- payments, expenses: старая модель, кодом не читается ---
+    // Оставлены до сверки сумм. Это касса компании — только админ.
     match /payments/{id} {
-      allow read, delete: if isAllowed();
-      allow create, update: if isAllowed()
-        && request.resource.data.amount is number
-        && request.resource.data.amount >= 0
-        && request.resource.data.type in ['income', 'session']
-        && request.resource.data.clientId is string;
+      allow read, write: if isAdmin();
     }
 
-    // --- expenses ---
     match /expenses/{id} {
-      allow read, delete: if isAllowed();
-      allow create, update: if isAllowed()
-        && request.resource.data.amount is number
-        && request.resource.data.amount >= 0
-        && request.resource.data.category is string;
+      allow read, write: if isAdmin();
     }
 
     // --- transactions: движение реальных денег ---
     // Каждая операция обязана иметь кассу и статью, иначе отчёт по кассам
     // не сойдётся. Начисления за занятия сюда не попадают — они в charges.
+    //
+    // Менеджеру видны только оплаты и возвраты: это лицевой счёт ученика,
+    // он их и проводит. Расходы компании и зарплаты ему не отдаются вообще —
+    // не «скрыты на экране», а не приходят из базы. Поэтому все страницы, кроме
+    // «Финансов», запрашивают transactions с фильтром kind (см. lib/finance.js):
+    // запрос без фильтра менеджеру просто откажут.
     match /transactions/{id} {
-      allow read, delete: if isAllowed();
-      allow create, update: if isAllowed()
+      allow read: if isAdmin() || (canManage() && clientMoney(resource.data.kind));
+      allow delete: if isAdmin() || (canManage() && clientMoney(resource.data.kind));
+      allow create, update: if (isAdmin() || (canManage() && clientMoney(request.resource.data.kind)))
         && request.resource.data.amount is number
         && request.resource.data.amount >= 0
         && request.resource.data.kind in ['income', 'expense', 'salary', 'refund']
@@ -110,10 +126,10 @@ service cloud.firestore {
 
     // --- charges: начисления ученику за проведённые занятия ---
     // Денег не двигают, кассы не имеют. lessonId связывает с занятием
-    // и позволяет откатить проведение.
+    // и позволяет откатить проведение. Педагогу не нужны: суммы не его дело.
     match /charges/{id} {
-      allow read, delete: if isAllowed();
-      allow create, update: if isAllowed()
+      allow read, delete: if canManage();
+      allow create, update: if canManage()
         && request.resource.data.amount is number
         && request.resource.data.amount >= 0
         && request.resource.data.clientId is string
@@ -123,9 +139,11 @@ service cloud.firestore {
     }
 
     // --- группы (серии занятий) ---
+    // Педагог видит расписание и состав, но не правит.
     match /groups/{id} {
-      allow read, delete: if isAllowed();
-      allow create, update: if isAllowed()
+      allow read: if isAllowed();
+      allow delete: if canManage();
+      allow create, update: if canManage()
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 200;
@@ -133,9 +151,11 @@ service cloud.firestore {
 
     // --- занятия ---
     // Дата хранится строкой 'YYYY-MM-DD', статус ограничен списком.
+    // Проводит занятие и вводит суммы менеджер: списание — это деньги.
     match /lessons/{id} {
-      allow read, delete: if isAllowed();
-      allow create, update: if isAllowed()
+      allow read: if isAllowed();
+      allow delete: if canManage();
+      allow create, update: if canManage()
         && request.resource.data.date is string
         && request.resource.data.date.size() == 10
         && request.resource.data.status in ['planned', 'conducted', 'cancelled'];
@@ -143,10 +163,11 @@ service cloud.firestore {
 
     // --- абонементы, выданные ученикам ---
     // Счётчика использованных уроков нет: остаток выводится из денег.
-    // lessonsTotal и price нужны, чтобы знать цену одного занятия.
+    // lessonsTotal и price нужны, чтобы знать цену одного занятия, — а цена
+    // это деньги, поэтому педагогу абонементы не видны.
     match /subscriptions/{id} {
-      allow read, delete: if isAllowed();
-      allow create, update: if isAllowed()
+      allow read, delete: if canManage();
+      allow create, update: if canManage()
         && request.resource.data.clientId is string
         && request.resource.data.lessonsTotal is number
         && request.resource.data.lessonsTotal >= 0
@@ -158,10 +179,14 @@ service cloud.firestore {
     // Педагоги, предметы, тарифы, кассы, статьи, юр. лица.
     // Состав полей меняется по ходу работы, поэтому проверяем только непустое название.
     // Новый справочник — просто добавить ключ в этот список (см. src/lib/directories.js).
+    // Читают все: без имён педагогов, касс и тарифов не построить ни журнал,
+    // ни форму оплаты. Правит только админ — справочники живут в «Настройках».
     match /{directory}/{id} {
-      allow read, delete: if isAllowed()
+      allow read: if isAllowed()
         && directory in ['teachers', 'packages', 'accounts', 'categories', 'legalEntities'];
-      allow create, update: if isAllowed()
+      allow delete: if isAdmin()
+        && directory in ['teachers', 'packages', 'accounts', 'categories', 'legalEntities'];
+      allow create, update: if isAdmin()
         && directory in ['teachers', 'packages', 'accounts', 'categories', 'legalEntities']
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0

@@ -3,7 +3,7 @@ import { collection, getDocs } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import ErrorBanner from '../components/ErrorBanner'
-import { KIND_INCOME, incomeTotal, toJsDate } from '../lib/finance'
+import { KIND_INCOME, incomeTotal, toJsDate, clientMoneyQuery } from '../lib/finance'
 import { clientBalances, debtAndPrepaid } from '../lib/balance'
 
 const card = {
@@ -26,7 +26,7 @@ export default function Dashboard() {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
       const [clientsSnap, txSnap, chargesSnap] = await withTimeout(Promise.all([
         getDocs(collection(db, 'clients')),
-        getDocs(collection(db, 'transactions')),
+        getDocs(clientMoneyQuery(db)),
         getDocs(collection(db, 'charges')),
       ]))
       setClients(clientsSnap.docs.map(d => ({ id: d.id, ...d.data() })))

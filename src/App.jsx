@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-do
 import { signOut } from 'firebase/auth'
 import { auth } from './firebase'
 import { useAuth } from './AuthContext'
-import { isApproved } from './lib/access'
+import { isApproved, canManage, canSeeCompanyMoney, canSeeSettings } from './lib/access'
 import { downloadBackup } from './lib/backup'
 import AccessPending from './pages/AccessPending'
 import Dashboard from './pages/Dashboard'
@@ -16,14 +16,17 @@ import Finance from './pages/Finance'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
 
+// `can` — кто видит пункт. Педагогу остаются только «Уроки», «Клиенты» и «Группы»:
+// расписание и состав. Меню — удобство; настоящий запрет стоит в правилах Firestore,
+// поэтому маршруты ниже тоже закрыты, а не только скрыты из навигации.
 const NAV_ITEMS = [
-  { to: '/', label: 'Дашборд', icon: '📊', end: true },
+  { to: '/', label: 'Дашборд', icon: '📊', end: true, can: canManage },
   { to: '/lessons', label: 'Уроки', icon: '📅' },
   { to: '/clients', label: 'Клиенты', icon: '👶' },
-  { to: '/finance', label: 'Финансы', icon: '💰' },
+  { to: '/finance', label: 'Финансы', icon: '💰', can: canSeeCompanyMoney },
   { to: '/groups', label: 'Группы', icon: '👥' },
-  { to: '/leads', label: 'Лиды', icon: '🎯' },
-  { to: '/settings', label: 'Настройки', icon: '⚙️' },
+  { to: '/leads', label: 'Лиды', icon: '🎯', can: canManage },
+  { to: '/settings', label: 'Настройки', icon: '⚙️', can: canSeeSettings },
 ]
 
 const navItem = (isActive) => ({
@@ -71,6 +74,14 @@ function App() {
   // то же условие стоит в правилах Firestore.
   if (!isApproved(user.uid, profile)) return <AccessPending user={user} />
 
+  const manages = canManage(user.uid, profile)
+  const seesMoney = canSeeCompanyMoney(user.uid, profile)
+  const seesSettings = canSeeSettings(user.uid, profile)
+  const navItems = NAV_ITEMS.filter(item => !item.can || item.can(user.uid, profile))
+
+  // Педагогу дашборд закрыт, поэтому корень ведёт в расписание.
+  const home = manages ? <Dashboard /> : <Navigate to="/lessons" replace />
+
   // Авторизован
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
@@ -89,15 +100,17 @@ function App() {
             <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px', wordBreak: 'break-all' }}>{user.email}</p>
           </div>
 
-          {NAV_ITEMS.map(({ to, label, icon, end }) => (
+          {navItems.map(({ to, label, icon, end }) => (
             <NavLink key={to} to={to} end={end} style={({ isActive }) => navItem(isActive)}>
               <span style={{ fontSize: '18px' }}>{icon}</span>
               {label}
             </NavLink>
           ))}
 
-          {/* Backup + Logout */}
+          {/* Backup + Logout. Копия выгружает все коллекции разом, включая кассы,
+              поэтому она только для админа: у остальных запрос отклонят правила. */}
           <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {seesMoney && (
             <button
               onClick={handleBackup}
               disabled={backingUp}
@@ -115,6 +128,7 @@ function App() {
             >
               💾 {backingUp ? 'Сохраняем...' : 'Резервная копия'}
             </button>
+            )}
             <button
               onClick={() => signOut(auth)}
               style={{
@@ -135,17 +149,19 @@ function App() {
 
         {/* Main content */}
         <main style={{ marginLeft: '220px', padding: '28px', minHeight: '100vh' }}>
+          {/* Закрытые страницы не просто скрыты из меню: по прямой ссылке
+              педагога тоже развернёт обратно в расписание. */}
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/leads" element={<Leads />} />
+            <Route path="/" element={home} />
+            <Route path="/leads" element={manages ? <Leads /> : <Navigate to="/lessons" replace />} />
             <Route path="/clients" element={<Clients />} />
             <Route path="/clients/:id" element={<ClientCard />} />
             <Route path="/groups" element={<Groups />} />
             <Route path="/lessons" element={<Lessons />} />
-            <Route path="/finance" element={<Finance />} />
+            <Route path="/finance" element={seesMoney ? <Finance /> : <Navigate to="/lessons" replace />} />
             {/* Расходы переехали в «Финансы». Старые закладки не должны ломаться. */}
             <Route path="/expenses" element={<Navigate to="/finance" replace />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/settings" element={seesSettings ? <Settings /> : <Navigate to="/lessons" replace />} />
           </Routes>
         </main>
 
@@ -157,7 +173,7 @@ function App() {
           padding: '8px 0', zIndex: 50,
         }} className="mobile-nav">
           {[
-            ...NAV_ITEMS,
+            ...navItems,
             { label: 'Выйти', icon: '🚪', onClick: () => signOut(auth) },
           ].map(({ to, label, icon, end, onClick }) => (
             to ? (

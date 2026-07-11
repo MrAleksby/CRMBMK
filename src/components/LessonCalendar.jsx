@@ -89,7 +89,7 @@ function LessonChip({ lesson, clients, onOpen, compact, dense }) {
 // Превью занятия — компактное окно по клику на плитку, как в AlfaCRM.
 // Показывает состав и, если занятие проведено, фактические суммы списаний.
 // «Открыть занятие» ведёт в полную карточку, где проводят и правят журнал.
-function LessonPreview({ lesson, clients, teachers, onOpen, onClose }) {
+function LessonPreview({ lesson, clients, teachers, onOpen, onClose, hideMoney = false }) {
   const style = lessonStyle(lesson)
   const status = LESSON_STATUSES[lesson.status] ?? LESSON_STATUSES.planned
   const teacher = teachers.find(t => t.id === lesson.teacherId)
@@ -110,7 +110,8 @@ function LessonPreview({ lesson, clients, teachers, onOpen, onClose }) {
         amount: null,
       }))
 
-  const total = conducted ? rows.reduce((s, r) => s + (r.amount || 0), 0) : null
+  // Педагогу суммы списаний не показываем: деньги — не его дело.
+  const total = (conducted && !hideMoney) ? rows.reduce((s, r) => s + (r.amount || 0), 0) : null
 
   const line = { display: 'grid', gridTemplateColumns: '96px 1fr', gap: '10px', padding: '5px 0', fontSize: '13px' }
   const muted = { color: '#6b7280' }
@@ -175,7 +176,7 @@ function LessonPreview({ lesson, clients, teachers, onOpen, onClose }) {
                       style={{ color: '#7c3aed', textDecoration: 'none' }}>{r.name}</Link>
                   ) : r.name}
                 </span>
-                {r.amount !== null && (
+                {r.amount !== null && !hideMoney && (
                   <span style={{ color: r.amount > 0 ? '#dc2626' : '#9ca3af', whiteSpace: 'nowrap' }}>
                     {r.amount > 0 ? `${r.amount.toLocaleString()} сум` : '—'}
                   </span>
@@ -335,6 +336,7 @@ function MonthGrid({ date, lessons, clients, onOpen }) {
 
 export default function LessonCalendar({
   lessons, clients, teachers = [], view, date, onViewChange, onDateChange, onOpen,
+  hideMoney = false,
 }) {
   const days = view === 'day' ? [date] : weekDays(date)
   // Клик по плитке сначала показывает превью; полную карточку открывает
@@ -380,6 +382,7 @@ export default function LessonCalendar({
           teachers={teachers}
           onOpen={openFull}
           onClose={() => setPreview(null)}
+          hideMoney={hideMoney}
         />
       )}
     </div>
