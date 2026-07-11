@@ -118,14 +118,14 @@ function Tile({ lesson, tile, clients, teachers, onOpen }) {
       onMouseLeave={() => setHover(false)}
     >
       <div onClick={() => onOpen(lesson)} title={tile.title} style={{
-        minWidth: '52px', padding: '6px 4px', borderRadius: '8px', textAlign: 'center',
+        minWidth: '44px', padding: '4px 3px', borderRadius: '7px', textAlign: 'center',
         background: tile.background,
         border: tile.dashed ? '1px dashed #dc2626' : '1px solid transparent',
         color: tile.color, cursor: 'pointer',
         textDecoration: tile.strike ? 'line-through' : 'none',
       }}>
-        <div style={{ fontSize: '11px', height: '14px' }}>{tile.icon}</div>
-        <div style={{ fontSize: '12px', fontWeight: '600' }}>{day}.{month}</div>
+        <div style={{ fontSize: '10px', height: '12px' }}>{tile.icon}</div>
+        <div style={{ fontSize: '11px', fontWeight: '600' }}>{day}.{month}</div>
       </div>
 
       {hover && <LessonPopover lesson={lesson} clients={clients} teachers={teachers} />}
@@ -133,10 +133,19 @@ function Tile({ lesson, tile, clients, teachers, onOpen }) {
   )
 }
 
+const RECENT = 20
+
 export default function AttendanceWidget({ lessons, clients, teachers = [], clientId, onOpenLesson }) {
+  const [showAll, setShowAll] = useState(false)
+
   const mine = lessons
     .filter(l => (l.studentIds || []).includes(clientId))
     .sort((a, b) => a.date.localeCompare(b.date))
+
+  // Показываем последние занятия — старое уходит под «Показать больше»:
+  // у иного ученика их полсотни, и виджет занимал пол-экрана.
+  const hidden = Math.max(mine.length - RECENT, 0)
+  const shown = showAll ? mine : mine.slice(-RECENT)
 
   if (mine.length === 0) {
     return (
@@ -151,12 +160,21 @@ export default function AttendanceWidget({ lessons, clients, teachers = [], clie
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
-        {mine.map(lesson => (
+      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '10px' }}>
+        {shown.map(lesson => (
           <Tile key={lesson.id} lesson={lesson} tile={attendanceTile(lesson, clientId)}
             clients={clients} teachers={teachers} onOpen={onOpenLesson} />
         ))}
       </div>
+
+      {hidden > 0 && (
+        <button onClick={() => setShowAll(v => !v)} style={{
+          background: 'transparent', border: 'none', padding: '0 0 8px',
+          color: '#7c3aed', fontSize: '12px', cursor: 'pointer',
+        }}>
+          {showAll ? '▴ Свернуть' : `▾ Показать ещё ${hidden}`}
+        </button>
+      )}
 
       <details>
         <summary style={{ fontSize: '12px', color: '#7c3aed', cursor: 'pointer' }}>Показать легенду</summary>

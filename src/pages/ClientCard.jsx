@@ -74,7 +74,7 @@ function SummaryRow({ label, children, action }) {
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', gap: '12px',
-      padding: '8px 0', fontSize: '13px', alignItems: 'baseline',
+      padding: '4px 0', fontSize: '12px', alignItems: 'baseline',
     }}>
       <span style={{ color: '#6b7280', flexShrink: 0 }}>{label}</span>
       <span style={{ color: '#111827', textAlign: 'right', minWidth: 0 }}>
@@ -87,9 +87,9 @@ function SummaryRow({ label, children, action }) {
 
 function SummaryBlock({ title, action, children }) {
   return (
-    <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '12px', marginTop: '12px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-        <span style={{ fontSize: '13px', fontWeight: '600', color: '#111827' }}>{title}</span>
+    <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '9px', marginTop: '9px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+        <span style={{ fontSize: '12px', fontWeight: '600', color: '#111827' }}>{title}</span>
         {action}
       </div>
       {children}
@@ -807,7 +807,7 @@ export default function ClientCard() {
                         {note && <span style={{ fontSize: '12px', color: '#6b7280' }}>{note}</span>}
                       </div>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0 }}>
-                        <span style={{ fontWeight: '700', fontSize: '14px', color: entry._charge ? '#dc2626' : '#059669' }}>
+                        <span style={{ fontWeight: '700', fontSize: '12px', color: entry._charge ? '#dc2626' : '#059669' }}>
                           {entry._charge ? '−' : '+'}{(entry.amount || 0).toLocaleString()} сум
                         </span>
                         {locked ? (
@@ -834,20 +834,20 @@ export default function ClientCard() {
           {/* Остаток, платежи и цена занятия — деньги. Педагог их не видит. */}
           {manages && (
           <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '10px' }}>
-            <span style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>Общий остаток</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
+            <span style={{ fontSize: '12px', fontWeight: '600', color: '#111827' }}>Общий остаток</span>
           </div>
-          <div style={{ textAlign: 'right', marginBottom: '4px' }}>
-            <div style={{ fontSize: '16px', fontWeight: '700', color: lessonsInStock < 0 ? '#dc2626' : '#7c3aed' }}
+          <div style={{ textAlign: 'right', marginBottom: '2px' }}>
+            <div style={{ fontSize: '13px', fontWeight: '700', color: lessonsInStock < 0 ? '#dc2626' : '#7c3aed' }}
               title={lessonsInStock < 0 ? 'За столько занятий ученик ещё не заплатил' : undefined}>
               {lessonsInStock} уроков
             </div>
-            <div style={{ fontSize: '20px', fontWeight: '700', color: isPaid ? '#059669' : '#dc2626' }}>
+            <div style={{ fontSize: '16px', fontWeight: '700', color: isPaid ? '#059669' : '#dc2626' }}>
               {balance.toLocaleString()} сум
             </div>
           </div>
 
-          <div style={{ borderTop: '1px solid #f3f4f6', marginTop: '12px', paddingTop: '4px' }}>
+          <div style={{ borderTop: '1px solid #f3f4f6', marginTop: '9px', paddingTop: '2px' }}>
             <SummaryRow label="ID">#{client.id.slice(0, 6)}</SummaryRow>
             <SummaryRow label="Платежи">{incomeCount} шт</SummaryRow>
             <SummaryRow label="Уроки">п {lessonsPlanned} / ф {lessonsDone}</SummaryRow>
@@ -857,10 +857,6 @@ export default function ClientCard() {
           </div>
           </>
           )}
-
-          <SummaryBlock title="Педагог">
-            <span style={notSet}>(не задано)</span>
-          </SummaryBlock>
 
           <SummaryBlock title="Заказчик">
             {legalPayer ? (
@@ -968,6 +964,10 @@ export default function ClientCard() {
             {client.allergies
               ? <span style={{ fontSize: '13px', color: '#b91c1c' }}>⚠️ {client.allergies}</span>
               : <span style={notSet}>(не задано)</span>}
+          </SummaryBlock>
+
+          <SummaryBlock title="Педагог">
+            <span style={notSet}>(не задано)</span>
           </SummaryBlock>
 
           {!isLead && (
