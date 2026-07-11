@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   collection, getDocs, getDoc, addDoc, doc, setDoc, updateDoc, deleteDoc, writeBatch,
-  query, where,
+  // `query` переименован: ниже так называется строка поиска по лидам, и она
+  // затеняла бы функцию Firestore.
+  query as fsQuery, where,
 } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { clientBalance } from '../lib/balance'
@@ -449,9 +451,9 @@ export default function Leads() {
       try {
         if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
         const [tx, ch, les] = await withTimeout(Promise.all([
-          getDocs(query(collection(db, 'transactions'), where('clientId', '==', clientId))),
-          getDocs(query(collection(db, 'charges'), where('clientId', '==', clientId))),
-          getDocs(query(collection(db, 'lessons'), where('studentIds', 'array-contains', clientId))),
+          getDocs(fsQuery(collection(db, 'transactions'), where('clientId', '==', clientId))),
+          getDocs(fsQuery(collection(db, 'charges'), where('clientId', '==', clientId))),
+          getDocs(fsQuery(collection(db, 'lessons'), where('studentIds', 'array-contains', clientId))),
         ]))
         if (cancelled) return
         const rows = s => s.docs.map(d => ({ id: d.id, ...d.data() }))
