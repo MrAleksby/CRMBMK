@@ -834,14 +834,15 @@ export default function ClientCard() {
           {/* Остаток, платежи и цена занятия — деньги. Педагог их не видит. */}
           {manages && (
           <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '6px' }}>
+          {/* Заголовок и остаток в уроках — одной строкой, сумма под ними. */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px' }}>
             <span style={{ fontSize: '12px', fontWeight: '600', color: '#111827' }}>Общий остаток</span>
-          </div>
-          <div style={{ textAlign: 'right', marginBottom: '2px' }}>
-            <div style={{ fontSize: '13px', fontWeight: '700', color: lessonsInStock < 0 ? '#dc2626' : '#7c3aed' }}
+            <span style={{ fontSize: '13px', fontWeight: '700', color: lessonsInStock < 0 ? '#dc2626' : '#7c3aed' }}
               title={lessonsInStock < 0 ? 'За столько занятий ученик ещё не заплатил' : undefined}>
               {lessonsInStock} уроков
-            </div>
+            </span>
+          </div>
+          <div style={{ textAlign: 'right', marginBottom: '2px' }}>
             <div style={{ fontSize: '16px', fontWeight: '700', color: isPaid ? '#059669' : '#dc2626' }}>
               {balance.toLocaleString()} сум
             </div>
