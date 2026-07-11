@@ -11,6 +11,7 @@ import SubscriptionForm from '../components/SubscriptionForm'
 import {
   lessonsLeft, subscriptionStatus, subscriptionPerLesson, periodLabel as subPeriod,
   formToSubscriptionDoc, subscriptionTitle, splitSubscriptions, subscriptionToForm,
+  paymentFromForm,
 } from '../lib/subscription'
 import {
   getAge, ageLabel, formatBirthday, contactRows, sourceInfo, genderInfo, statusInfo,
@@ -369,13 +370,20 @@ export default function ClientCard() {
     }
   }
 
+  // Выдача абонемента и оплата за него — одной транзакцией. Это две записи
+  // в разных коллекциях: абонемент задаёт цену занятия, оплата двигает кассу
+  // и баланс. Оборванная запись оставила бы абонемент без денег или наоборот.
   const handleIssueSubscription = async (form, pkg) => {
     setSaving(true)
     try {
-      await addDoc(collection(db, 'subscriptions'), {
+      const batch = writeBatch(db)
+      batch.set(doc(collection(db, 'subscriptions')), {
         ...formToSubscriptionDoc(form, pkg, id),
         createdAt: new Date(),
       })
+      batch.set(doc(collection(db, 'transactions')),
+        paymentFromForm(form, id, client.childName, pkg?.name))
+      await batch.commit()
       setIssuing(false)
       await fetchData()
     } catch (e) {
@@ -855,6 +863,7 @@ export default function ClientCard() {
 
             {issuing && (
               <SubscriptionForm packages={packages} saving={saving}
+                accounts={accounts} incomeCategories={incomeCategories}
                 onSubmit={handleIssueSubscription} onCancel={() => setIssuing(false)} />
             )}
 

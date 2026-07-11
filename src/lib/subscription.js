@@ -137,16 +137,24 @@ export function weeksBetween(startDate, endDate) {
   return Math.round((to - from) / MS_PER_WEEK)
 }
 
+// Поля оплаты (payAmount/payAccountId/payCategoryId/payDate) нужны только при
+// выдаче нового абонемента: за него сразу принимают деньги. При правке они
+// не участвуют — деньги уже проведены, второй раз их заводить нельзя.
 export const emptySubscriptionForm = () => ({
   packageId: '',
   startDate: todayISO(),
   endDate: '',
   weeks: '',
   note: '',
+  payAmount: '',
+  payAccountId: '',
+  payCategoryId: '',
+  payDate: todayISO(),
 })
 
 export function subscriptionToForm(sub) {
   return {
+    ...emptySubscriptionForm(),
     packageId: sub.packageId || '',
     startDate: sub.startDate || todayISO(),
     endDate: sub.endDate || '',
@@ -155,12 +163,37 @@ export function subscriptionToForm(sub) {
   }
 }
 
-export function validateSubscriptionForm(form, packages) {
+// withPayment — выдача нового абонемента: тогда оплата обязательна. При правке
+// (false) проверяем только сам абонемент.
+export function validateSubscriptionForm(form, packages, withPayment = false) {
   if (!form.packageId) return 'Выберите абонемент'
   if (!packages.some(p => p.id === form.packageId)) return 'Абонемент не найден'
   if (!form.startDate) return 'Укажите дату начала'
   if (form.endDate && form.endDate < form.startDate) return 'Дата окончания раньше начала'
+  if (withPayment) {
+    const amount = Number(form.payAmount)
+    if (!Number.isFinite(amount) || amount <= 0) return 'Укажите сумму оплаты'
+    if (!form.payAccountId) return 'Выберите кассу'
+    if (!form.payCategoryId) return 'Выберите статью дохода'
+    if (!form.payDate) return 'Укажите дату оплаты'
+  }
   return null
+}
+
+// Документ оплаты за абонемент. Это обычный доход: касса, статья, сумма.
+// Абонемент денег не двигает, поэтому оплата — отдельная запись в transactions,
+// а не поле внутри абонемента. Связь между ними только смысловая.
+export function paymentFromForm(form, clientId, clientName, packageName) {
+  return {
+    kind: 'income',
+    clientId,
+    clientName: clientName || '',
+    amount: Number(form.payAmount) || 0,
+    accountId: form.payAccountId,
+    categoryId: form.payCategoryId,
+    comment: `Оплата за абонемент${packageName ? ` «${packageName}»` : ''}`,
+    date: new Date(`${form.payDate}T12:00:00`),
+  }
 }
 
 export function formToSubscriptionDoc(form, pkg, clientId) {

@@ -12,10 +12,14 @@ const inputStyle = {
 
 const labelStyle = { fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '3px' }
 
-export default function SubscriptionForm({ initial, packages, saving, onSubmit, onCancel }) {
+export default function SubscriptionForm({
+  initial, packages, accounts = [], incomeCategories = [], saving, onSubmit, onCancel,
+}) {
   const [form, setForm] = useState(initial || emptySubscriptionForm)
   const [error, setError] = useState('')
   const editing = Boolean(initial)
+  // Оплата — только при выдаче нового абонемента. При правке деньги уже проведены.
+  const withPayment = !editing
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value })
 
@@ -40,9 +44,21 @@ export default function SubscriptionForm({ initial, packages, saving, onSubmit, 
   const options = packages.filter(p => p.active !== false || p.id === form.packageId)
   const price = chosen ? perLessonPrice(chosen) : null
 
+  // При выборе пакета подставляем его цену в сумму оплаты. Менеджер может
+  // переписать — скидка, доплата, оплата частями, — но по умолчанию платят
+  // полную стоимость пакета.
+  const setPackage = (e) => {
+    const packageId = e.target.value
+    const pkg = packages.find(p => p.id === packageId)
+    setForm({
+      ...form, packageId,
+      payAmount: withPayment && pkg ? String(Number(pkg.price) || '') : form.payAmount,
+    })
+  }
+
   const handleSubmit = (e) => {
     e.preventDefault()
-    const problem = validateSubscriptionForm(form, packages)
+    const problem = validateSubscriptionForm(form, packages, withPayment)
     if (problem) return setError(problem)
     setError('')
     onSubmit(form, chosen)
@@ -63,7 +79,7 @@ export default function SubscriptionForm({ initial, packages, saving, onSubmit, 
     }}>
       <div style={{ marginBottom: '8px' }}>
         <label style={labelStyle}>Абонемент</label>
-        <select required style={inputStyle} value={form.packageId} onChange={set('packageId')}>
+        <select required style={inputStyle} value={form.packageId} onChange={setPackage}>
           <option value="">Выберите…</option>
           {options.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
@@ -99,12 +115,58 @@ export default function SubscriptionForm({ initial, packages, saving, onSubmit, 
           placeholder="Любое текстовое примечание" />
       </div>
 
+      {/* Оплата за абонемент. За него всегда платят при выдаче: одно нажатие
+          создаёт и абонемент, и доход. При правке этого блока нет. */}
+      {withPayment && (
+        accounts.length === 0 || incomeCategories.length === 0 ? (
+          <p style={{ fontSize: '11px', color: '#b91c1c', marginBottom: '8px' }}>
+            ⚠️ Чтобы принять оплату, заведите кассы и доходные статьи в Настройках.
+          </p>
+        ) : (
+          <div style={{
+            borderTop: '1px dashed #e5e7eb', paddingTop: '8px', marginBottom: '8px',
+          }}>
+            <p style={{ fontSize: '11px', fontWeight: '700', color: '#059669', marginBottom: '6px' }}>
+              💰 Оплата за абонемент
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+              <div>
+                <label style={labelStyle}>Сумма оплаты</label>
+                <input required type="number" min="0" inputMode="numeric" style={inputStyle}
+                  value={form.payAmount} onChange={set('payAmount')} placeholder="0" />
+              </div>
+              <div>
+                <label style={labelStyle}>Дата оплаты</label>
+                <input required type="date" style={inputStyle}
+                  value={form.payDate} onChange={set('payDate')} />
+              </div>
+              <div>
+                <label style={labelStyle}>Касса</label>
+                <select required style={inputStyle} value={form.payAccountId} onChange={set('payAccountId')}>
+                  <option value="">Выберите…</option>
+                  {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Статья</label>
+                <select required style={inputStyle} value={form.payCategoryId} onChange={set('payCategoryId')}>
+                  <option value="">Выберите…</option>
+                  {incomeCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+        )
+      )}
+
       {error && (
         <p style={{ fontSize: '12px', color: '#b91c1c', marginBottom: '8px' }}>⚠️ {error}</p>
       )}
 
       <div style={{ display: 'flex', gap: '6px' }}>
-        <button type="submit" disabled={saving} style={{
+        <button type="submit"
+          disabled={saving || (withPayment && (accounts.length === 0 || incomeCategories.length === 0))}
+          style={{
           background: '#7c3aed', color: '#fff', border: 'none', padding: '6px 12px',
           borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer',
           opacity: saving ? 0.6 : 1,
