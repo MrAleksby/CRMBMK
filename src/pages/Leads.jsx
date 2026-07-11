@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { collection, getDocs, getDoc, addDoc, doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore'
+import {
+  collection, getDocs, getDoc, addDoc, doc, setDoc, updateDoc, deleteDoc, writeBatch,
+  query, where,
+} from 'firebase/firestore'
 import { db, auth } from '../firebase'
+import { clientBalance } from '../lib/balance'
+import { toJsDate, KIND_INCOME, KIND_REFUND } from '../lib/finance'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import ErrorBanner from '../components/ErrorBanner'
 import LeadForm from '../components/LeadForm'
@@ -315,6 +320,70 @@ function LeadTrialForm({ lead, staff, saving, onSubmit, onCancel }) {
 
 const fLabel = { fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }
 
+const ruDate = (value) => {
+  const date = toJsDate(value)
+  return date ? date.toLocaleDateString('ru') : ''
+}
+
+// Деньги лида в окне воронки: баланс, оплаты, списания за проведённые пробные
+// и назначенные занятия. Всё это остаётся за учеником после «Сделать клиентом».
+function LeadMoney({ money, clientId }) {
+  if (!clientId) return null
+  if (!money || money.loading) {
+    return <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 16px' }}>Загружаем оплаты…</p>
+  }
+  if (money.error) {
+    return <p style={{ fontSize: '12px', color: '#dc2626', margin: '0 0 16px' }}>{money.error}</p>
+  }
+
+  const { balance, entries, upcoming } = money
+  if (entries.length === 0 && upcoming.length === 0) return null
+
+  const inDebt = balance < 0
+
+  return (
+    <div style={{
+      margin: '0 0 16px', padding: '12px', background: '#f7f8fa', borderRadius: '10px',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '10px' }}>
+        <span style={{ fontSize: '13px', fontWeight: '600', color: '#111827' }}>Оплаты и пробные</span>
+        <span style={{ fontSize: '14px', fontWeight: '700', color: inDebt ? '#dc2626' : '#059669' }}>
+          {balance.toLocaleString()} сум
+          <span style={{ fontSize: '11px', fontWeight: '400', color: '#6b7280' }}>
+            {' '}{inDebt ? 'долг' : 'предоплата'}
+          </span>
+        </span>
+      </div>
+
+      {upcoming.map(lesson => (
+        <div key={lesson.id} style={{ fontSize: '12px', color: '#4b5563', marginBottom: '4px' }}>
+          ✱ Пробное {ruDate(lesson.date)} {lesson.timeFrom} — запланировано
+        </div>
+      ))}
+
+      {entries.map(entry => {
+        // Списание за занятие и возврат денег родителю оба уменьшают баланс.
+        const minus = entry._charge || entry.kind === KIND_REFUND
+        const icon = entry._charge ? '✱' : (entry.kind === KIND_REFUND ? '↩' : '💰')
+        const title = entry._charge
+          ? (entry.description || 'Занятие')
+          : (entry.comment || (entry.kind === KIND_REFUND ? 'Возврат' : 'Оплата'))
+        return (
+          <div key={entry.id} style={{
+            display: 'flex', justifyContent: 'space-between', gap: '10px',
+            fontSize: '12px', color: '#4b5563', marginBottom: '4px',
+          }}>
+            <span>{icon} {ruDate(entry.date)} {title}</span>
+            <span style={{ whiteSpace: 'nowrap', color: minus ? '#dc2626' : '#059669' }}>
+              {minus ? '−' : '+'}{(entry.amount || 0).toLocaleString()}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function Leads() {
   const [leads, setLeads] = useState([])
   const [staff, setStaff] = useState([])
@@ -363,6 +432,53 @@ export default function Leads() {
   const open = leads.find(l => l.id === openId) || null
   const stats = useMemo(() => funnelStats(leads), [leads])
 
+  // Деньги лида. Оплаты и списания за пробное живут на карточке ученика
+  // (`clientId`) и при конверсии никуда не деваются — clientId не меняется.
+  // Но в воронке их не видно, а менеджеру нужно знать, платил лид или должен.
+  // Читаем точечно по clientId, а не всю ленту финансов: она на 1500 записей.
+  const [money, setMoney] = useState(null)
+  const [moneyTick, setMoneyTick] = useState(0)
+
+  useEffect(() => {
+    const clientId = open?.clientId
+    if (!clientId) { setMoney(null); return }
+
+    let cancelled = false
+    const load = async () => {
+      setMoney({ loading: true })
+      try {
+        if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
+        const [tx, ch, les] = await withTimeout(Promise.all([
+          getDocs(query(collection(db, 'transactions'), where('clientId', '==', clientId))),
+          getDocs(query(collection(db, 'charges'), where('clientId', '==', clientId))),
+          getDocs(query(collection(db, 'lessons'), where('studentIds', 'array-contains', clientId))),
+        ]))
+        if (cancelled) return
+        const rows = s => s.docs.map(d => ({ id: d.id, ...d.data() }))
+        const transactions = rows(tx)
+        const charges = rows(ch)
+        setMoney({
+          balance: clientBalance(transactions, charges, clientId),
+          entries: [
+            // Баланс двигают только оплаты и возвраты; прочие операции ученику не принадлежат.
+            ...transactions
+              .filter(t => t.kind === KIND_INCOME || t.kind === KIND_REFUND)
+              .map(t => ({ ...t, _charge: false })),
+            ...charges.map(c => ({ ...c, _charge: true })),
+          ].sort((a, b) => toJsDate(b.date) - toJsDate(a.date)),
+          upcoming: rows(les)
+            .filter(l => l.status === 'planned')
+            .sort((a, b) => String(a.date).localeCompare(String(b.date))),
+        })
+      } catch (e) {
+        console.error(e)
+        if (!cancelled) setMoney({ error: describeError(e) })
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [open?.clientId, moneyTick])
+
   const query = search.trim().toLowerCase()
   const matches = (lead) => !query || leadSearchText(lead).includes(query)
 
@@ -380,6 +496,7 @@ export default function Leads() {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
       await action()
       await fetchData()
+      setMoneyTick(t => t + 1)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -661,6 +778,8 @@ export default function Leads() {
               )}
               {isRejected(open) && <Row label="Причина отказа">{rejectLabel(open.rejectReason)}</Row>}
             </div>
+
+            <LeadMoney money={money} clientId={open.clientId} />
 
             {!open.archived && (
               <div style={{ marginBottom: '16px' }}>
