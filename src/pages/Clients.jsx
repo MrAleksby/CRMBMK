@@ -368,9 +368,9 @@ export default function Clients() {
                     </td>
                     <td style={td(isLast)}><Avatar client={c} /></td>
 
-                    <td style={td(isLast)}>
+                    <td style={{ ...td(isLast), minWidth: '190px' }}>
                       <Link to={`/clients/${c.id}`} style={{
-                        color: '#7c3aed', fontWeight: '600', fontSize: '13px', textDecoration: 'none',
+                        color: '#7c3aed', fontWeight: '600', fontSize: '12px', textDecoration: 'none',
                       }}>
                         {c.childName}
                       </Link>
