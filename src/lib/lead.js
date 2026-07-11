@@ -45,8 +45,12 @@ export const rejectLabel = (value) =>
 export const MAX_PHONES = 4
 
 // Лид ушёл из воронки: либо стал клиентом, либо отказался.
-export const isConverted = (lead) => Boolean(lead.clientId)
+// Конвертирован = стал клиентом: карточка есть И лид ушёл в архив. Просто
+// открытая карточка (clientId без archived) — ещё лид в воронке, у него есть
+// пробное и оплаты, но клиентом он пока не стал.
+export const isConverted = (lead) => Boolean(lead.clientId) && Boolean(lead.archived)
 export const isRejected = (lead) => Boolean(lead.archived) && !lead.clientId
+export const hasCard = (lead) => Boolean(lead.clientId)
 
 export const emptyLeadForm = () => ({
   childName: '',
