@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { TX_KINDS, KIND_INCOME, KIND_SALARY, KIND_REFUND } from '../lib/finance'
 import { emptyTransactionForm, categoriesForKind, validateTransactionForm, suggestPayer } from '../lib/transaction'
-import { staffRoleLabel } from '../lib/directories'
+import { staffRoleLabel, perLessonPrice } from '../lib/directories'
 
 const inputStyle = {
   background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '10px',
@@ -34,7 +34,7 @@ const closeBtn = {
 }
 
 export default function TransactionForm({
-  accounts, categories, clients = [], teachers = [], saving, initial, onSubmit, onCancel,
+  accounts, categories, clients = [], teachers = [], packages = [], saving, initial, onSubmit, onCancel,
 }) {
   const [form, setForm] = useState(() => initial ?? emptyTransactionForm())
   const [error, setError] = useState('')
@@ -42,18 +42,37 @@ export default function TransactionForm({
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value })
 
-  // Смена типа операции обнуляет статью: она принадлежит своему типу.
-  const setKind = (kind) => setForm({ ...form, kind, categoryId: '' })
+  // Смена типа операции обнуляет статью и назначение абонемента: оба
+  // привязаны к доходу и в расходе или ЗП бессмысленны.
+  const setKind = (kind) => setForm({ ...form, kind, categoryId: '', subscriptionPackageId: '', subscriptionWeeks: '' })
 
   // Выбор ученика подсказывает плательщика — обычно платит мама.
+  // Снятие ученика убирает и назначение абонемента: без ребёнка его некому выдать.
   const setClient = (e) => {
     const clientId = e.target.value
     const payer = suggestPayer(clients.find(c => c.id === clientId))
-    setForm({ ...form, clientId, payerName: payer || form.payerName })
+    setForm({
+      ...form, clientId, payerName: payer || form.payerName,
+      subscriptionPackageId: clientId ? form.subscriptionPackageId : '',
+    })
+  }
+
+  // Выбор пакета подставляет его цену в сумму дохода, если она ещё пуста:
+  // обычно доход и есть стоимость пакета. Менеджер может переписать.
+  const setPackage = (e) => {
+    const subscriptionPackageId = e.target.value
+    const pkg = packages.find(p => p.id === subscriptionPackageId)
+    setForm({
+      ...form, subscriptionPackageId,
+      amount: form.amount || (pkg ? String(Number(pkg.price) || '') : ''),
+    })
   }
 
   const activeAccounts = accounts.filter(a => a.active !== false)
   const kindCategories = categoriesForKind(categories, form.kind)
+  const activePackages = packages.filter(p => p.active !== false)
+  const chosenPackage = packages.find(p => p.id === form.subscriptionPackageId)
+  const perLesson = chosenPackage ? perLessonPrice(chosenPackage) : null
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -182,6 +201,42 @@ export default function TransactionForm({
         <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '10px' }}>
           Доход без ученика не влияет на его баланс — так проводят кешбеки и турниры.
         </p>
+      )}
+
+      {/* Назначение абонемента вместе с оплатой. Необязательное: если родитель
+          платит за пакет, менеджер сразу выдаёт его ребёнку одной операцией. */}
+      {form.kind === KIND_INCOME && form.clientId && activePackages.length > 0 && (
+        <div style={{
+          border: '1px dashed #e5e7eb', borderRadius: '10px',
+          padding: '12px', marginTop: '12px',
+        }}>
+          <p style={{ fontSize: '12px', fontWeight: '700', color: '#7c3aed', marginBottom: '8px' }}>
+            🎫 Назначить абонемент (необязательно)
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
+            <div>
+              <label style={labelStyle}>Абонемент</label>
+              <select style={inputStyle} value={form.subscriptionPackageId} onChange={setPackage}>
+                <option value="">Не назначать</option>
+                {activePackages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            {form.subscriptionPackageId && (
+              <div>
+                <label style={labelStyle}>Срок, недель</label>
+                <input type="number" min="1" placeholder="8" style={inputStyle}
+                  value={form.subscriptionWeeks} onChange={set('subscriptionWeeks')} />
+              </div>
+            )}
+          </div>
+          {chosenPackage && (
+            <p style={{ fontSize: '11px', color: '#4b5563', marginTop: '8px' }}>
+              {chosenPackage.lessonsCount} уроков · {Number(chosenPackage.price).toLocaleString()} сум
+              {perLesson !== null && <> · <b>{perLesson.toLocaleString()} сум за урок</b></>}
+              {' — абонемент задаст цену занятия. Он начнётся с даты операции.'}
+            </p>
+          )}
+        </div>
       )}
 
       {form.kind === KIND_SALARY && !form.teacherId && (

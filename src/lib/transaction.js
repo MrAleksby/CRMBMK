@@ -16,6 +16,9 @@ export const emptyTransactionForm = (kind = KIND_INCOME) => ({
   payerName: '',
   teacherId: '',
   comment: '',
+  // Необязательное назначение абонемента вместе с доходом. Пусто — просто оплата.
+  subscriptionPackageId: '',
+  subscriptionWeeks: '',
 })
 
 // Обратное преобразование: документ → поля формы, чтобы операцию можно было править.
@@ -35,6 +38,9 @@ export function transactionToForm(transaction) {
     payerName: transaction.payerName || '',
     teacherId: transaction.teacherId || '',
     comment: transaction.comment || '',
+    // Абонемент назначают только при создании дохода, не при правке операции.
+    subscriptionPackageId: '',
+    subscriptionWeeks: '',
   }
 }
 

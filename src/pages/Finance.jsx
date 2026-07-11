@@ -11,6 +11,7 @@ import {
   companyBalance, periodProfit, accountTotals, categoryTotals,
 } from '../lib/finance'
 import { buildTransaction, transactionToForm } from '../lib/transaction'
+import { formToSubscriptionDoc, endDateFromWeeks } from '../lib/subscription'
 import { clientBalances, debtAndPrepaid } from '../lib/balance'
 import { sortItems, getDirectory } from '../lib/directories'
 import { useSelection } from '../lib/selection'
@@ -114,6 +115,7 @@ export default function Finance() {
   const [categories, setCategories] = useState([])
   const [clients, setClients] = useState([])
   const [teachers, setTeachers] = useState([])
+  const [packages, setPackages] = useState([])
 
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -149,13 +151,14 @@ export default function Finance() {
     setLoadError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [tx, ch, acc, cat, cl, te] = await withTimeout(Promise.all([
+      const [tx, ch, acc, cat, cl, te, pk] = await withTimeout(Promise.all([
         getDocs(collection(db, 'transactions')),
         getDocs(collection(db, 'charges')),
         getDocs(collection(db, 'accounts')),
         getDocs(collection(db, 'categories')),
         getDocs(collection(db, 'clients')),
         getDocs(collection(db, 'teachers')),
+        getDocs(collection(db, 'packages')),
       ]))
       const rows = snap => snap.docs.map(d => ({ id: d.id, ...d.data() }))
       setTransactions(rows(tx))
@@ -164,6 +167,7 @@ export default function Finance() {
       setCategories(sortItems(getDirectory('categories'), rows(cat)))
       setClients(rows(cl).sort((a, b) => String(a.childName || '').localeCompare(String(b.childName || ''), 'ru')))
       setTeachers(rows(te))
+      setPackages(rows(pk))
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -177,7 +181,26 @@ export default function Finance() {
   const handleCreate = async (form) => {
     setSaving(true)
     try {
-      await addDoc(collection(db, 'transactions'), buildTransaction(form, { clients, teachers }))
+      const pkg = form.subscriptionPackageId
+        ? packages.find(p => p.id === form.subscriptionPackageId)
+        : null
+
+      if (pkg && form.clientId) {
+        // Доход и назначенный абонемент — одной транзакцией: оборванная запись
+        // оставила бы либо оплату без абонемента, либо абонемент без денег.
+        const batch = writeBatch(db)
+        batch.set(doc(collection(db, 'transactions')), buildTransaction(form, { clients, teachers }))
+        batch.set(doc(collection(db, 'subscriptions')), {
+          ...formToSubscriptionDoc(
+            { packageId: pkg.id, startDate: form.date, endDate: endDateFromWeeks(form.date, form.subscriptionWeeks), note: '' },
+            pkg, form.clientId,
+          ),
+          createdAt: new Date(),
+        })
+        await batch.commit()
+      } else {
+        await addDoc(collection(db, 'transactions'), buildTransaction(form, { clients, teachers }))
+      }
       setShowForm(false)
       await fetchAll()
     } catch (e) {
@@ -325,7 +348,7 @@ export default function Finance() {
       {showForm && !editing && (
         <TransactionForm
           accounts={accounts} categories={categories}
-          clients={clients} teachers={teachers}
+          clients={clients} teachers={teachers} packages={packages}
           saving={saving}
           onSubmit={handleCreate}
           onCancel={() => setShowForm(false)}
@@ -511,8 +534,14 @@ export default function Finance() {
                       <td style={td()}>{date ? date.toLocaleDateString('ru') : '—'}</td>
 
                       <td style={td()}>
-                        <span style={{ color: meta.color, fontWeight: '600' }}>{meta.icon} {meta.label}</span>
-                        {number && <span style={{ color: '#9ca3af', marginLeft: '4px' }}>{number}</span>}
+                        {/* Иконка и тип не разрываются: в узкой колонке значок
+                            иначе отрывается от слова. Номер документа — строкой ниже. */}
+                        <span style={{ color: meta.color, fontWeight: '600', whiteSpace: 'nowrap' }}>
+                          {meta.icon} {meta.label}
+                        </span>
+                        {number && (
+                          <div style={{ color: '#9ca3af', fontSize: '11px', marginTop: '1px' }}>{number}</div>
+                        )}
                       </td>
 
                       <td style={{ ...td('right'), fontWeight: '700', color: isIncome ? '#059669' : '#dc2626', whiteSpace: 'nowrap' }}>
