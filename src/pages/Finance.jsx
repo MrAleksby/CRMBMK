@@ -293,10 +293,13 @@ export default function Finance() {
 
   // Обрезаем по числу касс: тогда обе карточки заканчиваются на одной линии,
   // а хвост статей прячется под «Показать ещё».
+  const categoriesLimit = Math.max(accountsReport.length, 3)
   const visibleCategories = showAllCategories
     ? categoriesReport
-    : categoriesReport.slice(0, Math.max(accountsReport.length, 3))
-  const hiddenCategories = categoriesReport.length - visibleCategories.length
+    : categoriesReport.slice(0, categoriesLimit)
+  // Считаем от полного списка, а не от видимого: иначе на развороте скрытых нет,
+  // и кнопка «Свернуть» исчезала бы вместе со счётчиком.
+  const hiddenCategories = categoriesReport.length - categoriesLimit
 
   const years = useMemo(() => availableYears(transactions), [transactions])
 
