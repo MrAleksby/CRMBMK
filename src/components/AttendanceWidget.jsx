@@ -160,21 +160,23 @@ export default function AttendanceWidget({ lessons, clients, teachers = [], clie
 
   return (
     <div>
+      {/* Кнопка сверху: старые занятия раскрываются вверх, свежие остаются
+          на месте — глаз не теряет то, на что смотрел. */}
+      {hidden > 0 && (
+        <button onClick={() => setShowAll(v => !v)} style={{
+          background: 'transparent', border: 'none', padding: '0 0 8px',
+          color: '#7c3aed', fontSize: '12px', cursor: 'pointer',
+        }}>
+          {showAll ? '▴ Скрыть старые' : `▾ Показать ещё ${hidden} (старые)`}
+        </button>
+      )}
+
       <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '10px' }}>
         {shown.map(lesson => (
           <Tile key={lesson.id} lesson={lesson} tile={attendanceTile(lesson, clientId)}
             clients={clients} teachers={teachers} onOpen={onOpenLesson} />
         ))}
       </div>
-
-      {hidden > 0 && (
-        <button onClick={() => setShowAll(v => !v)} style={{
-          background: 'transparent', border: 'none', padding: '0 0 8px',
-          color: '#7c3aed', fontSize: '12px', cursor: 'pointer',
-        }}>
-          {showAll ? '▴ Свернуть' : `▾ Показать ещё ${hidden}`}
-        </button>
-      )}
 
       <details>
         <summary style={{ fontSize: '12px', color: '#7c3aed', cursor: 'pointer' }}>Показать легенду</summary>
