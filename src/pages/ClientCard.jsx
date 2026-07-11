@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
-import { toAmount, toCount } from '../lib/amount'
+import { toAmount } from '../lib/amount'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import ClientForm from '../components/ClientForm'
 import ErrorBanner from '../components/ErrorBanner'
@@ -225,14 +225,16 @@ export default function ClientCard() {
   const lessonsPlanned = myLessons.filter(l => l.status === 'planned').length
 
   // Оплата ложится в кассу как обычная доходная операция, начисление — на лицевой счёт.
-  // Дата берётся из формы: платежи часто вносят задним числом.
+  // Приём оплаты. Дата берётся из формы: платежи часто вносят задним числом.
+  // Списаний за занятие тут нет — они создаются автоматически при проведении
+  // урока в журнале, вручную дублировать нельзя.
   const handlePayment = async () => {
     const amount = toAmount(form.amount)
     if (amount === null || amount === 0) {
       alert('Введите сумму — положительное число')
       return
     }
-    if (form.type === KIND_INCOME && (!form.accountId || !form.categoryId)) {
+    if (!form.accountId || !form.categoryId) {
       alert('Выберите кассу и статью')
       return
     }
@@ -244,28 +246,17 @@ export default function ClientCard() {
 
     setSaving(true)
     try {
-      if (form.type === KIND_INCOME) {
-        await addDoc(collection(db, 'transactions'), {
-          kind: KIND_INCOME,
-          clientId: id,
-          clientName: client.childName,
-          amount,
-          accountId: form.accountId,
-          categoryId: form.categoryId,
-          comment: form.description || '',
-          date,
-          createdAt: new Date(),
-        })
-      } else {
-        await addDoc(collection(db, 'charges'), {
-          clientId: id,
-          clientName: client.childName,
-          amount,
-          lessons: toCount(form.sessions, 1) ?? 1,
-          description: form.description || '',
-          date,
-        })
-      }
+      await addDoc(collection(db, 'transactions'), {
+        kind: KIND_INCOME,
+        clientId: id,
+        clientName: client.childName,
+        amount,
+        accountId: form.accountId,
+        categoryId: form.categoryId,
+        comment: form.description || '',
+        date,
+        createdAt: new Date(),
+      })
       setForm({ open: false })
       await fetchData()
     } catch (e) {
@@ -640,29 +631,26 @@ export default function ClientCard() {
               </div>
             </div>
 
+            {/* Только приём оплаты. Списание за занятие создаётся автоматически
+                при проведении урока в журнале, вручную его не заводят. */}
             {!form.open && (
               <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
                 <button style={btn('#059669')} onClick={() => setForm({
-                  open: true, type: KIND_INCOME, amount: '', sessions: '', description: '',
+                  open: true, amount: '', description: '',
                   date: today, accountId: accounts[0]?.id || '', categoryId: incomeCategories[0]?.id || '',
                 })}>
                   💰 Принять оплату
-                </button>
-                <button style={btn()} onClick={() => setForm({
-                  open: true, type: 'charge', amount: '', sessions: '', description: '', date: today,
-                })} title="Списание за занятие без урока в календаре — например индивидуальное вне группы">
-                  ➖ Списать за занятие
                 </button>
               </div>
             )}
 
             {form.open && (
               <div style={{ background: '#f7f8fa', borderRadius: '12px', padding: '14px', marginBottom: '14px' }}>
-                <p style={{ fontWeight: '600', fontSize: '14px', marginBottom: '12px', color: form.type === KIND_INCOME ? '#059669' : '#7c3aed' }}>
-                  {form.type === KIND_INCOME ? '💰 Принять оплату' : '➖ Списать за занятие'}
+                <p style={{ fontWeight: '600', fontSize: '14px', marginBottom: '12px', color: '#059669' }}>
+                  💰 Принять оплату
                 </p>
 
-                {form.type === KIND_INCOME && (accounts.length === 0 || incomeCategories.length === 0) ? (
+                {accounts.length === 0 || incomeCategories.length === 0 ? (
                   <p style={{ fontSize: '13px', color: '#b91c1c', margin: 0 }}>
                     ⚠️ Сначала заведите кассы и доходные статьи в Настройках.
                   </p>
@@ -670,7 +658,7 @@ export default function ClientCard() {
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                     <div>
                       <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
-                        {form.type === KIND_INCOME ? 'Сумма оплаты (сум) *' : 'Стоимость занятия (сум) *'}
+                        Сумма оплаты (сум) *
                       </label>
                       <input type="number" min="0" inputMode="numeric" placeholder="0" style={{ ...inputStyle, width: '140px' }}
                         value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
@@ -682,30 +670,20 @@ export default function ClientCard() {
                         value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
                     </div>
 
-                    {form.type === KIND_INCOME ? (
-                      <>
-                        <div>
-                          <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Касса *</label>
-                          <select style={{ ...inputStyle, width: '140px' }}
-                            value={form.accountId} onChange={e => setForm({ ...form, accountId: e.target.value })}>
-                            {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Статья *</label>
-                          <select style={{ ...inputStyle, width: '170px' }}
-                            value={form.categoryId} onChange={e => setForm({ ...form, categoryId: e.target.value })}>
-                            {incomeCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                          </select>
-                        </div>
-                      </>
-                    ) : (
-                      <div>
-                        <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Кол-во занятий</label>
-                        <input type="number" min="1" placeholder="1" style={{ ...inputStyle, width: '100px' }}
-                          value={form.sessions} onChange={e => setForm({ ...form, sessions: e.target.value })} />
-                      </div>
-                    )}
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Касса *</label>
+                      <select style={{ ...inputStyle, width: '140px' }}
+                        value={form.accountId} onChange={e => setForm({ ...form, accountId: e.target.value })}>
+                        {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Статья *</label>
+                      <select style={{ ...inputStyle, width: '170px' }}
+                        value={form.categoryId} onChange={e => setForm({ ...form, categoryId: e.target.value })}>
+                        {incomeCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
 
                     <div style={{ flex: 1, minWidth: '150px' }}>
                       <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Комментарий</label>
@@ -714,7 +692,7 @@ export default function ClientCard() {
                     </div>
 
                     <button onClick={handlePayment} disabled={saving || !form.amount}
-                      style={{ ...btn(form.type === KIND_INCOME ? '#059669' : '#7c3aed'), opacity: (!form.amount || saving) ? 0.6 : 1 }}>
+                      style={{ ...btn('#059669'), opacity: (!form.amount || saving) ? 0.6 : 1 }}>
                       Сохранить
                     </button>
                     <button onClick={() => setForm({ open: false })} style={{
