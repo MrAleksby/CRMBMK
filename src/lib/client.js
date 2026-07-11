@@ -32,12 +32,18 @@ export const PAYER_TYPES = [
   { value: 'legal', label: '🏛️ Юр. лицо' },
 ]
 
-// Статус обучения, как в AlfaCRM.
+// Статус обучения, как в AlfaCRM. Статус «лид» — техническая основа карточки
+// лида: у такой записи есть карточка ученика (пробные, оплаты), но в списке
+// «Клиенты» её не показываем. «Сделать клиентом» = сменить статус на «активен».
 export const CLIENT_STATUSES = [
   { value: 'active', label: 'Активен', color: '#059669', background: '#dcfce7' },
   { value: 'paused', label: 'Пауза', color: '#b45309', background: '#fef3c7' },
   { value: 'dropped', label: 'Бросил', color: '#6b7280', background: '#f3f4f6' },
+  { value: 'lead', label: 'Лид', color: '#7c3aed', background: '#ede9fe' },
 ]
+
+// Лид держит карточку ученика, но клиентом ещё не стал.
+export const isLeadClient = (client) => (client?.status || 'active') === 'lead'
 
 export const statusInfo = (client) =>
   CLIENT_STATUSES.find(s => s.value === (client.status || 'active')) ?? CLIENT_STATUSES[0]

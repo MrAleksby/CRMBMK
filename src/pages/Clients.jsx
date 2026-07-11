@@ -199,6 +199,9 @@ export default function Clients() {
 
   const query = search.trim().toLowerCase()
   const matching = clients.filter(c => {
+    // Лиды держат карточку ученика, но в списке клиентов им не место —
+    // они живут в канбане раздела «Лиды».
+    if ((c.status || 'active') === 'lead') return false
     if (query && !searchText(c).includes(query)) return false
     if (filterStatus !== 'all' && (c.status || 'active') !== filterStatus) return false
     const balance = getBalance(c.id)

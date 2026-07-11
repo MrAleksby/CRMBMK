@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore'
+import { Link, useNavigate } from 'react-router-dom'
+import { collection, getDocs, addDoc, doc, setDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import ErrorBanner from '../components/ErrorBanner'
 import LeadForm from '../components/LeadForm'
 import ClientForm from '../components/ClientForm'
 import {
-  emptyClientForm, telegramUrl, instagramUrl, phoneUrl, sourceInfo, getAge, ageLabel,
+  emptyClientForm, formToDoc, telegramUrl, instagramUrl, phoneUrl, sourceInfo, getAge, ageLabel,
 } from '../lib/client'
 import {
   LEAD_STAGES, REJECT_REASONS,
@@ -237,6 +237,7 @@ function Modal({ children, onClose }) {
 }
 
 export default function Leads() {
+  const navigate = useNavigate()
   const [leads, setLeads] = useState([])
   const [staff, setStaff] = useState([])
   const [legalEntities, setLegalEntities] = useState([])
@@ -334,13 +335,39 @@ export default function Leads() {
 
   // Ученик и пометка на лиде пишутся одной транзакцией: лид без clientId
   // вернулся бы в воронку, а клиент остался бы дублем.
+  // Открыть карточку лида. Карточка — это запись-ученик со статусом «лид»:
+  // на ней назначают пробное и принимают оплату, а в список клиентов она не
+  // попадает (фильтр в Clients.jsx). Заводим её при первом открытии; вся история
+  // остаётся при конверсии, потому что clientId не меняется.
+  const handleOpenCard = (lead) => run(async () => {
+    let clientId = lead.clientId
+    if (!clientId) {
+      const ref = doc(collection(db, 'clients'))
+      await setDoc(ref, {
+        ...formToDoc(clientFormFromLead(lead, emptyClientForm())),
+        status: 'lead', createdAt: new Date(),
+      })
+      await updateDoc(doc(db, 'leads', lead.id), { clientId: ref.id })
+      clientId = ref.id
+    }
+    navigate(`/clients/${clientId}`)
+  })
+
+  // Сделать клиентом. Если карточка уже заведена (лид ходил на пробное, платил) —
+  // просто снимаем статус «лид», история остаётся на том же ученике. Если карточки
+  // ещё нет — создаём ученика из формы, как раньше.
   const handleConvert = (clientData) => run(async () => {
-    const clientRef = doc(collection(db, 'clients'))
     const batch = writeBatch(db)
-    batch.set(clientRef, { ...clientData, createdAt: new Date() })
-    batch.update(doc(db, 'leads', open.id), {
-      clientId: clientRef.id, archived: true, stage: 'paid', rejectReason: '',
-    })
+    if (open.clientId) {
+      batch.update(doc(db, 'clients', open.clientId), { ...clientData, status: 'active' })
+      batch.update(doc(db, 'leads', open.id), { archived: true, stage: 'paid', rejectReason: '' })
+    } else {
+      const clientRef = doc(collection(db, 'clients'))
+      batch.set(clientRef, { ...clientData, status: 'active', createdAt: new Date() })
+      batch.update(doc(db, 'leads', open.id), {
+        clientId: clientRef.id, archived: true, stage: 'paid', rejectReason: '',
+      })
+    }
     await batch.commit()
     closeModal()
   })
@@ -536,9 +563,14 @@ export default function Leads() {
             )}
 
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {!isConverted(open) && (
+                <button onClick={() => handleOpenCard(open)} disabled={saving} style={primaryBtn(saving)}>
+                  🗂 Открыть карточку
+                </button>
+              )}
               <button onClick={() => setMode('edit')} style={ghostBtn}>✎ Править</button>
               {!isConverted(open) && (
-                <button onClick={() => setMode('convert')} disabled={saving} style={primaryBtn(saving)}>
+                <button onClick={() => setMode('convert')} disabled={saving} style={ghostBtn}>
                   ✓ Сделать клиентом
                 </button>
               )}
