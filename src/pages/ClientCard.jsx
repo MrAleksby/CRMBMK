@@ -15,7 +15,7 @@ import {
 } from '../lib/subscription'
 import {
   getAge, ageLabel, formatBirthday, contactRows, sourceInfo, genderInfo, statusInfo,
-  clientToForm, instagramUrl, telegramUrl, phoneUrl, parentPhones,
+  clientToForm, instagramUrl, telegramUrl, phoneUrl, parentPhones, isLeadClient,
 } from '../lib/client'
 import { MONTHS_SHORT } from '../lib/constants'
 import { KIND_INCOME, toJsDate, inPeriod as inMonth, availableYears } from '../lib/finance'
@@ -519,6 +519,9 @@ export default function ClientCard() {
   const gender = genderInfo(client)
   const source = sourceInfo(client)
   const status = statusInfo(client)
+  // Карточка лида. Клиентом он ещё не стал: в списке клиентов его нет, абонементов
+  // и групп у него быть не должно — их выдают после конверсии, из воронки.
+  const isLead = isLeadClient(client)
   const birthday = formatBirthday(client.birthDate)
   const contacts = contactRows(client)
   const isPaid = balance >= 0
@@ -558,7 +561,9 @@ export default function ClientCard() {
 
   return (
     <div style={{ maxWidth: '1100px' }}>
-      <Link to="/clients" style={{ ...link, fontSize: '13px' }}>← К списку клиентов</Link>
+      {isLead
+        ? <Link to="/leads" style={{ ...link, fontSize: '13px' }}>← К воронке лидов</Link>
+        : <Link to="/clients" style={{ ...link, fontSize: '13px' }}>← К списку клиентов</Link>}
       <div style={{ height: '14px' }} />
 
       <ErrorBanner message={loadError} onRetry={fetchData} />
@@ -569,6 +574,16 @@ export default function ClientCard() {
         {/* ЛЕВАЯ КОЛОНКА */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
           <div style={panel}>
+            {isLead && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                gap: '10px', flexWrap: 'wrap', marginBottom: '14px', padding: '9px 12px',
+                background: '#ede9fe', borderRadius: '10px', fontSize: '13px', color: '#5b21b6',
+              }}>
+                <span>✱ Это лид, а не ученик. В списке клиентов его нет — до конверсии он живёт в воронке.</span>
+                <Link to="/leads" style={{ ...link, fontWeight: '600', whiteSpace: 'nowrap' }}>Открыть воронку →</Link>
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
@@ -822,6 +837,7 @@ export default function ClientCard() {
             )}
           </SummaryBlock>
 
+          {!isLead && (
           <SummaryBlock
             title="Абонементы"
             action={!issuing && !editingSub && (
@@ -878,6 +894,7 @@ export default function ClientCard() {
               </div>
             )}
           </SummaryBlock>
+          )}
 
           <SummaryBlock title="Аллергии и особенности">
             {client.allergies
@@ -885,6 +902,7 @@ export default function ClientCard() {
               : <span style={notSet}>(не задано)</span>}
           </SummaryBlock>
 
+          {!isLead && (
           <SummaryBlock title="Группы">
             {myGroups.length === 0 && extraGroups.length === 0 && (
               <span style={notSet}>(не задано)</span>
@@ -920,6 +938,7 @@ export default function ClientCard() {
               </div>
             )}
           </SummaryBlock>
+          )}
 
           <SummaryBlock title="Ближайшие занятия">
             {myUpcoming.length === 0 && <span style={notSet}>(не записан)</span>}
@@ -941,6 +960,8 @@ export default function ClientCard() {
             )}
           </SummaryBlock>
 
+          {/* Лида на занятия записывают из воронки — кнопкой «Назначить пробное». */}
+          {!isLead && (
           <SummaryBlock title="Записать на занятия">
             <select style={{ ...inputStyle, fontSize: '13px', padding: '6px 8px', marginBottom: '8px' }}
               value={filterGroup} onChange={e => { setFilterGroup(e.target.value); setPickedLessons([]) }}>
@@ -984,6 +1005,7 @@ export default function ClientCard() {
               </>
             )}
           </SummaryBlock>
+          )}
         </aside>
       </div>
 
