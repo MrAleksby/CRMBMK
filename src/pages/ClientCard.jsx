@@ -584,12 +584,11 @@ export default function ClientCard() {
   const { current: currentSubs, archived: archivedSubs } = splitSubscriptions(subscriptions)
   const periodLabel = filterMonth !== 'all' ? `${MONTHS_SHORT[filterMonth]} ${filterYear}` : 'за всё время'
 
-  // Заказчик — тот, кто платит: юрлицо или родитель (мама приоритетнее).
+  // Заказчик — тот, кто платит. Показываем его, только если это юрлицо:
+  // родитель-плательщик и так виден в «Контактах».
   const legalPayer = client.payerType === 'legal'
     ? legalEntities.find(e => e.id === client.legalEntityId)
     : null
-  const mainParent = contacts.find(r => r.name) || contacts[0] || null
-  const mainPhone = mainParent ? parentPhones(mainParent)[0] : null
 
   const today = new Date().toISOString().slice(0, 10)
 
@@ -859,28 +858,14 @@ export default function ClientCard() {
           </>
           )}
 
-          <SummaryBlock title="Заказчик">
-            {legalPayer ? (
+          {/* Заказчик показывается, только когда платит юрлицо: это отдельная,
+              не очевидная из контактов информация. Если платят родители, блок
+              дублировал бы «Контакты» строкой ниже — там тот же человек. */}
+          {legalPayer && (
+            <SummaryBlock title="Заказчик">
               <div style={{ fontSize: '13px', color: '#111827' }}>🏛️ {legalPayer.name}</div>
-            ) : mainParent ? (
-              <div style={{ fontSize: '13px', color: '#111827' }}>
-                {mainParent.icon} {contactTitle(mainParent)}
-                {mainParent.telegram && (
-                  <>
-                    {' '}
-                    <a href={telegramUrl(mainParent.telegram)} target="_blank" rel="noreferrer" style={link}>
-                      @{mainParent.telegram}
-                    </a>
-                  </>
-                )}
-              </div>
-            ) : <span style={notSet}>(не задано)</span>}
-            {mainPhone && (
-              <div style={{ marginTop: '4px' }}>
-                <a href={phoneUrl(mainPhone)} style={{ ...link, fontSize: '13px' }}>{mainPhone}</a>
-              </div>
-            )}
-          </SummaryBlock>
+            </SummaryBlock>
+          )}
 
           <SummaryBlock title="Контакты">
             {contacts.length === 0 && <span style={notSet}>(не задано)</span>}
