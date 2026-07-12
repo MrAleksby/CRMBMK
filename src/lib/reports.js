@@ -5,6 +5,10 @@
 //   transactions — реальные деньги (касса компании),
 //   charges      — начисления ученику за проведённое занятие.
 // Смешивать нельзя, иначе отчёт разойдётся с «Финансами».
+//
+// Период задаётся диапазоном дат [from, to] в формате 'YYYY-MM-DD', а не годом:
+// в AlfaCRM у каждого отчёта была своя панель фильтров, и без произвольного
+// периода не посмотреть ни квартал, ни неделю.
 
 import { KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, toJsDate } from './finance'
 import { isLeadClient } from './client'
@@ -12,46 +16,131 @@ import { isConverted } from './lead'
 
 export const MONTHS = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
 
-const monthOf = (value) => {
-  const date = toJsDate(value)
-  return date ? { year: date.getFullYear(), month: date.getMonth() } : null
+// --- период ------------------------------------------------------------------
+
+export const isoDay = (date) => {
+  const pad = n => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
-const emptyMonths = (year) => MONTHS.map((label, month) => ({ year, month, label }))
+// Дата операции — Timestamp, дата занятия — строка 'YYYY-MM-DD'. Приводим к одному виду.
+const dayOf = (value) => {
+  if (typeof value === 'string') return value.slice(0, 10)
+  const date = toJsDate(value)
+  return date ? isoDay(date) : null
+}
+
+const inRange = (value, { from, to }) => {
+  const day = dayOf(value)
+  if (!day) return false
+  if (from && day < from) return false
+  if (to && day > to) return false
+  return true
+}
+
+const monthKey = (day) => day.slice(0, 7)     // 'YYYY-MM'
+
+const monthLabel = (key) => {
+  const [year, month] = key.split('-')
+  return `${MONTHS[Number(month) - 1]} ${year}`
+}
+
+// Месяцы, попавшие в период, — по ним и строим строки отчёта.
+function monthsOf({ from, to }) {
+  const start = from ? new Date(`${from}T00:00:00`) : null
+  const end = to ? new Date(`${to}T00:00:00`) : new Date()
+  if (!start) return []
+
+  const keys = []
+  const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
+  while (cursor <= end) {
+    keys.push(isoDay(cursor).slice(0, 7))
+    cursor.setMonth(cursor.getMonth() + 1)
+  }
+  return keys
+}
+
+// Готовые периоды: как в AlfaCRM, где фильтр открывается уже заполненным.
+export function presetRange(preset, today = new Date()) {
+  const year = today.getFullYear()
+  const month = today.getMonth()
+  const first = (y, m) => isoDay(new Date(y, m, 1))
+  const last = (y, m) => isoDay(new Date(y, m + 1, 0))
+
+  switch (preset) {
+    case 'month': return { from: first(year, month), to: last(year, month) }
+    case 'prev': return { from: first(year, month - 1), to: last(year, month - 1) }
+    case 'quarter': {
+      const q = Math.floor(month / 3) * 3
+      return { from: first(year, q), to: last(year, q + 2) }
+    }
+    case 'year': return { from: first(year, 0), to: last(year, 11) }
+    case 'prevYear': return { from: first(year - 1, 0), to: last(year - 1, 11) }
+    case 'all': return { from: '2000-01-01', to: isoDay(today) }
+    default: return { from: first(year, 0), to: last(year, 11) }
+  }
+}
+
+export const PRESETS = [
+  { value: 'month', label: 'Этот месяц' },
+  { value: 'prev', label: 'Прошлый месяц' },
+  { value: 'quarter', label: 'Квартал' },
+  { value: 'year', label: 'Этот год' },
+  { value: 'prevYear', label: 'Прошлый год' },
+  { value: 'all', label: 'Всё время' },
+]
 
 // --- 1. Деньги по месяцам -----------------------------------------------------
 //
 // Прибыль считаем как в «Финансах»: списано за занятия − расходы − ЗП.
 // Не «доходы − расходы»: оплата за абонемент приходит разом, а зарабатывается
 // по мере проведённых занятий. Иначе месяц с крупной предоплатой врал бы.
-export function monthlyMoney(transactions, charges, year) {
-  const rows = emptyMonths(year).map(m => ({
-    ...m, income: 0, expense: 0, salary: 0, refund: 0, charged: 0, lessons: 0,
-  }))
+export function monthlyMoney(transactions, charges, range, filters = {}) {
+  const { accountId, categoryId } = filters
+
+  const rows = new Map()
+  const row = (key) => {
+    if (!rows.has(key)) {
+      rows.set(key, {
+        key, label: monthLabel(key),
+        income: 0, expense: 0, salary: 0, refund: 0, charged: 0, lessons: 0,
+      })
+    }
+    return rows.get(key)
+  }
+  for (const key of monthsOf(range)) row(key)
 
   for (const t of transactions) {
-    const at = monthOf(t.date)
-    if (!at || at.year !== year) continue
-    const row = rows[at.month]
+    if (!inRange(t.date, range)) continue
+    if (accountId && t.accountId !== accountId) continue
+    if (categoryId && t.categoryId !== categoryId) continue
+
+    const target = row(monthKey(dayOf(t.date)))
     const amount = t.amount || 0
-    if (t.kind === KIND_INCOME) row.income += amount
-    else if (t.kind === KIND_EXPENSE) row.expense += amount
-    else if (t.kind === KIND_SALARY) row.salary += amount
-    else if (t.kind === KIND_REFUND) row.refund += amount
+    if (t.kind === KIND_INCOME) target.income += amount
+    else if (t.kind === KIND_EXPENSE) target.expense += amount
+    else if (t.kind === KIND_SALARY) target.salary += amount
+    else if (t.kind === KIND_REFUND) target.refund += amount
   }
 
-  for (const c of charges) {
-    const at = monthOf(c.date)
-    if (!at || at.year !== year) continue
-    rows[at.month].charged += c.amount || 0
-    rows[at.month].lessons += c.lessons || 0
+  // Начисления кассы и статьи не имеют, поэтому при фильтре по ним их не считаем:
+  // иначе «прибыль по кассе» включала бы занятия, к этой кассе не относящиеся.
+  const skipCharges = Boolean(accountId || categoryId)
+  if (!skipCharges) {
+    for (const c of charges) {
+      if (!inRange(c.date, range)) continue
+      const target = row(monthKey(dayOf(c.date)))
+      target.charged += c.amount || 0
+      target.lessons += c.lessons || 0
+    }
   }
 
-  for (const row of rows) {
-    row.profit = row.charged - row.expense - row.salary
-    row.cash = row.income - row.expense - row.salary - row.refund
+  const list = [...rows.values()].sort((a, b) => a.key.localeCompare(b.key))
+  for (const item of list) {
+    item.profit = item.charged - item.expense - item.salary
+    item.cash = item.income - item.expense - item.salary - item.refund
   }
-  return rows
+  return list
 }
 
 // --- 2. Ученики и отток -------------------------------------------------------
@@ -60,17 +149,22 @@ export function monthlyMoney(transactions, charges, year) {
 // «активный» — тот, у кого в этом месяце было проведённое занятие. Ушедший —
 // тот, кто ходил в прошлом месяце и не пришёл ни разу в этом. Так отток
 // считается по факту посещений, а не по галочке в карточке.
-export function monthlyStudents(clients, lessons, transactions, year) {
+export function monthlyStudents(clients, lessons, transactions, range, filters = {}) {
+  const { groupId, teacherId } = filters
+
   const students = clients.filter(c => !isLeadClient(c))
   const known = new Set(students.map(c => c.id))
 
-  // Кто занимался в каждом месяце
-  const activeBy = new Map()   // 'YYYY-M' -> Set(clientId)
+  const matches = (lesson) =>
+    (!groupId || lesson.groupId === groupId)
+    && (!teacherId || lesson.teacherId === teacherId)
+
+  // Кто занимался в каждом месяце — по всей истории, а не только внутри периода:
+  // чтобы посчитать отток за первый месяц, нужен предыдущий.
+  const activeBy = new Map()
   for (const lesson of lessons) {
-    if (lesson.status !== 'conducted') continue
-    const at = monthOf(lesson.date ? new Date(lesson.date) : null)
-    if (!at) continue
-    const key = `${at.year}-${at.month}`
+    if (lesson.status !== 'conducted' || !lesson.date || !matches(lesson)) continue
+    const key = monthKey(lesson.date)
     if (!activeBy.has(key)) activeBy.set(key, new Set())
     const set = activeBy.get(key)
     for (const record of (lesson.attendance || [])) {
@@ -78,52 +172,42 @@ export function monthlyStudents(clients, lessons, transactions, year) {
     }
   }
 
-  // Первый платёж — считаем месяцем прихода: клиент начался с денег.
+  // Первый платёж — месяц прихода: клиент начинается с денег.
   const firstPayment = new Map()
-  for (const t of transactions) {
-    if (t.kind !== KIND_INCOME || !t.clientId || !known.has(t.clientId)) continue
-    const date = toJsDate(t.date)
-    if (!date) continue
-    const prev = firstPayment.get(t.clientId)
-    if (!prev || date < prev) firstPayment.set(t.clientId, date)
-  }
-
-  const paidBy = new Map()   // 'YYYY-M' -> сумма оплат
+  const paidBy = new Map()
   for (const t of transactions) {
     if (t.kind !== KIND_INCOME || !t.clientId) continue
-    const at = monthOf(t.date)
-    if (!at) continue
-    const key = `${at.year}-${at.month}`
+    const day = dayOf(t.date)
+    if (!day) continue
+    const prev = firstPayment.get(t.clientId)
+    if (!prev || day < prev) firstPayment.set(t.clientId, day)
+    const key = monthKey(day)
     paidBy.set(key, (paidBy.get(key) || 0) + (t.amount || 0))
   }
 
-  return emptyMonths(year).map(m => {
-    const key = `${m.year}-${m.month}`
+  const now = new Date()
+  const nowKey = isoDay(now).slice(0, 7)
+
+  return monthsOf(range).map(key => {
     const active = activeBy.get(key) || new Set()
 
-    const prevDate = new Date(m.year, m.month - 1, 1)
-    const prevKey = `${prevDate.getFullYear()}-${prevDate.getMonth()}`
+    const [y, m] = key.split('-').map(Number)
+    const prevKey = isoDay(new Date(y, m - 2, 1)).slice(0, 7)
     const before = activeBy.get(prevKey) || new Set()
 
-    // Ушёл: ходил в прошлом месяце, в этом не появился.
-    //
-    // Для текущего и будущих месяцев отток не считаем: месяц ещё не кончился,
+    // За текущий и будущие месяцы отток не считаем: месяц ещё не кончился,
     // и все, кто просто не успел прийти, выглядели бы ушедшими.
-    const now = new Date()
-    const finished = m.year < now.getFullYear()
-      || (m.year === now.getFullYear() && m.month < now.getMonth())
-    const churned = finished ? [...before].filter(id => !active.has(id)) : []
+    const finished = key < nowKey
+    const churned = finished ? [...before].filter(id => !active.has(id)).length : 0
 
-    const joined = [...firstPayment.entries()].filter(([, date]) =>
-      date.getFullYear() === m.year && date.getMonth() === m.month).length
-
+    const joined = [...firstPayment.values()].filter(day => monthKey(day) === key).length
     const paid = paidBy.get(key) || 0
 
     return {
-      ...m,
+      key, label: monthLabel(key),
       active: active.size,
       joined,
-      churned: churned.length,
+      churned,
       paid,
       // Средний чек — на занимавшегося ученика, а не на всю базу.
       avgCheck: active.size ? Math.round(paid / active.size) : 0,
@@ -133,129 +217,138 @@ export function monthlyStudents(clients, lessons, transactions, year) {
 
 // --- 3. Воронка и источники ---------------------------------------------------
 //
-// Конверсия считается от всех лидов, а не от активных: иначе она росла бы сама
-// по мере того, как отказы уходят в архив.
-export function funnelReport(leads, stages) {
-  const total = leads.length || 1
+// Конверсия считается от всех лидов периода, а не от активных: иначе она росла бы
+// сама по мере того, как отказы уходят в архив.
+export function funnelReport(leads, stages, range, filters = {}) {
+  const { source } = filters
+  const list = leads.filter(l =>
+    inRange(l.createdAt, range) && (!source || l.source === source))
+
+  const total = list.length || 1
   const byStage = stages.map(stage => {
-    const list = leads.filter(l => (l.stage || stages[0].value) === stage.value)
-    return {
-      ...stage,
-      count: list.length,
-      active: list.filter(l => !l.archived).length,
-    }
+    const inStage = list.filter(l => (l.stage || stages[0].value) === stage.value)
+    return { ...stage, count: inStage.length, active: inStage.filter(l => !l.archived).length }
   })
-  const converted = leads.filter(isConverted).length
+
+  const converted = list.filter(isConverted).length
   return {
     stages: byStage,
-    total: leads.length,
+    total: list.length,
     converted,
-    rejected: leads.filter(l => l.archived && !l.clientId).length,
+    rejected: list.filter(l => l.archived && !l.clientId).length,
     conversion: Math.round((converted / total) * 100),
   }
 }
 
-// Откуда приходят те, кто действительно платит. Считаем не лиды, а конверсию:
-// источник, дающий сто лидов и ноль клиентов, дороже, чем кажется.
-export function sourceReport(leads, clients, transactions, sources) {
+// Откуда приходят те, кто действительно платит. Считаем не лиды, а деньги:
+// источник, дающий сто обращений и ноль клиентов, дороже, чем кажется.
+export function sourceReport(leads, clients, transactions, sources, range) {
   const paidBy = new Map()
   for (const t of transactions) {
     if (t.kind !== KIND_INCOME || !t.clientId) continue
+    if (!inRange(t.date, range)) continue
     paidBy.set(t.clientId, (paidBy.get(t.clientId) || 0) + (t.amount || 0))
   }
 
-  const rows = sources.map(source => {
-    const leadList = leads.filter(l => l.source === source.value)
+  const periodLeads = leads.filter(l => inRange(l.createdAt, range))
+
+  return sources.map(source => {
+    const leadList = periodLeads.filter(l => l.source === source.value)
     const clientList = clients.filter(c => !isLeadClient(c) && c.source === source.value)
+    // Выручка — только та, что пришла внутри периода; клиенты могли прийти раньше.
     const revenue = clientList.reduce((sum, c) => sum + (paidBy.get(c.id) || 0), 0)
     return {
       ...source,
       leads: leadList.length,
       clients: clientList.length,
       revenue,
-      // Из скольких лидов этого источника вышел клиент.
-      conversion: leadList.length ? Math.round((leadList.filter(isConverted).length / leadList.length) * 100) : null,
+      conversion: leadList.length
+        ? Math.round((leadList.filter(isConverted).length / leadList.length) * 100)
+        : null,
     }
-  })
-
-  return rows.sort((a, b) => b.revenue - a.revenue)
+  }).sort((a, b) => b.revenue - a.revenue)
 }
 
 // --- 4. Занятия и педагоги ----------------------------------------------------
-export function monthlyLessons(lessons, charges, year) {
-  const rows = emptyMonths(year).map(m => ({
-    ...m, conducted: 0, cancelled: 0, present: 0, absent: 0, charged: 0,
-  }))
+export function monthlyLessons(lessons, charges, range, filters = {}) {
+  const { teacherId, groupId, type } = filters
 
+  const matches = (lesson) =>
+    (!teacherId || lesson.teacherId === teacherId)
+    && (!groupId || lesson.groupId === groupId)
+    && (!type || (lesson.type || 'group') === type)
+
+  const rows = new Map()
+  const row = (key) => {
+    if (!rows.has(key)) {
+      rows.set(key, {
+        key, label: monthLabel(key),
+        conducted: 0, cancelled: 0, planned: 0, present: 0, absent: 0, charged: 0,
+      })
+    }
+    return rows.get(key)
+  }
+  for (const key of monthsOf(range)) row(key)
+
+  const countedLessons = new Set()
   for (const lesson of lessons) {
-    const date = lesson.date ? new Date(lesson.date) : null
-    if (!date || date.getFullYear() !== year) continue
-    const row = rows[date.getMonth()]
+    if (!lesson.date || !inRange(lesson.date, range) || !matches(lesson)) continue
+    const target = row(monthKey(lesson.date))
 
-    if (lesson.status === 'cancelled') row.cancelled += 1
-    if (lesson.status !== 'conducted') continue
+    if (lesson.status === 'cancelled') { target.cancelled += 1; continue }
+    if (lesson.status === 'planned') { target.planned += 1; continue }
 
-    row.conducted += 1
+    target.conducted += 1
+    countedLessons.add(lesson.id)
     for (const record of (lesson.attendance || [])) {
-      if (record.status === 'present') row.present += 1
-      else row.absent += 1
+      if (record.status === 'present') target.present += 1
+      else target.absent += 1
     }
   }
 
+  // Списания берём только по занятиям, попавшим в фильтр: иначе цифра
+  // разошлась бы с числом занятий рядом.
   for (const c of charges) {
-    const at = monthOf(c.date)
-    if (!at || at.year !== year) continue
-    rows[at.month].charged += c.amount || 0
+    if (!inRange(c.date, range)) continue
+    const filtered = teacherId || groupId || type
+    if (filtered && !(c.lessonId && countedLessons.has(c.lessonId))) continue
+    row(monthKey(dayOf(c.date))).charged += c.amount || 0
   }
 
-  return rows
+  return [...rows.values()].sort((a, b) => a.key.localeCompare(b.key))
 }
 
-export function teacherReport(lessons, charges, teachers, year) {
+export function teacherReport(lessons, charges, teachers, range, filters = {}) {
+  const { groupId } = filters
+
   const chargeByLesson = new Map()
   for (const c of charges) {
     if (!c.lessonId) continue
     chargeByLesson.set(c.lessonId, (chargeByLesson.get(c.lessonId) || 0) + (c.amount || 0))
   }
 
-  const rows = teachers.map(teacher => {
-    const mine = lessons.filter(l =>
-      l.teacherId === teacher.id
-      && l.status === 'conducted'
-      && l.date && new Date(l.date).getFullYear() === year)
+  const mineOf = (teacherId) => lessons.filter(l =>
+    l.teacherId === teacherId
+    && l.status === 'conducted'
+    && l.date && inRange(l.date, range)
+    && (!groupId || l.groupId === groupId))
 
-    const present = mine.reduce((sum, l) =>
-      sum + (l.attendance || []).filter(a => a.status === 'present').length, 0)
-    const earned = mine.reduce((sum, l) => sum + (chargeByLesson.get(l.id) || 0), 0)
-
-    return { id: teacher.id, name: teacher.name, lessons: mine.length, present, earned }
+  const build = (id, name, list) => ({
+    id, name,
+    lessons: list.length,
+    present: list.reduce((s, l) => s + (l.attendance || []).filter(a => a.status === 'present').length, 0),
+    absent: list.reduce((s, l) => s + (l.attendance || []).filter(a => a.status !== 'present').length, 0),
+    earned: list.reduce((s, l) => s + (chargeByLesson.get(l.id) || 0), 0),
   })
+
+  const rows = teachers.map(t => build(t.id, t.name, mineOf(t.id)))
 
   // Занятия без педагога — их не должно быть, но если есть, честнее показать.
   const orphan = lessons.filter(l =>
     !l.teacherId && l.status === 'conducted'
-    && l.date && new Date(l.date).getFullYear() === year)
-  if (orphan.length) {
-    rows.push({
-      id: '(none)', name: '(педагог не указан)', lessons: orphan.length,
-      present: orphan.reduce((s, l) => s + (l.attendance || []).filter(a => a.status === 'present').length, 0),
-      earned: orphan.reduce((s, l) => s + (chargeByLesson.get(l.id) || 0), 0),
-    })
-  }
+    && l.date && inRange(l.date, range)
+    && (!groupId || l.groupId === groupId))
+  if (orphan.length) rows.push(build('(none)', '(педагог не указан)', orphan))
 
   return rows.filter(r => r.lessons > 0).sort((a, b) => b.lessons - a.lessons)
-}
-
-// Годы, за которые вообще есть данные — для селектора периода.
-export function reportYears(transactions, lessons) {
-  const years = new Set()
-  for (const t of transactions) {
-    const date = toJsDate(t.date)
-    if (date) years.add(date.getFullYear())
-  }
-  for (const l of lessons) {
-    if (l.date) years.add(new Date(l.date).getFullYear())
-  }
-  if (years.size === 0) years.add(new Date().getFullYear())
-  return [...years].sort((a, b) => b - a)
 }
