@@ -76,7 +76,7 @@ export function clientHistory(clientId, { transactions = [], charges = [], lesso
 export function whyKeepClient(client, history) {
   const parts = []
   if (history.lessons) parts.push(`проведённых занятий: ${history.lessons}`)
-  if (history.payments) parts.push(`оплат: ${history.payments} на ${history.paidTotal.toLocaleString()} сум`)
+  if (history.payments) parts.push(`оплат: ${history.payments} на ${history.paidTotal.toLocaleString('ru')} сум`)
   if (history.charges && !history.lessons) parts.push(`списаний: ${history.charges}`)
   return `У ученика «${client.childName}» есть история — ${parts.join(', ')}.\n\n`
     + 'Удаление стёрло бы и его оплаты, а деньги реально были в кассе: доходы, '

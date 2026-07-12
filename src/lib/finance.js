@@ -45,11 +45,19 @@ export const TX_KINDS = [
 export const kindMeta = (kind) => TX_KINDS.find(k => k.value === kind) ?? TX_KINDS[0]
 
 // Firestore отдаёт Timestamp, форма — Date, бэкап — { seconds }.
+// Даты в базе разного вида: у операций и начислений — Timestamp Firestore,
+// у занятий — строка 'YYYY-MM-DD'. Разбираем оба, иначе сравнение дат молча
+// проваливается и порядок записей остаётся случайным.
 export function toJsDate(value) {
   if (!value) return null
   if (value instanceof Date) return value
   if (typeof value.toDate === 'function') return value.toDate()
   if (Number.isFinite(value.seconds)) return new Date(value.seconds * 1000)
+  if (typeof value === 'string') {
+    // Полдень, а не полночь: иначе часовой пояс сдвигает дату на день назад.
+    const date = new Date(`${value.slice(0, 10)}T12:00:00`)
+    return Number.isNaN(date.getTime()) ? null : date
+  }
   return null
 }
 

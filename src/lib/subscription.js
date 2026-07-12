@@ -8,6 +8,7 @@
 
 import { perLessonPrice } from './directories.js'
 import { todayISO } from './group.js'
+import { toJsDate } from './finance.js'
 
 export const SUBSCRIPTION_STATUSES = {
   active: { label: 'Активен', color: '#059669', background: '#dcfce7' },
@@ -46,6 +47,17 @@ export function subscriptionPerLesson(sub) {
   return perLessonPrice({ lessonsCount: sub.lessonsTotal, price: sub.price })
 }
 
+// Дата начисления приходит из Firestore как Timestamp, но в тестах и старых
+// записях бывает строкой 'YYYY-MM-DD'. Сравнивать надо и то и другое: сортировка
+// только по `seconds` молча оставляла бы занятия в исходном порядке, и долг
+// в уроках считался бы не по последним занятиям.
+const dateValue = (charge) => {
+  const date = toJsDate(charge?.date)
+  return date ? date.getTime() : 0
+}
+
+const byDateDesc = (a, b) => dateValue(b) - dateValue(a)
+
 // Цена будущего занятия: абонемент → персональная цена ребёнка →
 // последняя фактическая сумма, которую менеджер вписал в журнал.
 export function expectedPrice(subs, clientId, client, clientCharges = [], today = todayISO()) {
@@ -55,7 +67,7 @@ export function expectedPrice(subs, clientId, client, clientCharges = [], today 
 
   const last = [...clientCharges]
     .filter(c => (c.amount || 0) > 0)
-    .sort((a, b) => String(b.date?.seconds ?? b.date ?? '').localeCompare(String(a.date?.seconds ?? a.date ?? '')))[0]
+    .sort(byDateDesc)[0]
   return last?.amount || 0
 }
 
@@ -64,7 +76,7 @@ export function expectedPrice(subs, clientId, client, clientCharges = [], today 
 function unpaidLessons(clientCharges, debt) {
   const recent = [...clientCharges]
     .filter(c => (c.amount || 0) > 0)
-    .sort((a, b) => (b.date?.seconds || 0) - (a.date?.seconds || 0))
+    .sort(byDateDesc)
 
   let left = debt
   let count = 0
