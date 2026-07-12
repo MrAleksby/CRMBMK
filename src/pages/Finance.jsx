@@ -19,6 +19,7 @@ import { useSelection } from '../lib/selection'
 import TransactionForm from '../components/TransactionForm'
 import ActionToolbar from '../components/ActionToolbar'
 import ErrorBanner from '../components/ErrorBanner'
+import Icon from '../components/Icon'
 
 const card = {
   background: '#ffffff',
@@ -349,7 +350,9 @@ export default function Finance() {
     <div style={{ maxWidth: '1100px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', gap: '12px', flexWrap: 'wrap' }}>
         <div>
-          <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0 }}>💰 Финансы</h2>
+          <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Icon name="finance" size={20} style={{ color: '#059669' }} />Финансы
+          </h2>
           <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
             Фактические приходы и расходы. Долги за проведённые занятия — в карточках учеников
           </p>

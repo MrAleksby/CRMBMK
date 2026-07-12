@@ -6,6 +6,7 @@ import { canSeeCompanyMoney, canSeeClientMoney } from '../lib/access'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import { readCollection, readClientMoney } from '../lib/store'
 import ErrorBanner from '../components/ErrorBanner'
+import Icon from '../components/Icon'
 import { LEAD_STAGES } from '../lib/lead'
 import { SOURCES } from '../lib/client'
 import { LESSON_TYPES } from '../lib/lesson'
@@ -211,7 +212,9 @@ export default function Reports() {
   return (
     <div style={{ maxWidth: '1040px' }}>
       <div style={{ marginBottom: '14px' }}>
-        <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0 }}>📈 Отчёты</h2>
+        <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Icon name="reports" size={20} style={{ color: '#d97706' }} />Отчёты
+          </h2>
         <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
           Период, фильтры и выгрузка в Excel у каждого отчёта
         </p>

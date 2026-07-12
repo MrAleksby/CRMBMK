@@ -79,6 +79,7 @@ import { canManage } from '../lib/access'
 import { readCollection, readClientMoney, invalidate } from '../lib/store'
 import ClientForm from '../components/ClientForm'
 import ErrorBanner from '../components/ErrorBanner'
+import Icon from '../components/Icon'
 import { lessonsLeft } from '../lib/subscription'
 import { clientBalances } from '../lib/balance'
 import { useSelection } from '../lib/selection'
@@ -319,7 +320,9 @@ export default function Clients() {
     <div style={{ maxWidth: '1100px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
         <div>
-          <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0 }}>👶 Клиенты</h2>
+          <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Icon name="clients" size={20} style={{ color: '#0891b2' }} />Клиенты
+          </h2>
           <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{clientsCount} учеников в базе</p>
         </div>
       </div>

@@ -7,6 +7,7 @@ import { canManage, teacherIdOf } from '../lib/access'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import { readCollection, readClientMoney, invalidate } from '../lib/store'
 import ErrorBanner from '../components/ErrorBanner'
+import Icon from '../components/Icon'
 import LessonJournal from '../components/LessonJournal'
 import LessonForm from '../components/LessonForm'
 import StudentChecklist from '../components/StudentChecklist'
@@ -379,7 +380,9 @@ export default function Lessons() {
     <div style={{ maxWidth: '1280px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
         <div>
-          <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0 }}>📅 Уроки</h2>
+          <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Icon name="lessons" size={20} style={{ color: '#2563eb' }} />Уроки
+          </h2>
           <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
             Журнал занятий: присутствие и списания
           </p>

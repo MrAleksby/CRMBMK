@@ -6,6 +6,7 @@ import DirectoryTable from '../components/DirectoryTable'
 import MigrationPanel from '../components/MigrationPanel'
 import AlfaImportPanel from '../components/AlfaImportPanel'
 import StaffPanel from '../components/StaffPanel'
+import Icon from '../components/Icon'
 
 const MIGRATION = 'migration'
 const IMPORT = 'import'
@@ -35,7 +36,9 @@ export default function Settings() {
   return (
     <div style={{ maxWidth: '900px' }}>
       <div style={{ marginBottom: '14px' }}>
-        <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0 }}>⚙️ Настройки</h2>
+        <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Icon name="settings" size={20} style={{ color: '#6b7280' }} />Настройки
+          </h2>
         <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
           Справочники: на них опираются уроки, абонементы и финансы
         </p>

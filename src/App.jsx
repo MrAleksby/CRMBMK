@@ -5,6 +5,7 @@ import { auth } from './firebase'
 import { useAuth } from './AuthContext'
 import { isApproved, canManage, canSeeCompanyMoney, canSeeSettings } from './lib/access'
 import { downloadBackup } from './lib/backup'
+import Icon from './components/Icon'
 import AccessPending from './pages/AccessPending'
 import Dashboard from './pages/Dashboard'
 import Clients from './pages/Clients'
@@ -20,15 +21,18 @@ import Login from './pages/Login'
 // `can` — кто видит пункт. Педагогу остаются только «Уроки», «Клиенты» и «Группы»:
 // расписание и состав. Меню — удобство; настоящий запрет стоит в правилах Firestore,
 // поэтому маршруты ниже тоже закрыты, а не только скрыты из навигации.
+// У каждого раздела свой цвет иконки — так пункт узнаётся боковым зрением,
+// не читая подпись. Подписи остаются нейтральными: цветной текст на цветном
+// фоне активного пункта читался бы хуже.
 const NAV_ITEMS = [
-  { to: '/', label: 'Дашборд', icon: '📊', end: true, can: canManage },
-  { to: '/lessons', label: 'Уроки', icon: '📅' },
-  { to: '/clients', label: 'Клиенты', icon: '👶' },
-  { to: '/finance', label: 'Финансы', icon: '💰', can: canSeeCompanyMoney },
-  { to: '/groups', label: 'Группы', icon: '👥' },
-  { to: '/leads', label: 'Лиды', icon: '🎯', can: canManage },
-  { to: '/reports', label: 'Отчёты', icon: '📈', can: canManage },
-  { to: '/settings', label: 'Настройки', icon: '⚙️', can: canSeeSettings },
+  { to: '/', label: 'Дашборд', icon: 'dashboard', color: '#7c3aed', end: true, can: canManage },
+  { to: '/lessons', label: 'Уроки', icon: 'lessons', color: '#2563eb' },
+  { to: '/clients', label: 'Клиенты', icon: 'clients', color: '#0891b2' },
+  { to: '/finance', label: 'Финансы', icon: 'finance', color: '#059669', can: canSeeCompanyMoney },
+  { to: '/groups', label: 'Группы', icon: 'groups', color: '#4f46e5' },
+  { to: '/leads', label: 'Лиды', icon: 'leads', color: '#e11d48', can: canManage },
+  { to: '/reports', label: 'Отчёты', icon: 'reports', color: '#d97706', can: canManage },
+  { to: '/settings', label: 'Настройки', icon: 'settings', color: '#6b7280', can: canSeeSettings },
 ]
 
 const navItem = (isActive) => ({
@@ -98,13 +102,13 @@ function App() {
           padding: '20px 12px',
         }} className="hidden-mobile">
           <div style={{ padding: '0 8px', marginBottom: '28px' }}>
-            <h1 style={{ fontSize: '18px', fontWeight: '700', color: '#111827', margin: 0 }}>🎠 FinGam CRM</h1>
+            <h1 style={{ fontSize: '18px', fontWeight: '700', color: '#111827', margin: 0 }}>FinGam CRM</h1>
             <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px', wordBreak: 'break-all' }}>{user.email}</p>
           </div>
 
-          {navItems.map(({ to, label, icon, end }) => (
+          {navItems.map(({ to, label, icon, color, end }) => (
             <NavLink key={to} to={to} end={end} style={({ isActive }) => navItem(isActive)}>
-              <span style={{ fontSize: '18px' }}>{icon}</span>
+              <Icon name={icon} style={{ color }} />
               {label}
             </NavLink>
           ))}
@@ -128,7 +132,8 @@ function App() {
               onMouseEnter={e => { if (!backingUp) { e.currentTarget.style.borderColor = '#7c3aed'; e.currentTarget.style.color = '#7c3aed' } }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#6b7280' }}
             >
-              💾 {backingUp ? 'Сохраняем...' : 'Резервная копия'}
+              <Icon name="backup" size={16} />
+              {backingUp ? 'Сохраняем...' : 'Резервная копия'}
             </button>
             )}
             <button
@@ -144,7 +149,8 @@ function App() {
               onMouseEnter={e => { e.currentTarget.style.borderColor = '#dc2626'; e.currentTarget.style.color = '#dc2626' }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.color = '#6b7280' }}
             >
-              🚪 Выйти
+              <Icon name="logout" size={16} />
+              Выйти
             </button>
           </div>
         </aside>
@@ -177,16 +183,16 @@ function App() {
         }} className="mobile-nav">
           {[
             ...navItems,
-            { label: 'Выйти', icon: '🚪', onClick: () => signOut(auth) },
-          ].map(({ to, label, icon, end, onClick }) => (
+            { label: 'Выйти', icon: 'logout', onClick: () => signOut(auth) },
+          ].map(({ to, label, icon, color, end, onClick }) => (
             to ? (
-              <NavLink key={to} to={to} end={end} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', textDecoration: 'none', fontSize: '10px', fontWeight: '600', color: '#6b7280' }}>
-                <span style={{ fontSize: '20px' }}>{icon}</span>
+              <NavLink key={to} to={to} end={end} style={({ isActive }) => ({ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', textDecoration: 'none', fontSize: '10px', fontWeight: '600', color: isActive ? '#7c3aed' : '#6b7280' })}>
+                <Icon name={icon} size={20} style={{ color }} />
                 {label}
               </NavLink>
             ) : (
               <button key={label} onClick={onClick} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', background: 'none', border: 'none', fontSize: '10px', fontWeight: '600', color: '#6b7280', cursor: 'pointer' }}>
-                <span style={{ fontSize: '20px' }}>{icon}</span>
+                <Icon name={icon} size={20} />
                 {label}
               </button>
             )

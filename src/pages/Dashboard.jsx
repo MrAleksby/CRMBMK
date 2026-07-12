@@ -3,6 +3,7 @@ import { auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import { readCollection, readClientMoney, invalidate } from '../lib/store'
 import ErrorBanner from '../components/ErrorBanner'
+import Icon from '../components/Icon'
 import { KIND_INCOME, incomeTotal, toJsDate } from '../lib/finance'
 import { clientBalances, debtAndPrepaid } from '../lib/balance'
 import { isLeadClient } from '../lib/client'
@@ -70,7 +71,9 @@ export default function Dashboard() {
     <div style={{ maxWidth: '960px' }}>
       {/* Header */}
       <div style={{ marginBottom: '14px' }}>
-        <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0 }}>📊 Дашборд</h2>
+        <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Icon name="dashboard" size={20} style={{ color: '#7c3aed' }} />Дашборд
+          </h2>
         <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>Общая статистика центра</p>
       </div>
 

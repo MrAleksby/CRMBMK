@@ -12,6 +12,7 @@ import { toJsDate, KIND_INCOME, KIND_REFUND } from '../lib/finance'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import { readCollection, invalidate } from '../lib/store'
 import ErrorBanner from '../components/ErrorBanner'
+import Icon from '../components/Icon'
 import LeadForm from '../components/LeadForm'
 import ClientForm from '../components/ClientForm'
 import {
@@ -668,7 +669,9 @@ export default function Leads() {
   return (
     <div style={{ maxWidth: '1500px' }}>
       <div style={{ marginBottom: '14px' }}>
-        <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0 }}>🎯 Лиды</h2>
+        <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Icon name="leads" size={20} style={{ color: '#e11d48' }} />Лиды
+          </h2>
         <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
           Воронка от первого обращения до оплаты
         </p>

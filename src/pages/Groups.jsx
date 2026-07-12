@@ -7,6 +7,7 @@ import { readCollection, invalidate } from '../lib/store'
 import { useAuth } from '../AuthContext'
 import { canManage } from '../lib/access'
 import ErrorBanner from '../components/ErrorBanner'
+import Icon from '../components/Icon'
 import GroupForm from '../components/GroupForm'
 import {
   LESSON_STATUSES, emptyGroupForm, groupToForm, formToGroupDoc,
@@ -227,7 +228,9 @@ export default function Groups() {
     <div style={{ maxWidth: '1000px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
         <div>
-          <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0 }}>👥 Группы</h2>
+          <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Icon name="groups" size={20} style={{ color: '#4f46e5' }} />Группы
+          </h2>
           <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
             Серия занятий: расписание и состав учеников
           </p>
