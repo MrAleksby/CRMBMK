@@ -86,7 +86,7 @@ import ActionToolbar from '../components/ActionToolbar'
 import {
   getAge, ageLabel, contactRows, contactTitle, statusInfo, genderInfo, searchText, sortClients,
   CLIENT_STATUSES, instagramUrl, telegramUrl, phoneUrl,
-  clientHistory, whyKeepClient,
+  clientHistory, whyKeepClient, lessonsLabel,
 } from '../lib/client'
 
 const PAGE_SIZE = 50
@@ -463,7 +463,7 @@ export default function Clients() {
                         // Минус — за столько занятий ученик ещё не заплатил.
                         const left = lessonsLeft(subscriptions, c.id, balance, chargesBy.get(c.id) || [], c)
                         return (
-                          <span style={{ color: left < 0 ? '#dc2626' : '#9ca3af' }}> / {left} уроков</span>
+                          <span style={{ color: left < 0 ? '#dc2626' : '#9ca3af' }}> / {lessonsLabel(left)}</span>
                         )
                       })()}
                     </td>

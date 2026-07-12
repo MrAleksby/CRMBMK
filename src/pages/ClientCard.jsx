@@ -18,7 +18,7 @@ import {
 import {
   getAge, ageLabel, formatBirthday, contactRows, contactTitle, sourceInfo, genderInfo, statusInfo,
   clientToForm, instagramUrl, telegramUrl, phoneUrl, parentPhones, isLeadClient,
-  clientHistory, whyKeepClient, STATUS_DROPPED,
+  clientHistory, whyKeepClient, STATUS_DROPPED, lessonsLabel,
 } from '../lib/client'
 import { MONTHS_SHORT } from '../lib/constants'
 import { KIND_INCOME, toJsDate, inPeriod as inMonth, availableYears } from '../lib/finance'
@@ -125,7 +125,7 @@ function SubscriptionRow({ sub, archived, onEdit, onArchive, onRestore, onDelete
       </div>
 
       <div style={{ fontSize: '12px', color: '#6b7280' }}>
-        {sub.lessonsTotal} уроков
+        {lessonsLabel(sub.lessonsTotal)}
         {perLesson !== null && ` · ${perLesson.toLocaleString()} сум за урок`}
       </div>
 
@@ -240,7 +240,6 @@ export default function ClientCard() {
   const incomeCount = transactions.filter(t => t.kind === KIND_INCOME).length
   const lessonsDone = charges.reduce((sum, c) => sum + (c.lessons || 0), 0)
   const myLessons = lessons.filter(l => (l.studentIds || []).includes(id))
-  const lessonsPlanned = myLessons.filter(l => l.status === 'planned').length
 
   // Оплата ложится в кассу как обычная доходная операция, начисление — на лицевой счёт.
   // Приём оплаты. Дата берётся из формы: платежи часто вносят задним числом.
@@ -791,11 +790,11 @@ export default function ClientCard() {
                   return (
                     <div key={`${entry._charge ? 'c' : 't'}-${entry.id}`} style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      padding: '10px 0', gap: '10px',
+                      padding: '5px 0', gap: '10px',
                       borderBottom: i < periodEntries.length - 1 ? '1px solid #f3f4f6' : 'none',
                     }}>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
-                        <span style={{ fontSize: '13px', color: '#6b7280' }}>
+                        <span style={{ fontSize: '12px', color: '#6b7280' }}>
                           {date ? date.toLocaleDateString('ru') : '—'}
                         </span>
                         {entry._charge ? (
@@ -829,7 +828,12 @@ export default function ClientCard() {
         </div>
 
         {/* ПРАВАЯ КОЛОНКА — сводка */}
-        <aside style={{ ...panel, position: 'sticky', top: '20px' }}>
+        {/* Колонка прилипает к верху, поэтому при длинной ленте слева её низ уезжал
+            за экран. Даём ей собственную прокрутку по высоте окна. */}
+        <aside style={{
+          ...panel, position: 'sticky', top: '20px',
+          maxHeight: 'calc(100vh - 40px)', overflowY: 'auto',
+        }}>
           {/* Остаток, платежи и цена занятия — деньги. Педагог их не видит. */}
           {manages && (
           <>
@@ -838,7 +842,7 @@ export default function ClientCard() {
             <span style={{ fontSize: '12px', fontWeight: '600', color: '#111827' }}>Общий остаток</span>
             <span style={{ fontSize: '13px', fontWeight: '700', color: lessonsInStock < 0 ? '#dc2626' : '#7c3aed' }}
               title={lessonsInStock < 0 ? 'За столько занятий ученик ещё не заплатил' : undefined}>
-              {lessonsInStock} уроков
+              {lessonsLabel(lessonsInStock)}
             </span>
           </div>
           <div style={{ textAlign: 'right', marginBottom: '2px' }}>
@@ -850,7 +854,9 @@ export default function ClientCard() {
           <div style={{ borderTop: '1px solid #f3f4f6', marginTop: '9px', paddingTop: '2px' }}>
             <SummaryRow label="ID">#{client.id.slice(0, 6)}</SummaryRow>
             <SummaryRow label="Платежи">{incomeCount} шт</SummaryRow>
-            <SummaryRow label="Уроки">п {lessonsPlanned} / ф {lessonsDone}</SummaryRow>
+            {/* В AlfaCRM это было «п 1 / ф 14» — расшифровку никто не помнил.
+                Будущие занятия видны ниже, в блоке «Ближайшие занятия». */}
+            <SummaryRow label="Проведено занятий">{lessonsDone}</SummaryRow>
             {Number.isFinite(client.lessonPrice) && (
               <SummaryRow label="Цена занятия">{client.lessonPrice.toLocaleString()} сум</SummaryRow>
             )}

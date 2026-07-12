@@ -136,6 +136,20 @@ export function ageLabel(age) {
   }
 }
 
+// Склонение: «1 урок», «2 урока», «5 уроков». Без него в карточке
+// выходило «3 уроков» и «1 занятий».
+export function plural(count, one, few, many) {
+  const lastTwo = Math.abs(count) % 100
+  const last = Math.abs(count) % 10
+  if (lastTwo >= 11 && lastTwo <= 14) return `${count} ${many}`
+  if (last === 1) return `${count} ${one}`
+  if (last >= 2 && last <= 4) return `${count} ${few}`
+  return `${count} ${many}`
+}
+
+export const lessonsLabel = (count) => plural(count, 'урок', 'урока', 'уроков')
+export const classesLabel = (count) => plural(count, 'занятие', 'занятия', 'занятий')
+
 // Дата рождения целиком, с годом: «4 сентября 2015». Год нужен —
 // по нему сверяют ребёнка с документами и считают возраст.
 export function formatBirthday(birthDate) {
