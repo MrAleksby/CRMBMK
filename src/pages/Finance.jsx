@@ -37,23 +37,23 @@ const inputStyle = {
 // сюда не попадают: пока ученик не заплатил, денег в кассе нет — есть долг.
 // Долги видны в карточке ученика и в списке клиентов.
 const TABS = [
-  { value: 'all', label: 'Все' },
-  { value: KIND_INCOME, label: 'Доходы' },
-  { value: KIND_EXPENSE, label: 'Расходы' },
-  { value: KIND_SALARY, label: 'Выплаты ЗП' },
-  { value: KIND_REFUND, label: 'Возвраты' },
+ { value: 'all', label: 'Все' },
+ { value: KIND_INCOME, label: 'Доходы' },
+ { value: KIND_EXPENSE, label: 'Расходы' },
+ { value: KIND_SALARY, label: 'Выплаты ЗП' },
+ { value: KIND_REFUND, label: 'Возвраты' },
 ]
 
 // Колонки таблицы — как в AlfaCRM. Каждая сортируется.
 const COLUMNS = [
-  { key: 'date', label: 'Дата', width: '110px' },
-  { key: 'kind', label: 'Тип операции', width: '150px' },
-  { key: 'amount', label: 'Сумма', width: '130px', align: 'right' },
-  { key: 'account', label: 'Касса', width: '130px' },
-  { key: 'category', label: 'Статья', width: '150px' },
-  { key: 'client', label: 'Назначение', width: '160px' },
-  { key: 'payer', label: 'Плательщик', width: '150px' },
-  { key: 'comment', label: 'Комментарий' },
+ { key: 'date', label: 'Дата', width: '110px' },
+ { key: 'kind', label: 'Тип операции', width: '150px' },
+ { key: 'amount', label: 'Сумма', width: '130px', align: 'right' },
+ { key: 'account', label: 'Касса', width: '130px' },
+ { key: 'category', label: 'Статья', width: '150px' },
+ { key: 'client', label: 'Назначение', width: '160px' },
+ { key: 'payer', label: 'Плательщик', width: '150px' },
+ { key: 'comment', label: 'Комментарий' },
 ]
 
 const PAGE_SIZES = [20, 50, 100]
@@ -208,7 +208,7 @@ export default function Finance() {
         batch.set(doc(collection(db, 'transactions')), { ...buildTransaction(form, { clients, teachers }), createdAt: now })
         batch.set(doc(collection(db, 'subscriptions')), {
           ...formToSubscriptionDoc(
-            { packageId: pkg.id, startDate: form.date, endDate: endDateFromWeeks(form.date, form.subscriptionWeeks), note: '' },
+           { packageId: pkg.id, startDate: form.date, endDate: endDateFromWeeks(form.date, form.subscriptionWeeks), note: '' },
             pkg, form.clientId,
           ),
           createdAt: now,
@@ -361,7 +361,7 @@ export default function Finance() {
 
       <ErrorBanner message={loadError} onRetry={fetchAll} />
 
-      {editing && (
+     {editing && (
         <TransactionForm
           key={editing.id}
           accounts={accounts} categories={categories}
@@ -373,7 +373,7 @@ export default function Finance() {
         />
       )}
 
-      {showForm && !editing && (
+     {showForm && !editing && (
         <TransactionForm
           accounts={accounts} categories={categories}
           clients={clients} teachers={teachers} packages={packages}
@@ -383,36 +383,36 @@ export default function Finance() {
         />
       )}
 
-      {/* Фильтры */}
+     {/* Фильтры */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
         <select style={{ ...inputStyle, width: '130px' }} value={filterMonth}
           onChange={e => { setFilterMonth(e.target.value); setPage(1) }}>
           <option value="all">Все месяцы</option>
-          {MONTHS_SHORT.map((m, i) => <option key={i} value={i}>{m}</option>)}
+         {MONTHS_SHORT.map((m, i) => <option key={i} value={i}>{m}</option>)}
         </select>
         <select style={{ ...inputStyle, width: '95px' }} value={filterYear}
           onChange={e => { setFilterYear(Number(e.target.value)); setPage(1) }}>
-          {years.map(y => <option key={y} value={y}>{y}</option>)}
+         {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
         <select style={{ ...inputStyle, width: '150px' }} value={filterAccount}
           onChange={e => { setFilterAccount(e.target.value); setPage(1) }}>
           <option value="all">Все кассы</option>
-          {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+         {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
         <select style={{ ...inputStyle, width: '170px' }} value={filterCategory}
           onChange={e => { setFilterCategory(e.target.value); setPage(1) }}>
           <option value="all">Все статьи</option>
-          {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+         {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <input type="number" inputMode="numeric" placeholder="Сумма от" style={{ ...inputStyle, width: '110px' }}
           value={amountFrom} onChange={e => { setAmountFrom(e.target.value); setPage(1) }} />
         <input type="number" inputMode="numeric" placeholder="до" style={{ ...inputStyle, width: '100px' }}
           value={amountTo} onChange={e => { setAmountTo(e.target.value); setPage(1) }} />
-        <input placeholder="🔍 Ученик, плательщик, комментарий" style={{ ...inputStyle, flex: 1, minWidth: '220px' }}
+        <input placeholder="Ученик, плательщик, комментарий" style={{ ...inputStyle, flex: 1, minWidth: '220px' }}
           value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
       </div>
 
-      {/* Метрики */}
+     {/* Метрики */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
@@ -432,15 +432,15 @@ export default function Finance() {
           color={prepaid > 0 ? '#059669' : '#6b7280'} tint={prepaid > 0 ? '#f0fdf4' : null} />
       </div>
 
-      {/* Кассы и статьи */}
+     {/* Кассы и статьи */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         <div style={card}>
           <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>Остатки по кассам (за всё время)</p>
-          {accountsReport.length === 0 ? (
+         {accountsReport.length === 0 ? (
             <p style={{ color: '#6b7280', fontSize: '13px', margin: 0 }}>Кассы не заведены</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {accountsReport.map(a => (
+             {accountsReport.map(a => (
                 <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                   <span style={{ color: '#4b5563' }}>{a.name}</span>
                   <span style={{ color: a.total < 0 ? '#dc2626' : '#111827', fontWeight: '600' }}>{money(a.total)}</span>
@@ -454,23 +454,23 @@ export default function Finance() {
           <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>
             По статьям {filterMonth !== 'all' ? `(${MONTHS_SHORT[filterMonth]} ${filterYear})` : 'за всё время'}
           </p>
-          {categoriesReport.length === 0 ? (
+         {categoriesReport.length === 0 ? (
             <p style={{ color: '#6b7280', fontSize: '13px', margin: 0 }}>Нет операций за период</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {visibleCategories.map(c => (
+             {visibleCategories.map(c => (
                 <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                   <span style={{ color: '#4b5563' }}>{c.name}</span>
                   <span style={{ color: kindMeta(c.kind).color, fontWeight: '600' }}>{money(c.total)}</span>
                 </div>
               ))}
 
-              {hiddenCategories > 0 && (
+             {hiddenCategories > 0 && (
                 <button onClick={() => setShowAllCategories(v => !v)} style={{
                   background: 'transparent', border: 'none', padding: '4px 0 0',
                   color: '#7c3aed', fontSize: '13px', cursor: 'pointer', textAlign: 'left',
                 }}>
-                  {showAllCategories ? '▴ Свернуть' : `▾ Показать ещё ${hiddenCategories}`}
+                 {showAllCategories ? '▴ Свернуть' : `▾ Показать ещё ${hiddenCategories}`}
                 </button>
               )}
             </div>
@@ -479,9 +479,9 @@ export default function Finance() {
       </div>
 
 
-      {/* Вкладки типов операций */}
+     {/* Вкладки типов операций */}
       <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', background: '#ffffff', padding: '4px', borderRadius: '12px', width: 'fit-content', flexWrap: 'wrap' }}>
-        {TABS.map(t => (
+       {TABS.map(t => (
           <button key={t.value} onClick={() => { setTab(t.value); setPage(1) }} style={{
             background: tab === t.value ? '#ede9fe' : 'transparent',
             color: tab === t.value ? '#7c3aed' : '#6b7280',
@@ -491,7 +491,7 @@ export default function Finance() {
         ))}
       </div>
 
-      {/* Таблица операций. Кнопки стоят прямо над ней: действия применяются
+     {/* Таблица операций. Кнопки стоят прямо над ней: действия применяются
           к отмеченным строкам, и глазами их не приходится связывать через полстраницы. */}
       <div style={card}>
         <ActionToolbar
@@ -508,9 +508,9 @@ export default function Finance() {
           marginBottom: '10px', gap: '12px', flexWrap: 'wrap', fontSize: '13px', color: '#6b7280',
         }}>
           <span>
-            {rows.length === 0 ? 'Нет операций' : (
+           {rows.length === 0 ? 'Нет операций' : (
               <>Строки {(currentPage - 1) * pageSize + 1}—{Math.min(currentPage * pageSize, rows.length)} из {rows.length}
-                {' · итого '}
+               {' · итого '}
                 <b style={{ color: rowsTotal < 0 ? '#dc2626' : '#059669' }}>{money(rowsTotal)}</b>
               </>
             )}
@@ -519,12 +519,12 @@ export default function Finance() {
             Строк на странице
             <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }}
               style={{ ...inputStyle, padding: '4px 8px', fontSize: '13px' }}>
-              {PAGE_SIZES.map(n => <option key={n} value={n}>{n}</option>)}
+             {PAGE_SIZES.map(n => <option key={n} value={n}>{n}</option>)}
             </select>
           </label>
         </div>
 
-        {rows.length === 0 ? (
+       {rows.length === 0 ? (
           <p style={{ color: '#6b7280', fontSize: '14px', textAlign: 'center', padding: '30px 0', margin: 0 }}>
             Нет операций, подходящих под фильтры
           </p>
@@ -538,20 +538,20 @@ export default function Finance() {
                       checked={selection.allVisibleChecked(pageRows)}
                       onChange={() => selection.toggleVisible(pageRows)} />
                   </th>
-                  {COLUMNS.map(col => (
+                 {COLUMNS.map(col => (
                     <th key={col.key} style={{ ...th(col.align), width: col.width }}
                       onClick={() => toggleSort(col.key)}
                       title="Нажмите, чтобы отсортировать">
-                      {col.label}
+                     {col.label}
                       <span style={{ color: sortKey === col.key ? '#7c3aed' : '#d1d5db', marginLeft: '4px' }}>
-                        {sortKey === col.key ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
+                       {sortKey === col.key ? (sortDir === 'asc' ? '↑' : '↓') : '↕'}
                       </span>
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {pageRows.map(item => {
+               {pageRows.map(item => {
                   const meta = kindMeta(item.kind)
                   const isIncome = item.kind === KIND_INCOME
                   const date = toJsDate(item.date)
@@ -571,25 +571,25 @@ export default function Finance() {
                       <td style={td()}>{date ? date.toLocaleDateString('ru') : '—'}</td>
 
                       <td style={td()}>
-                        {/* Иконка и тип не разрываются: в узкой колонке значок
+                       {/* Иконка и тип не разрываются: в узкой колонке значок
                             иначе отрывается от слова. Номер документа — строкой ниже. */}
                         <span style={{ color: meta.color, fontWeight: '600', whiteSpace: 'nowrap' }}>
-                          {meta.icon} {meta.label}
+                         {meta.icon} {meta.label}
                         </span>
-                        {number && (
+                       {number && (
                           <div style={{ color: '#9ca3af', fontSize: '11px', marginTop: '1px' }}>{number}</div>
                         )}
                       </td>
 
                       <td style={{ ...td('right'), fontWeight: '700', color: isIncome ? '#059669' : '#dc2626', whiteSpace: 'nowrap' }}>
-                        {isIncome ? '+' : '−'}{money(item.amount)}
+                       {isIncome ? '+' : '−'}{money(item.amount)}
                       </td>
 
                       <td style={{ ...td(), color: '#4b5563' }}>{accountName[item.accountId] || '—'}</td>
                       <td style={{ ...td(), color: '#4b5563' }}>{categoryName[item.categoryId] || '—'}</td>
 
                       <td style={td()}>
-                        {purpose
+                       {purpose
                           ? (item.clientId
                             ? <Link to={`/clients/${item.clientId}`} style={{ color: '#7c3aed', textDecoration: 'none' }}>{purpose}</Link>
                             : purpose)
@@ -606,11 +606,11 @@ export default function Finance() {
           </div>
         )}
 
-        {totalPages > 1 && (
+       {totalPages > 1 && (
           <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '14px', flexWrap: 'wrap' }}>
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
               style={pageBtn(false, currentPage === 1)}>←</button>
-            {pageNumbers(currentPage, totalPages).map((n, i) => (
+           {pageNumbers(currentPage, totalPages).map((n, i) => (
               n === '…'
                 ? <span key={`gap-${i}`} style={{ color: '#9ca3af', padding: '6px 4px' }}>…</span>
                 : <button key={n} onClick={() => setPage(n)} style={pageBtn(n === currentPage, false)}>{n}</button>

@@ -69,7 +69,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ maxWidth: '960px' }}>
-      {/* Header */}
+     {/* Header */}
       <div style={{ marginBottom: '14px' }}>
         <h2 style={{ fontSize: '19px', fontWeight: '700', color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Icon name="dashboard" size={20} style={{ color: '#7c3aed' }} />Дашборд
@@ -79,7 +79,7 @@ export default function Dashboard() {
 
       <ErrorBanner message={loadError} onRetry={fetchData} />
 
-      {/* Stats */}
+     {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
         <div style={card}>
           <p style={{ fontSize: '13px', color: '#6b7280', marginBottom: '8px' }}>Клиентов</p>
@@ -98,19 +98,19 @@ export default function Dashboard() {
             Долги {debtors.length > 0 && <span style={{ color: '#dc2626' }}>({debtors.length} клиент{debtors.length > 1 ? 'а' : ''})</span>}
           </p>
           <p style={{ fontSize: '18px', fontWeight: '700', color: totalDebt > 0 ? '#dc2626' : '#6b7280', margin: 0 }}>
-            {totalDebt.toLocaleString()} сум
+           {totalDebt.toLocaleString()} сум
           </p>
         </div>
       </div>
 
-      {/* Recent payments */}
+     {/* Recent payments */}
       <div style={card}>
         <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>Последние платежи</h3>
-        {recentPayments.length === 0 ? (
+       {recentPayments.length === 0 ? (
           <p style={{ color: '#6b7280', fontSize: '14px' }}>Нет платежей — добавьте клиентов и финансы</p>
         ) : (
           <div>
-            {recentPayments.map((p, i) => {
+           {recentPayments.map((p, i) => {
               const date = toJsDate(p.date)
               return (
                 <div key={p.id} style={{
@@ -122,13 +122,13 @@ export default function Dashboard() {
                     <div style={{
                       width: '36px', height: '36px', borderRadius: '50%', background: '#dcfce7',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px'
-                    }}>💰</div>
+                    }}></div>
                     <div>
                       <p style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: 0 }}>
-                        {p.clientName || p.payerName || '—'}
+                       {p.clientName || p.payerName || '—'}
                       </p>
                       <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>
-                        {date ? date.toLocaleDateString('ru') : '—'}
+                       {date ? date.toLocaleDateString('ru') : '—'}
                       </p>
                     </div>
                   </div>

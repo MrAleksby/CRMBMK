@@ -46,10 +46,10 @@ const inputStyle = {
 }
 
 const TABS = [
-  { value: 'upcoming', label: 'Предстоящие' },
-  { value: 'planned', label: 'Запланированные' },
-  { value: 'conducted', label: 'Проведённые' },
-  { value: 'cancelled', label: 'Отменённые' },
+ { value: 'upcoming', label: 'Предстоящие' },
+ { value: 'planned', label: 'Запланированные' },
+ { value: 'conducted', label: 'Проведённые' },
+ { value: 'cancelled', label: 'Отменённые' },
 ]
 
 export default function Lessons() {
@@ -387,12 +387,12 @@ export default function Lessons() {
             Журнал занятий: присутствие и списания
           </p>
         </div>
-        {manages && !creating && <button onClick={() => setCreating(true)} style={btn()}>+ Разовое занятие</button>}
+       {manages && !creating && <button onClick={() => setCreating(true)} style={btn()}>+ Разовое занятие</button>}
       </div>
 
       <ErrorBanner message={loadError} onRetry={fetchData} />
 
-      {overdue.length > 0 && (
+     {overdue.length > 0 && (
         <div style={{
           background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px',
           padding: '12px 14px', marginBottom: '16px', fontSize: '13px', color: '#92400e',
@@ -401,7 +401,7 @@ export default function Lessons() {
         </div>
       )}
 
-      {creating && (
+     {creating && (
         <LessonForm
           clients={clients}
           teachers={teachers}
@@ -412,7 +412,7 @@ export default function Lessons() {
       )}
 
       <div style={{ display: 'flex', gap: '4px', background: '#ffffff', padding: '4px', borderRadius: '12px', border: '1px solid #e5e7eb', width: 'fit-content', marginBottom: '16px' }}>
-        {[{ value: 'calendar', label: '🗓 Календарь' }, { value: 'list', label: '☰ Список' }].map(m => (
+       {[{ value: 'calendar', label: 'Календарь' }, { value: 'list', label: 'Список' }].map(m => (
           <button key={m.value} onClick={() => setMode(m.value)} style={{
             background: mode === m.value ? '#ede9fe' : 'transparent',
             color: mode === m.value ? '#7c3aed' : '#6b7280',
@@ -422,7 +422,7 @@ export default function Lessons() {
         ))}
       </div>
 
-      {mode === 'calendar' && (
+     {mode === 'calendar' && (
         <LessonCalendar
           lessons={lessons}
           clients={clients}
@@ -436,7 +436,7 @@ export default function Lessons() {
         />
       )}
 
-      {modalLesson && (
+     {modalLesson && (
         <LessonModal
           lesson={modalLesson}
           clients={clients}
@@ -454,10 +454,10 @@ export default function Lessons() {
         />
       )}
 
-      {mode === 'list' && (
+     {mode === 'list' && (
       <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: '4px', background: '#ffffff', padding: '4px', borderRadius: '12px', border: '1px solid #e5e7eb' }}>
-          {TABS.map(t => (
+         {TABS.map(t => (
             <button key={t.value} onClick={() => setTab(t.value)} style={{
               background: tab === t.value ? '#ede9fe' : 'transparent',
               color: tab === t.value ? '#7c3aed' : '#6b7280',
@@ -466,12 +466,12 @@ export default function Lessons() {
             }}>{t.label}</button>
           ))}
         </div>
-        <input placeholder="🔍 Поиск по группе или теме" style={{ ...inputStyle, width: '240px' }}
+        <input placeholder="Поиск по группе или теме" style={{ ...inputStyle, width: '240px' }}
           value={search} onChange={e => setSearch(e.target.value)} />
       </div>
       )}
 
-      {mode === 'list' && (filtered.length === 0 ? (
+     {mode === 'list' && (filtered.length === 0 ? (
         <div style={{ ...panel, textAlign: 'center', padding: '40px' }}>
           <p style={{ color: '#6b7280', fontSize: '14px' }}>Занятий нет</p>
         </div>
@@ -492,54 +492,54 @@ export default function Lessons() {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '16px', fontWeight: '700', color: '#111827' }}>
-                      {formatLessonDate(lesson.date)}
+                     {formatLessonDate(lesson.date)}
                     </span>
                     <span style={{ fontSize: '13px', color: '#6b7280' }}>
-                      {lesson.timeFrom}–{lesson.timeTo}
+                     {lesson.timeFrom}–{lesson.timeTo}
                     </span>
                     <span style={chip(status.background, status.color)}>{status.label}</span>
-                    {isOverdue && <span style={chip('#fef3c7', '#b45309')}>Забыли провести?</span>}
+                   {isOverdue && <span style={chip('#fef3c7', '#b45309')}>Забыли провести?</span>}
                   </div>
 
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
-                    {lesson.groupName
+                   {lesson.groupName
                       ? <span style={chip('#ede9fe', '#5b21b6')}>{lesson.groupName}</span>
                       : <span style={chip('#f3f4f6', '#4b5563')}>{lessonTypeLabel(lesson.type)}</span>}
-                    <span style={chip('#f3f4f6', '#4b5563')}>👶 {(lesson.studentIds || []).length} учеников</span>
-                    {teacher && <span style={chip('#f3f4f6', '#4b5563')}>{teacher}</span>}
-                    {lesson.status === 'conducted' && (
+                    <span style={chip('#f3f4f6', '#4b5563')}>{(lesson.studentIds || []).length} учеников</span>
+                   {teacher && <span style={chip('#f3f4f6', '#4b5563')}>{teacher}</span>}
+                   {lesson.status === 'conducted' && (
                       <span style={chip('#dcfce7', '#059669')}>
-                        ✓ {presentCount} пришло · {conductedSum.toLocaleString()} сум
+                       {presentCount} пришло · {conductedSum.toLocaleString()} сум
                       </span>
                     )}
                   </div>
                 </div>
 
-                {/* Педагог занятие не проводит и не правит: суммы списаний вводит менеджер. */}
+               {/* Педагог занятие не проводит и не правит: суммы списаний вводит менеджер. */}
                 <div style={{ display: 'flex', gap: '8px', flexShrink: 0, flexWrap: 'wrap' }}>
-                  {manages && lesson.status === 'planned' && (
+                 {manages && lesson.status === 'planned' && (
                     <>
                       <button onClick={() => setJournalId(open ? null : lesson.id)} style={btn('#059669')}>
-                        {open ? 'Закрыть журнал' : 'Провести'}
+                       {open ? 'Закрыть журнал' : 'Провести'}
                       </button>
                       <button onClick={() => studentsOpen ? setStudentsId(null) : openStudents(lesson)} style={secondaryBtn}>
-                        {studentsOpen ? 'Скрыть учеников' : 'Ученики'}
+                       {studentsOpen ? 'Скрыть учеников' : 'Ученики'}
                       </button>
                       <button onClick={() => handleCancel(lesson)} style={secondaryBtn}>Отменить</button>
                       <button onClick={() => handleDelete(lesson)} style={secondaryBtn}>Удалить</button>
                     </>
                   )}
-                  {manages && lesson.status === 'conducted' && (
+                 {manages && lesson.status === 'conducted' && (
                     <>
                       <button onClick={() => setJournalId(open ? null : lesson.id)} style={secondaryBtn}>
-                        {open ? 'Закрыть журнал' : '✎ Изменить журнал'}
+                       {open ? 'Закрыть журнал' : 'Изменить журнал'}
                       </button>
                       <button onClick={() => handleReturnToPlanned(lesson)} disabled={saving} style={secondaryBtn}>
                         Вернуть в запланированные
                       </button>
                     </>
                   )}
-                  {manages && lesson.status === 'cancelled' && (
+                 {manages && lesson.status === 'cancelled' && (
                     <>
                       <button onClick={() => handleRestore(lesson)} style={secondaryBtn}>Восстановить</button>
                       <button onClick={() => handleDelete(lesson)} style={secondaryBtn}>Удалить</button>
@@ -548,7 +548,7 @@ export default function Lessons() {
                 </div>
               </div>
 
-              {studentsOpen && (
+             {studentsOpen && (
                 <div style={{ marginTop: '14px', background: '#f7f8fa', borderRadius: '12px', padding: '14px' }}>
                   <p style={{ fontSize: '13px', color: '#4b5563', marginBottom: '10px' }}>
                     Кто занимается на этом занятии ({draftStudents.length})
@@ -557,7 +557,7 @@ export default function Lessons() {
                   <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
                     <button onClick={() => handleSaveStudents(lesson)} disabled={saving}
                       style={{ ...btn(), opacity: saving ? 0.6 : 1 }}>
-                      {saving ? 'Сохраняем...' : 'Сохранить состав'}
+                     {saving ? 'Сохраняем...' : 'Сохранить состав'}
                     </button>
                     <button onClick={() => setStudentsId(null)} style={{
                       background: 'transparent', color: '#6b7280', border: '1px solid #e5e7eb',
@@ -567,7 +567,7 @@ export default function Lessons() {
                 </div>
               )}
 
-              {open && (
+             {open && (
                 <div style={{ marginTop: '14px' }}>
                   <LessonJournal
                     rows={buildJournal(lesson, clients, subscriptions)}
@@ -581,17 +581,17 @@ export default function Lessons() {
                 </div>
               )}
 
-              {lesson.status === 'conducted' && (lesson.attendance || []).length > 0 && (
+             {lesson.status === 'conducted' && (lesson.attendance || []).length > 0 && (
                 <div style={{ marginTop: '12px', borderTop: '1px solid #f3f4f6', paddingTop: '10px' }}>
-                  {lesson.attendance.map(a => (
+                 {lesson.attendance.map(a => (
                     <div key={a.clientId} style={{
                       display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: '13px',
                     }}>
                       <span style={{ color: a.status === 'present' ? '#111827' : '#9ca3af' }}>
-                        {a.status === 'present' ? '✓' : '✗'} {a.clientName}
+                       {a.status === 'present' ? '✓' : '✗'} {a.clientName}
                       </span>
                       <span style={{ color: a.amountCharged > 0 ? '#dc2626' : '#9ca3af' }}>
-                        {a.amountCharged > 0 ? `−${a.amountCharged.toLocaleString()} сум` : 'не списано'}
+                       {a.amountCharged > 0 ? `−${a.amountCharged.toLocaleString()} сум` : 'не списано'}
                       </span>
                     </div>
                   ))}

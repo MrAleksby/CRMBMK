@@ -40,7 +40,7 @@ function Field({ label, children }) {
   return (
     <div>
       <label style={labelStyle}>{label}</label>
-      {children}
+     {children}
     </div>
   )
 }
@@ -59,17 +59,17 @@ function PhoneList({ phones, onChange }) {
     <div>
       <label style={labelStyle}>Телефоны</label>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-        {phones.map((phone, i) => (
+       {phones.map((phone, i) => (
           <div key={i} style={{ display: 'flex', gap: '6px' }}>
             <input type="tel" style={inputStyle} value={phone} placeholder="+998 90 123-45-67"
               onChange={e => update(i, e.target.value)} />
-            {phones.length > 1 && (
+           {phones.length > 1 && (
               <button type="button" style={iconBtn} onClick={() => remove(i)} title="Удалить номер">✕</button>
             )}
           </div>
         ))}
       </div>
-      {phones.length < MAX_PHONES && (
+     {phones.length < MAX_PHONES && (
         <button type="button" onClick={add} style={{
           background: 'transparent', border: 'none', color: '#7c3aed',
           fontSize: '12px', cursor: 'pointer', padding: '6px 0 0',
@@ -124,11 +124,11 @@ export default function ClientForm({ initial, saving, onSubmit, onCancel, legalE
       borderRadius: '16px', padding: '20px', marginBottom: '16px',
     }}>
       <h3 style={{ color: '#111827', fontSize: '16px', fontWeight: '600', marginBottom: '16px' }}>
-        {initial ? 'Редактирование клиента' : 'Новый клиент'}
+       {initial ? 'Редактирование клиента' : 'Новый клиент'}
       </h3>
 
       <div style={section}>
-        <p style={sectionTitle}>🧒 Ребёнок</p>
+        <p style={sectionTitle}> Ребёнок</p>
         <div style={grid}>
           <Field label="ФИО *">
             <input required style={inputStyle} value={form.childName} onChange={set('childName')}
@@ -140,7 +140,7 @@ export default function ClientForm({ initial, saving, onSubmit, onCancel, legalE
           <Field label="Пол">
             <select style={inputStyle} value={form.gender} onChange={set('gender')}>
               <option value="">Не указан</option>
-              {GENDERS.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
+             {GENDERS.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
             </select>
           </Field>
           <Field label="Контакты ребёнка">
@@ -149,19 +149,19 @@ export default function ClientForm({ initial, saving, onSubmit, onCancel, legalE
           </Field>
           <Field label="Статус обучения">
             <select style={inputStyle} value={form.status} onChange={set('status')}>
-              {CLIENT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+             {CLIENT_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </Field>
         </div>
       </div>
 
-      <ParentFields title="Мама" icon="👩" value={form.mother}
+      <ParentFields title="Мама" icon="" value={form.mother}
         onChange={mother => setForm({ ...form, mother })} />
-      <ParentFields title="Папа" icon="👨" value={form.father}
+      <ParentFields title="Папа" icon="" value={form.father}
         onChange={father => setForm({ ...form, father })} />
 
       <div style={section}>
-        <p style={sectionTitle}>💳 Оплата</p>
+        <p style={sectionTitle}> Оплата</p>
         <div style={grid}>
           <Field label="Цена занятия (сум)">
             <input type="number" min="0" style={inputStyle} value={form.lessonPrice}
@@ -169,14 +169,14 @@ export default function ClientForm({ initial, saving, onSubmit, onCancel, legalE
           </Field>
           <Field label="Плательщик">
             <select style={inputStyle} value={form.payerType} onChange={set('payerType')}>
-              {PAYER_TYPES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+             {PAYER_TYPES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
             </select>
           </Field>
-          {form.payerType === 'legal' && (
+         {form.payerType === 'legal' && (
             <Field label="Организация">
               <select style={inputStyle} value={form.legalEntityId} onChange={set('legalEntityId')}>
                 <option value="">Выберите юр. лицо</option>
-                {legalEntities.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+               {legalEntities.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
               </select>
             </Field>
           )}
@@ -187,15 +187,15 @@ export default function ClientForm({ initial, saving, onSubmit, onCancel, legalE
       </div>
 
       <div style={section}>
-        <p style={sectionTitle}>📋 Дополнительно</p>
+        <p style={sectionTitle}> Дополнительно</p>
         <div style={grid}>
           <Field label="Источник">
             <select style={inputStyle} value={form.source} onChange={set('source')}>
               <option value="">Не указан</option>
-              {SOURCES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+             {SOURCES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </Field>
-          {form.source === 'other' && (
+         {form.source === 'other' && (
             <Field label="Уточните источник">
               <input style={inputStyle} value={form.sourceNote} onChange={set('sourceNote')}
                 placeholder="Например: сарафанное радио" />
@@ -212,11 +212,11 @@ export default function ClientForm({ initial, saving, onSubmit, onCancel, legalE
         </div>
       </div>
 
-      {error && (
+     {error && (
         <p style={{
           background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca',
           borderRadius: '10px', padding: '8px 12px', fontSize: '13px', marginBottom: '12px',
-        }}>⚠️ {error}</p>
+        }}> {error}</p>
       )}
 
       <div style={{ display: 'flex', gap: '10px' }}>

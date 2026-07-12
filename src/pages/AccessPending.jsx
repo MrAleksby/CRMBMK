@@ -29,7 +29,7 @@ export default function AccessPending({ user }) {
           borderRadius: '10px', padding: '10px 16px', color: '#6b7280',
           fontSize: '14px', cursor: 'pointer',
         }}>
-          🚪 Выйти
+           Выйти
         </button>
       </div>
     </div>

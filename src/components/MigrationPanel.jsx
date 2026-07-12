@@ -90,8 +90,8 @@ export default function MigrationPanel() {
       // так проверка ловит и записи, не прошедшие валидацию правил.
       const fresh = await loadMigrationState()
       const check = reconcile(
-        { payments: fresh.payments, expenses: fresh.expenses },
-        { transactions: fresh.transactions, charges: fresh.charges },
+       { payments: fresh.payments, expenses: fresh.expenses },
+       { transactions: fresh.transactions, charges: fresh.charges },
       )
 
       setResult({
@@ -126,14 +126,14 @@ export default function MigrationPanel() {
         Старые коллекции остаются нетронутыми, пока вы не сверите суммы.
       </p>
 
-      {error && (
+     {error && (
         <p style={{
           background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca',
           borderRadius: '10px', padding: '10px 12px', fontSize: '13px', marginBottom: '14px',
-        }}>⚠️ {error}</p>
+        }}> {error}</p>
       )}
 
-      {nothingToDo ? (
+     {nothingToDo ? (
         <p style={{ fontSize: '13px', color: '#4b5563', margin: 0 }}>
           Старых записей нет — переносить нечего.
         </p>
@@ -146,7 +146,7 @@ export default function MigrationPanel() {
             <Row label="Осталось перенести" value={pending} color={pending > 0 ? '#7c3aed' : '#6b7280'} />
           </div>
 
-          {pending > 0 && (
+         {pending > 0 && (
             <>
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
@@ -156,8 +156,8 @@ export default function MigrationPanel() {
                   background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '10px',
                   padding: '8px 12px', color: '#111827', fontSize: '14px', outline: 'none', width: '260px',
                 }}>
-                  {state.accounts.length === 0 && <option value="">Кассы не заведены</option>}
-                  {state.accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                 {state.accounts.length === 0 && <option value="">Кассы не заведены</option>}
+                 {state.accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
                 <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
                   У старых записей кассы не было. Всю историю отнесём в выбранную.
@@ -166,14 +166,14 @@ export default function MigrationPanel() {
 
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <button onClick={handleBackup} style={ghostBtn}>
-                  💾 {backedUp ? 'Копия скачана' : 'Сначала скачать копию'}
+                  {backedUp ? 'Копия скачана' : 'Сначала скачать копию'}
                 </button>
                 <button onClick={handleRun} disabled={running || !backedUp || !accountId}
                   style={{ ...btn(), opacity: (running || !backedUp || !accountId) ? 0.5 : 1 }}>
-                  {running ? 'Переносим...' : `Перенести ${pending} записей`}
+                 {running ? 'Переносим...' : `Перенести ${pending} записей`}
                 </button>
               </div>
-              {!backedUp && (
+             {!backedUp && (
                 <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>
                   Кнопка переноса включится после скачивания резервной копии.
                 </p>
@@ -183,7 +183,7 @@ export default function MigrationPanel() {
         </>
       )}
 
-      {result && (
+     {result && (
         <div style={{
           marginTop: '16px', padding: '12px',
           background: result.check.ok ? '#f0fdf4' : '#fef2f2',
@@ -191,11 +191,11 @@ export default function MigrationPanel() {
           borderRadius: '12px',
         }}>
           <p style={{ fontSize: '14px', fontWeight: '600', margin: '0 0 8px', color: result.check.ok ? '#059669' : '#b91c1c' }}>
-            {result.check.ok ? '✓ Перенос завершён, суммы сошлись' : '⚠️ Перенос завершён, но суммы разошлись'}
+           {result.check.ok ? '✓ Перенос завершён, суммы сошлись' : ' Перенос завершён, но суммы разошлись'}
           </p>
           <Row label="Создано операций" value={result.created.transactions} />
           <Row label="Создано начислений" value={result.created.charges} />
-          {result.newCategories.length > 0 && (
+         {result.newCategories.length > 0 && (
             <Row label="Добавлено статей" value={result.newCategories.join(', ')} />
           )}
           <div style={{ height: '8px' }} />
@@ -209,14 +209,14 @@ export default function MigrationPanel() {
             value={`${money(result.check.before.expenses)} → ${money(result.check.after.expenses)}`}
             color={result.check.before.expenses === result.check.after.expenses ? '#059669' : '#dc2626'} />
 
-          {result.skipped.length > 0 && (
+         {result.skipped.length > 0 && (
             <div style={{ marginTop: '10px' }}>
               <p style={{ fontSize: '13px', color: '#b91c1c', marginBottom: '4px' }}>
                 Пропущено записей: {result.skipped.length}
               </p>
-              {result.skipped.slice(0, 5).map(s => (
+             {result.skipped.slice(0, 5).map(s => (
                 <p key={s.source} style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>
-                  {s.source} — {s.reason}
+                 {s.source} — {s.reason}
                 </p>
               ))}
             </div>

@@ -95,7 +95,7 @@ export default function LessonModal({
         <div style={header}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '15px', fontWeight: '700', color: '#111827' }}>
-              {lessonTypeLabel(lesson.type)}
+             {lessonTypeLabel(lesson.type)}
             </span>
             <span style={{
               fontSize: '12px', padding: '3px 10px', borderRadius: '20px',
@@ -112,43 +112,43 @@ export default function LessonModal({
           <div style={row}>
             <span style={{ color: '#6b7280' }}>Дата и время</span>
             <span style={{ color: '#111827' }}>
-              {formatLessonDate(lesson.date)} · с {lesson.timeFrom} до {lesson.timeTo}
+             {formatLessonDate(lesson.date)} · с {lesson.timeFrom} до {lesson.timeTo}
               <span style={{ color: '#6b7280' }}> ({durationMinutes(lesson)} мин.)</span>
             </span>
           </div>
           <div style={row}>
             <span style={{ color: '#6b7280' }}>Педагог</span>
-            {teacher
+           {teacher
               ? <span style={{ color: '#111827' }}>{teacher.name}</span>
               : <span style={notSet}>(не задан)</span>}
           </div>
           <div style={row}>
             <span style={{ color: '#6b7280' }}>Группа</span>
-            {lesson.groupName
+           {lesson.groupName
               ? <span style={{ color: '#111827' }}>{lesson.groupName}</span>
               : <span style={notSet}>(без группы)</span>}
           </div>
-          {lesson.topic && (
+         {lesson.topic && (
             <div style={row}>
               <span style={{ color: '#6b7280' }}>Тема</span>
               <span style={{ color: '#111827' }}>{lesson.topic}</span>
             </div>
           )}
 
-          {/* Состав */}
+         {/* Состав */}
           <div style={{ marginTop: '16px', borderTop: '1px solid #f3f4f6', paddingTop: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <span style={{ fontSize: '13px', fontWeight: '600', color: '#111827' }}>
                 Кто был? ({displayRows.length})
               </span>
-              {!conducted && !readOnly && (
+             {!conducted && !readOnly && (
                 <button onClick={() => setEditingStudents(!editingStudents)} style={ghostBtn}>
-                  {editingStudents ? 'Готово' : 'Изменить состав'}
+                 {editingStudents ? 'Готово' : 'Изменить состав'}
                 </button>
               )}
             </div>
 
-            {editingStudents ? (
+           {editingStudents ? (
               <>
                 <StudentChecklist clients={clients} selected={students} onToggle={toggleStudent} maxHeight="200px" />
                 <button onClick={handleSaveStudents} disabled={saving}
@@ -165,7 +165,7 @@ export default function LessonModal({
                     <th style={{ textAlign: 'left', padding: '6px 0', color: '#6b7280', fontSize: '12px', fontWeight: '600' }}>
                       Состояние клиента
                     </th>
-                    {!readOnly && (
+                   {!readOnly && (
                       <th style={{ textAlign: 'right', padding: '6px 0', color: '#6b7280', fontSize: '12px', fontWeight: '600', width: '150px' }}>
                         Списание
                       </th>
@@ -173,7 +173,7 @@ export default function LessonModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {displayRows.map(record => {
+                 {displayRows.map(record => {
                     const present = record.status === 'present'
                     const balance = balances?.[record.clientId] ?? 0
                     const left = lessonsLeftBy?.[record.clientId] ?? 0
@@ -183,25 +183,25 @@ export default function LessonModal({
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <input type="checkbox" checked={present} disabled={conducted || readOnly}
                               onChange={() => update(record.clientId, { status: present ? 'absent' : 'present' })} />
-                            {/* Имя ведёт на карточку ученика — у тёзок так видно, кто это.
+                           {/* Имя ведёт на карточку ученика — у тёзок так видно, кто это.
                                 Новая вкладка, чтобы не потерять журнал занятия. */}
                             <Link to={`/clients/${record.clientId}`} target="_blank" rel="noreferrer"
                               style={{ color: (!readOnly && balance < 0) ? '#dc2626' : '#7c3aed', textDecoration: 'none' }}>
-                              {record.clientName}
+                             {record.clientName}
                             </Link>
-                            {/* Остаток и долг — деньги: педагогу их не показываем. */}
-                            {!readOnly && (
+                           {/* Остаток и долг — деньги: педагогу их не показываем. */}
+                           {!readOnly && (
                               <span style={{ fontSize: '12px', color: balance < 0 ? '#dc2626' : '#6b7280' }}>
                                 ({left > 0 ? `${left} ост` : `${balance.toLocaleString()} сум`})
                               </span>
                             )}
                           </div>
                         </td>
-                        {!readOnly && (
+                       {!readOnly && (
                         <td style={{ padding: '8px 0', textAlign: 'right' }}>
-                          {conducted ? (
+                         {conducted ? (
                             <span style={{ color: record.amountCharged > 0 ? '#dc2626' : '#9ca3af' }}>
-                              {record.amountCharged > 0 ? `−${record.amountCharged.toLocaleString()} сум` : 'не списано'}
+                             {record.amountCharged > 0 ? `−${record.amountCharged.toLocaleString()} сум` : 'не списано'}
                             </span>
                           ) : (
                             // Пропуск тоже может стоить денег, если ребёнок не предупредил.
@@ -220,19 +220,19 @@ export default function LessonModal({
               </table>
             )}
 
-            {!readOnly && !editingStudents && displayRows.length > 0 && (
+           {!readOnly && !editingStudents && displayRows.length > 0 && (
               <p style={{ fontSize: '13px', color: '#4b5563', marginTop: '12px' }}>
-                {conducted ? 'Списано' : 'Спишется'}:{' '}
+               {conducted ? 'Списано' : 'Спишется'}:{' '}
                 <b style={{ color: '#111827' }}>{total.toLocaleString()} сум</b>
               </p>
             )}
           </div>
 
-          {error && (
+         {error && (
             <p style={{
               background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca',
               borderRadius: '10px', padding: '8px 12px', fontSize: '13px', marginTop: '12px',
-            }}>⚠️ {error}</p>
+            }}> {error}</p>
           )}
         </div>
 
@@ -240,7 +240,7 @@ export default function LessonModal({
           display: 'flex', gap: '10px', padding: '14px 20px',
           borderTop: '1px solid #e5e7eb', background: '#f7f8fa', flexWrap: 'wrap',
         }}>
-          {!readOnly && lesson.status === 'planned' && !editingStudents && (
+         {!readOnly && lesson.status === 'planned' && !editingStudents && (
             <>
               <button onClick={handleConduct} disabled={saving || displayRows.length === 0}
                 style={{ ...btn('#059669'), opacity: (saving || displayRows.length === 0) ? 0.6 : 1 }}>
@@ -249,7 +249,7 @@ export default function LessonModal({
               <button onClick={() => onCancelLesson(lesson)} style={ghostBtn}>Отменить занятие</button>
             </>
           )}
-          {!readOnly && conducted && (
+         {!readOnly && conducted && (
             <button onClick={() => onReturn(lesson)} disabled={saving} style={ghostBtn}>
               ↩ Вернуть в запланированные
             </button>

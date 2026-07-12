@@ -110,14 +110,14 @@ export default function TransactionForm({
     <form onSubmit={handleSubmit} style={card} onClick={e => e.stopPropagation()}>
       <div style={header}>
         <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', margin: 0 }}>
-          {editing ? 'Править операцию' : 'Новая операция'}
+         {editing ? 'Править операцию' : 'Новая операция'}
         </h3>
         <button type="button" onClick={onCancel} style={closeBtn} title="Закрыть (Esc)">✕</button>
       </div>
 
-      {/* Тип операции */}
+     {/* Тип операции */}
       <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        {TX_KINDS.map(k => {
+       {TX_KINDS.map(k => {
           const active = form.kind === k.value
           return (
             <button key={k.value} type="button" onClick={() => setKind(k.value)} style={{
@@ -147,7 +147,7 @@ export default function TransactionForm({
           <label style={labelStyle}>Касса *</label>
           <select required style={inputStyle} value={form.accountId} onChange={set('accountId')}>
             <option value="">Выберите…</option>
-            {activeAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+           {activeAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         </div>
 
@@ -155,18 +155,18 @@ export default function TransactionForm({
           <label style={labelStyle}>Статья *</label>
           <select required style={inputStyle} value={form.categoryId} onChange={set('categoryId')}>
             <option value="">Выберите…</option>
-            {kindCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+           {kindCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
 
-        {(form.kind === KIND_INCOME || form.kind === KIND_REFUND) && (
+       {(form.kind === KIND_INCOME || form.kind === KIND_REFUND) && (
           <>
             <div>
               <label style={labelStyle}>Ученик {form.kind === KIND_REFUND && '*'}</label>
               <select style={inputStyle} value={form.clientId} onChange={setClient}
                 required={form.kind === KIND_REFUND}>
                 <option value="">{form.kind === KIND_REFUND ? 'Выберите…' : 'Не привязан'}</option>
-                {clients.map(c => <option key={c.id} value={c.id}>{c.childName}</option>)}
+               {clients.map(c => <option key={c.id} value={c.id}>{c.childName}</option>)}
               </select>
             </div>
             <div>
@@ -178,12 +178,12 @@ export default function TransactionForm({
           </>
         )}
 
-        {form.kind === KIND_SALARY && (
+       {form.kind === KIND_SALARY && (
           <div>
             <label style={labelStyle}>Получатель</label>
             <select style={inputStyle} value={form.teacherId} onChange={set('teacherId')}>
               <option value="">Не привязан</option>
-              {teachers.filter(t => t.active !== false).map(t => (
+             {teachers.filter(t => t.active !== false).map(t => (
                 <option key={t.id} value={t.id}>{t.name} — {staffRoleLabel(t)}</option>
               ))}
             </select>
@@ -197,31 +197,31 @@ export default function TransactionForm({
         </div>
       </div>
 
-      {form.kind === KIND_INCOME && !form.clientId && (
+     {form.kind === KIND_INCOME && !form.clientId && (
         <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '10px' }}>
           Доход без ученика не влияет на его баланс — так проводят кешбеки и турниры.
         </p>
       )}
 
-      {/* Назначение абонемента вместе с оплатой. Необязательное: если родитель
+     {/* Назначение абонемента вместе с оплатой. Необязательное: если родитель
           платит за пакет, менеджер сразу выдаёт его ребёнку одной операцией. */}
-      {form.kind === KIND_INCOME && form.clientId && activePackages.length > 0 && (
+     {form.kind === KIND_INCOME && form.clientId && activePackages.length > 0 && (
         <div style={{
           border: '1px dashed #e5e7eb', borderRadius: '10px',
           padding: '12px', marginTop: '12px',
         }}>
           <p style={{ fontSize: '12px', fontWeight: '700', color: '#7c3aed', marginBottom: '8px' }}>
-            🎫 Назначить абонемент (необязательно)
+             Назначить абонемент (необязательно)
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
             <div>
               <label style={labelStyle}>Абонемент</label>
               <select style={inputStyle} value={form.subscriptionPackageId} onChange={setPackage}>
                 <option value="">Не назначать</option>
-                {activePackages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+               {activePackages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
-            {form.subscriptionPackageId && (
+           {form.subscriptionPackageId && (
               <div>
                 <label style={labelStyle}>Срок, недель</label>
                 <input type="number" min="1" placeholder="8" style={inputStyle}
@@ -229,36 +229,36 @@ export default function TransactionForm({
               </div>
             )}
           </div>
-          {chosenPackage && (
+         {chosenPackage && (
             <p style={{ fontSize: '11px', color: '#4b5563', marginTop: '8px' }}>
-              {chosenPackage.lessonsCount} уроков · {Number(chosenPackage.price).toLocaleString()} сум
-              {perLesson !== null && <> · <b>{perLesson.toLocaleString()} сум за урок</b></>}
-              {' — абонемент задаст цену занятия. Он начнётся с даты операции.'}
+             {chosenPackage.lessonsCount} уроков · {Number(chosenPackage.price).toLocaleString()} сум
+             {perLesson !== null && <> · <b>{perLesson.toLocaleString()} сум за урок</b></>}
+             {' — абонемент задаст цену занятия. Он начнётся с даты операции.'}
             </p>
           )}
         </div>
       )}
 
-      {form.kind === KIND_SALARY && !form.teacherId && (
+     {form.kind === KIND_SALARY && !form.teacherId && (
         <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '10px' }}>
           Педагога указывают для зарплаты тренера. Процент менеджера и аутсорс к педагогу не привязаны.
         </p>
       )}
 
-      {form.kind === KIND_REFUND && (
+     {form.kind === KIND_REFUND && (
         <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '10px' }}>
           Возврат уменьшает и кассу, и предоплату ученика.
         </p>
       )}
 
-      {kindCategories.length === 0 && (
+     {kindCategories.length === 0 && (
         <p style={{ fontSize: '12px', color: '#b91c1c', marginTop: '10px' }}>
-          ⚠️ Для этого типа операции нет статей. Заведите их в Настройках.
+           Для этого типа операции нет статей. Заведите их в Настройках.
         </p>
       )}
 
-      {error && (
-        <p style={{ fontSize: '13px', color: '#b91c1c', marginTop: '10px' }}>⚠️ {error}</p>
+     {error && (
+        <p style={{ fontSize: '13px', color: '#b91c1c', marginTop: '10px' }}> {error}</p>
       )}
 
       <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>

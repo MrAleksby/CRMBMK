@@ -232,13 +232,13 @@ export default function DirectoryTable({ dir }) {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', marginBottom: '16px' }}>
         <div>
           <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#111827', margin: 0 }}>
-            {dir.icon} {dir.label}
+           {dir.icon} {dir.label}
           </h3>
-          {dir.hint && <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '6px', maxWidth: '520px' }}>{dir.hint}</p>}
+         {dir.hint && <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '6px', maxWidth: '520px' }}>{dir.hint}</p>}
         </div>
-        {!showForm && (
+       {!showForm && (
           <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-            {missingSeed.length > 0 && items.length > 0 && (
+           {missingSeed.length > 0 && items.length > 0 && (
               <button onClick={handleSeed} disabled={saving} style={{ ...btn('#059669'), opacity: saving ? 0.6 : 1 }}>
                 + Типовые ({missingSeed.length})
               </button>
@@ -248,34 +248,34 @@ export default function DirectoryTable({ dir }) {
         )}
       </div>
 
-      {error && (
+     {error && (
         <div style={{
           background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca',
           borderRadius: '10px', padding: '10px 12px', fontSize: '13px', marginBottom: '12px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
         }}>
-          <span>⚠️ {error}</span>
+          <span> {error}</span>
           <button onClick={fetchItems} style={{
             ...ghostBtn, borderColor: '#fecaca', color: '#b91c1c', flexShrink: 0,
           }}>Повторить</button>
         </div>
       )}
 
-      {showForm && (
+     {showForm && (
         <form onSubmit={handleSubmit} style={{ ...card, marginBottom: '16px' }}>
           <h4 style={{ color: '#111827', fontSize: '15px', fontWeight: '600', marginBottom: '14px' }}>
-            {editingId ? 'Изменить' : `Добавить ${dir.itemName}`}
+           {editingId ? 'Изменить' : `Добавить ${dir.itemName}`}
           </h4>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '12px' }}>
-            {dir.fields.map(field => (
+           {dir.fields.map(field => (
               <div key={field.key}>
                 <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
-                  {field.label}{field.required && ' *'}
+                 {field.label}{field.required && ' *'}
                 </label>
-                {field.type === FIELD_SELECT ? (
+               {field.type === FIELD_SELECT ? (
                   <select style={inputStyle} value={form[field.key]}
                     onChange={e => setForm({ ...form, [field.key]: e.target.value })}>
-                    {field.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                   {field.options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 ) : (
                   <input
@@ -292,7 +292,7 @@ export default function DirectoryTable({ dir }) {
           </div>
           <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
             <button type="submit" disabled={saving} style={{ ...btn(), opacity: saving ? 0.6 : 1 }}>
-              {saving ? 'Сохраняем...' : 'Сохранить'}
+             {saving ? 'Сохраняем...' : 'Сохранить'}
             </button>
             <button type="button" onClick={closeForm} style={{
               background: 'transparent', color: '#6b7280', border: '1px solid #e5e7eb',
@@ -302,14 +302,14 @@ export default function DirectoryTable({ dir }) {
         </form>
       )}
 
-      {loading ? (
+     {loading ? (
         <p style={{ color: '#6b7280', fontSize: '14px' }}>Загрузка...</p>
       ) : items.length === 0 ? (
         <div style={{ ...card, textAlign: 'center', padding: '32px' }}>
           <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: dir.seed ? '14px' : 0 }}>
             Пока пусто
           </p>
-          {missingSeed.length > 0 && (
+         {missingSeed.length > 0 && (
             <button onClick={handleSeed} disabled={saving} style={{ ...btn('#059669'), opacity: saving ? 0.6 : 1 }}>
               Создать типовые значения ({missingSeed.length})
             </button>
@@ -320,7 +320,7 @@ export default function DirectoryTable({ dir }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', minWidth: '520px' }}>
             <thead>
               <tr>
-                {columns.map(key => (
+               {columns.map(key => (
                   <th key={key} style={{
                     textAlign: 'left', padding: '9px 12px', color: '#6b7280',
                     fontSize: '11px', fontWeight: '600', borderBottom: '1px solid #e5e7eb',
@@ -330,19 +330,19 @@ export default function DirectoryTable({ dir }) {
               </tr>
             </thead>
             <tbody>
-              {items.map((item, i) => {
+             {items.map((item, i) => {
                 const inactive = item.active === false
                 return (
                   <tr key={item.id} style={{ opacity: inactive ? 0.45 : 1 }}>
-                    {columns.map(key => (
+                   {columns.map(key => (
                       <td key={key} style={{
                         padding: '9px 12px', color: key === 'name' ? '#111827' : '#4b5563',
                         fontWeight: key === 'name' ? '600' : '400',
                         borderBottom: i < items.length - 1 ? '1px solid #f3f4f6' : 'none',
                         whiteSpace: 'nowrap',
                       }}>
-                        {formatCell(dir, item, key)}
-                        {key === 'name' && inactive && (
+                       {formatCell(dir, item, key)}
+                       {key === 'name' && inactive && (
                           <span style={{ marginLeft: '8px', fontSize: '11px', color: '#6b7280' }}>не активен</span>
                         )}
                       </td>
@@ -353,7 +353,7 @@ export default function DirectoryTable({ dir }) {
                     }}>
                       <div style={{ display: 'inline-flex', gap: '8px' }}>
                         <button onClick={() => toggleActive(item)} style={ghostBtn}>
-                          {inactive ? 'Включить' : 'Отключить'}
+                         {inactive ? 'Включить' : 'Отключить'}
                         </button>
                         <button onClick={() => startEdit(item)} style={ghostBtn}>Изменить</button>
                         <button onClick={() => handleDelete(item)} style={ghostBtn}>Удалить</button>

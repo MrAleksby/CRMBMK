@@ -235,14 +235,14 @@ export default function Groups() {
             Серия занятий: расписание и состав учеников
           </p>
         </div>
-        {manages && !creating && !editingId && (
+       {manages && !creating && !editingId && (
           <button onClick={() => setCreating(true)} style={btn()}>+ Создать группу</button>
         )}
       </div>
 
       <ErrorBanner message={loadError} onRetry={fetchData} />
 
-      {creating && (
+     {creating && (
         <GroupForm
           initial={emptyGroupForm()}
           clients={clients}
@@ -253,7 +253,7 @@ export default function Groups() {
         />
       )}
 
-      {groups.length === 0 && !creating ? (
+     {groups.length === 0 && !creating ? (
         <div style={{ ...panel, textAlign: 'center', padding: '40px' }}>
           <p style={{ color: '#6b7280', fontSize: '14px' }}>
             Групп пока нет. Создайте «Группу сб 11» или интенсив на несколько дней.
@@ -290,12 +290,12 @@ export default function Groups() {
                 <div style={{ minWidth: 0 }}>
                   <h3 style={{ fontSize: '17px', fontWeight: '700', color: '#111827', margin: 0 }}>{group.name}</h3>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
-                    <span style={chip('#ede9fe', '#5b21b6')}>🗓 {scheduleLabel(group)}</span>
+                    <span style={chip('#ede9fe', '#5b21b6')}>{scheduleLabel(group)}</span>
                     <span style={chip('#f3f4f6', '#4b5563')}>{periodLabel(group)}</span>
-                    <span style={chip('#f3f4f6', '#4b5563')}>👶 {(group.studentIds || []).length} учеников</span>
-                    {teacher
-                      ? <span style={chip('#f3f4f6', '#4b5563')}>🎓 {teacher}</span>
-                      : <span style={chip('#fee2e2', '#b91c1c')}>🎓 педагог не выбран</span>}
+                    <span style={chip('#f3f4f6', '#4b5563')}>{(group.studentIds || []).length} учеников</span>
+                   {teacher
+                      ? <span style={chip('#f3f4f6', '#4b5563')}>{teacher}</span>
+                      : <span style={chip('#fee2e2', '#b91c1c')}>педагог не выбран</span>}
                   </div>
                   <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '10px' }}>
                     Занятий всего {all.length}: впереди {upcoming.length}, проведено {conducted.length}
@@ -303,9 +303,9 @@ export default function Groups() {
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                   <button onClick={() => setExpandedId(expanded ? null : group.id)} style={secondaryBtn}>
-                    {expanded ? 'Скрыть занятия' : 'Занятия'}
+                   {expanded ? 'Скрыть занятия' : 'Занятия'}
                   </button>
-                  {manages && (
+                 {manages && (
                     <>
                       <button onClick={() => { setCreating(false); setEditingId(group.id) }} style={secondaryBtn}>Изменить</button>
                       <button onClick={() => handleDelete(group)} style={secondaryBtn}>Удалить</button>
@@ -314,13 +314,13 @@ export default function Groups() {
                 </div>
               </div>
 
-              {expanded && (
+             {expanded && (
                 <div style={{ marginTop: '14px', borderTop: '1px solid #f3f4f6', paddingTop: '12px' }}>
-                  {all.length === 0 ? (
+                 {all.length === 0 ? (
                     <p style={{ color: '#6b7280', fontSize: '13px' }}>Занятий нет</p>
                   ) : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '8px' }}>
-                      {all.map(lesson => {
+                     {all.map(lesson => {
                         const status = LESSON_STATUSES[lesson.status] ?? LESSON_STATUSES.planned
                         const past = lesson.date < today && lesson.status === 'planned'
                         return (
@@ -329,13 +329,13 @@ export default function Groups() {
                             background: past ? '#fffbeb' : '#ffffff',
                           }}>
                             <div style={{ fontSize: '13px', fontWeight: '600', color: '#111827' }}>
-                              {new Date(lesson.date).toLocaleDateString('ru')}
+                             {new Date(lesson.date).toLocaleDateString('ru')}
                             </div>
                             <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>
-                              {lesson.timeFrom}–{lesson.timeTo}
+                             {lesson.timeFrom}–{lesson.timeTo}
                             </div>
                             <span style={chip(status.background, status.color)}>{status.label}</span>
-                            {past && (
+                           {past && (
                               <div style={{ fontSize: '11px', color: '#b45309', marginTop: '6px' }}>
                                 Забыли провести?
                               </div>

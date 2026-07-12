@@ -20,13 +20,13 @@ export default function StudentChecklist({ clients, selected, onToggle, maxHeigh
 
   return (
     <div>
-      <input style={{ ...inputStyle, marginBottom: '8px' }} placeholder="🔍 Найти ученика"
+      <input style={{ ...inputStyle, marginBottom: '8px' }} placeholder=" Найти ученика"
         value={search} onChange={e => setSearch(e.target.value)} />
       <div style={{
         maxHeight, overflowY: 'auto', background: '#ffffff',
         border: '1px solid #e5e7eb', borderRadius: '10px', padding: '6px',
       }}>
-        {visible.map(c => {
+       {visible.map(c => {
           const age = getAge(c)
           return (
             <div key={c.id} style={{
@@ -36,15 +36,15 @@ export default function StudentChecklist({ clients, selected, onToggle, maxHeigh
               <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1, minWidth: 0 }}>
                 <input type="checkbox" checked={selected.includes(c.id)} onChange={() => onToggle(c.id)} />
                 <span>{c.childName}</span>
-                {age !== null && <span style={{ color: '#9ca3af', fontSize: '12px' }}>· {ageLabel(age)}</span>}
+               {age !== null && <span style={{ color: '#9ca3af', fontSize: '12px' }}>· {ageLabel(age)}</span>}
               </label>
-              {/* Открыть карточку в новой вкладке — различить тёзок, не теряя состав. */}
+             {/* Открыть карточку в новой вкладке — различить тёзок, не теряя состав. */}
               <Link to={`/clients/${c.id}`} target="_blank" rel="noreferrer" title="Открыть карточку"
                 style={{ color: '#7c3aed', textDecoration: 'none', fontSize: '13px', flexShrink: 0 }}>↗</Link>
             </div>
           )
         })}
-        {visible.length === 0 && (
+       {visible.length === 0 && (
           <p style={{ fontSize: '13px', color: '#6b7280', padding: '8px' }}>Никого не найдено</p>
         )}
       </div>

@@ -45,9 +45,9 @@ export default function Settings() {
       </div>
 
       <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
-        {DIRECTORIES.map(d => (
+       {DIRECTORIES.map(d => (
           <button key={d.key} onClick={() => setActiveKey(d.key)} style={tab(d.key === activeKey)}>
-            {d.icon} {d.label}
+           {d.icon} {d.label}
           </button>
         ))}
         <button onClick={() => setActiveKey(MIGRATION)} style={tab(activeKey === MIGRATION)}>
@@ -56,15 +56,15 @@ export default function Settings() {
         <button onClick={() => setActiveKey(IMPORT)} style={tab(activeKey === IMPORT)}>
           Импорт из AlfaCRM
         </button>
-        {/* Не «Сотрудники»: так уже называется справочник педагогов. Здесь — вход в систему. */}
-        {admin && (
+       {/* Не «Сотрудники»: так уже называется справочник педагогов. Здесь — вход в систему. */}
+       {admin && (
           <button onClick={() => setActiveKey(STAFF)} style={tab(activeKey === STAFF)}>
             Доступ в систему
           </button>
         )}
       </div>
 
-      {activeKey === MIGRATION ? <MigrationPanel />
+     {activeKey === MIGRATION ? <MigrationPanel />
         : activeKey === IMPORT ? <AlfaImportPanel />
         : activeKey === STAFF ? (admin ? <StaffPanel /> : null)
         : <DirectoryTable dir={dir} />}

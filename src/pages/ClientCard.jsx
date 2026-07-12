@@ -79,8 +79,8 @@ function SummaryRow({ label, children, action }) {
     }}>
       <span style={{ color: '#6b7280', flexShrink: 0 }}>{label}</span>
       <span style={{ color: '#111827', textAlign: 'right', minWidth: 0 }}>
-        {children}
-        {action}
+       {children}
+       {action}
       </span>
     </div>
   )
@@ -91,9 +91,9 @@ function SummaryBlock({ title, action, children }) {
     <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '9px', marginTop: '9px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
         <span style={{ fontSize: '12px', fontWeight: '600', color: '#111827' }}>{title}</span>
-        {action}
+       {action}
       </div>
-      {children}
+     {children}
     </div>
   )
 }
@@ -117,20 +117,20 @@ function SubscriptionRow({ sub, archived, onEdit, onArchive, onRestore, onDelete
           textDecoration: archived ? 'line-through' : 'none',
         }}>
           <Icon name="ticket" size={14} style={{ marginRight: '5px', verticalAlign: '-2px', color: '#7c3aed' }} />
-          {subscriptionTitle(sub)}
+         {subscriptionTitle(sub)}
         </span>
 
         <span style={{ display: 'flex', flexShrink: 0 }}>
           <button onClick={onEdit} title="Править абонемент" style={subIcon}><Icon name="edit" size={13} /></button>
-          {onArchive && <button onClick={onArchive} title="Убрать в архив" style={subIcon}><Icon name="archive" size={13} /></button>}
-          {onRestore && <button onClick={onRestore} title="Вернуть из архива" style={subIcon}><Icon name="undo" size={13} /></button>}
+         {onArchive && <button onClick={onArchive} title="Убрать в архив" style={subIcon}><Icon name="archive" size={13} /></button>}
+         {onRestore && <button onClick={onRestore} title="Вернуть из архива" style={subIcon}><Icon name="undo" size={13} /></button>}
           <button onClick={onDelete} title="Удалить абонемент" style={subIcon}><Icon name="close" size={13} /></button>
         </span>
       </div>
 
       <div style={{ fontSize: '12px', color: '#6b7280' }}>
-        {lessonsLabel(sub.lessonsTotal)}
-        {perLesson !== null && ` · ${perLesson.toLocaleString()} сум за урок`}
+       {lessonsLabel(sub.lessonsTotal)}
+       {perLesson !== null && ` · ${perLesson.toLocaleString()} сум за урок`}
       </div>
 
       <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '3px', flexWrap: 'wrap' }}>
@@ -141,7 +141,7 @@ function SubscriptionRow({ sub, archived, onEdit, onArchive, onRestore, onDelete
         <span style={{ fontSize: '11px', color: '#6b7280' }}>{subPeriod(sub)}</span>
       </div>
 
-      {sub.note && (
+     {sub.note && (
         <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '3px' }}>{sub.note}</div>
       )}
     </div>
@@ -437,7 +437,7 @@ export default function ClientCard() {
         createdAt: now,
       })
       batch.set(doc(collection(db, 'transactions')),
-        { ...paymentFromForm(form, id, client.childName, pkg?.name), createdAt: now })
+       { ...paymentFromForm(form, id, client.childName, pkg?.name), createdAt: now })
       await batch.commit()
       setIssuing(false)
       await fetchData(true)
@@ -617,7 +617,7 @@ export default function ClientCard() {
 
   return (
     <div style={{ maxWidth: '1100px' }}>
-      {isLead
+     {isLead
         ? <Link to="/leads" style={{ ...link, fontSize: '13px' }}>← К воронке лидов</Link>
         : <Link to="/clients" style={{ ...link, fontSize: '13px' }}>← К списку клиентов</Link>}
       <div style={{ height: '14px' }} />
@@ -627,10 +627,10 @@ export default function ClientCard() {
       <div className="client-card-grid" style={{
         display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 300px', gap: '16px', alignItems: 'start',
       }}>
-        {/* ЛЕВАЯ КОЛОНКА */}
+       {/* ЛЕВАЯ КОЛОНКА */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0 }}>
           <div style={panel}>
-            {isLead && (
+           {isLead && (
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 gap: '10px', flexWrap: 'wrap', marginBottom: '14px', padding: '9px 12px',
@@ -643,7 +643,7 @@ export default function ClientCard() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                  {gender && (
+                 {gender && (
                     <span title={gender.label} style={{
                       width: '30px', height: '30px', borderRadius: '50%',
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -657,33 +657,33 @@ export default function ClientCard() {
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
                   <span style={chip(status.background, status.color)}>{status.label}</span>
-                  {manages && (
+                 {manages && (
                     <span style={chip(isPaid ? '#dcfce7' : '#fee2e2', isPaid ? '#059669' : '#dc2626')}>
-                      {isPaid ? '✅ Оплачено' : '🔴 Долг'}
+                     {isPaid ? 'Оплачено' : 'Долг'}
                     </span>
                   )}
-                  {gender && (
+                 {gender && (
                     <span style={{ ...chip('#f3f4f6', '#4b5563'), display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                       <Icon name={gender.value === 'female' ? 'girl' : 'boy'} size={13} />{gender.label}
                     </span>
                   )}
-                  {age !== null && <span style={chip('#f3f4f6', '#4b5563')}>{ageLabel(age)}</span>}
-                  {birthday && (
+                 {age !== null && <span style={chip('#f3f4f6', '#4b5563')}>{ageLabel(age)}</span>}
+                 {birthday && (
                     <span style={{ ...chip('#f3f4f6', '#4b5563'), display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                       <Icon name="cake" size={13} />{birthday}
                     </span>
                   )}
-                  {source && (
+                 {source && (
                     <span style={{ ...chip('#ede9fe', '#5b21b6'), display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                       <Icon name={source.iconName} size={13} />{source.label}
                     </span>
                   )}
                 </div>
               </div>
-              {manages && (
+             {manages && (
                 <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                   <button onClick={() => setEditing(true)} style={secondaryBtn}>Изменить</button>
-                  {(client.status || 'active') !== STATUS_DROPPED && !isLead && (
+                 {(client.status || 'active') !== STATUS_DROPPED && !isLead && (
                     <button onClick={handleDrop} disabled={saving} style={secondaryBtn}>Бросил</button>
                   )}
                   <button onClick={handleDeleteClient} style={secondaryBtn}>Удалить</button>
@@ -691,7 +691,7 @@ export default function ClientCard() {
               )}
             </div>
 
-            {client.notes && (
+           {client.notes && (
               <p style={{
                 marginTop: '14px', padding: '10px 12px', background: '#f7f8fa',
                 borderRadius: '10px', fontSize: '13px', color: '#4b5563',
@@ -699,7 +699,7 @@ export default function ClientCard() {
             )}
           </div>
 
-          {/* Виджет посещений */}
+         {/* Виджет посещений */}
           <div style={panel}>
             <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#111827', margin: '0 0 12px' }}>
               Виджет посещений
@@ -713,8 +713,8 @@ export default function ClientCard() {
             />
           </div>
 
-          {/* Уроки и оплаты. Педагогу денег не показываем — у него их и нет в загрузке. */}
-          {manages && (
+         {/* Уроки и оплаты. Педагогу денег не показываем — у него их и нет в загрузке. */}
+         {manages && (
           <div style={panel}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '10px', flexWrap: 'wrap' }}>
               <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#111827', margin: 0 }}>
@@ -723,17 +723,17 @@ export default function ClientCard() {
               <div style={{ display: 'flex', gap: '8px' }}>
                 <select style={{ ...inputStyle, width: '120px' }} value={filterMonth} onChange={e => setFilterMonth(e.target.value)}>
                   <option value="all">Все месяцы</option>
-                  {MONTHS_SHORT.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                 {MONTHS_SHORT.map((m, i) => <option key={i} value={i}>{m}</option>)}
                 </select>
                 <select style={{ ...inputStyle, width: '90px' }} value={filterYear} onChange={e => setFilterYear(Number(e.target.value))}>
-                  {years.map(y => <option key={y} value={y}>{y}</option>)}
+                 {years.map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
               </div>
             </div>
 
-            {/* Только приём оплаты. Списание за занятие создаётся автоматически
+           {/* Только приём оплаты. Списание за занятие создаётся автоматически
                 при проведении урока в журнале, вручную его не заводят. */}
-            {!form.open && (
+           {!form.open && (
               <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
                 <button style={btn('#059669')} onClick={() => setForm({
                   open: true, amount: '', description: '',
@@ -744,15 +744,15 @@ export default function ClientCard() {
               </div>
             )}
 
-            {form.open && (
+           {form.open && (
               <div style={{ background: '#f7f8fa', borderRadius: '12px', padding: '14px', marginBottom: '14px' }}>
                 <p style={{ fontWeight: '600', fontSize: '14px', marginBottom: '12px', color: '#059669' }}>
                   <Icon name="money" size={15} style={{ marginRight: '6px', verticalAlign: '-2px' }} />Принять оплату
                 </p>
 
-                {accounts.length === 0 || incomeCategories.length === 0 ? (
+               {accounts.length === 0 || incomeCategories.length === 0 ? (
                   <p style={{ fontSize: '13px', color: '#b91c1c', margin: 0 }}>
-                    ⚠️ Сначала заведите кассы и доходные статьи в Настройках.
+                     Сначала заведите кассы и доходные статьи в Настройках.
                   </p>
                 ) : (
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -774,14 +774,14 @@ export default function ClientCard() {
                       <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Касса *</label>
                       <select style={{ ...inputStyle, width: '140px' }}
                         value={form.accountId} onChange={e => setForm({ ...form, accountId: e.target.value })}>
-                        {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                       {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                       </select>
                     </div>
                     <div>
                       <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>Статья *</label>
                       <select style={{ ...inputStyle, width: '170px' }}
                         value={form.categoryId} onChange={e => setForm({ ...form, categoryId: e.target.value })}>
-                        {incomeCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                       {incomeCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
                     </div>
 
@@ -804,11 +804,11 @@ export default function ClientCard() {
               </div>
             )}
 
-            {periodEntries.length === 0 ? (
+           {periodEntries.length === 0 ? (
               <p style={{ color: '#6b7280', fontSize: '13px' }}>Записей {periodLabel} нет</p>
             ) : (
               <div>
-                {periodEntries.map((entry, i) => {
+               {periodEntries.map((entry, i) => {
                   const date = toJsDate(entry.date)
                   const locked = entry._charge && !!entry.lessonId
                   const note = entry._charge ? entry.description : entry.comment
@@ -820,20 +820,20 @@ export default function ClientCard() {
                     }}>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
                         <span style={{ fontSize: '12px', color: '#6b7280' }}>
-                          {date ? date.toLocaleDateString('ru') : '—'}
+                         {date ? date.toLocaleDateString('ru') : '—'}
                         </span>
-                        {entry._charge ? (
-                          <span style={chip('#ffedd5', '#c2410c')}>🏃 {entry.lessons || 1} зан.</span>
+                       {entry._charge ? (
+                          <span style={chip('#ffedd5', '#c2410c')}>{entry.lessons || 1} зан.</span>
                         ) : (
-                          <span style={chip('#dcfce7', '#059669')}>💰 Оплата</span>
+                          <span style={chip('#dcfce7', '#059669')}>Оплата</span>
                         )}
-                        {note && <span style={{ fontSize: '12px', color: '#6b7280' }}>{note}</span>}
+                       {note && <span style={{ fontSize: '12px', color: '#6b7280' }}>{note}</span>}
                       </div>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0 }}>
                         <span style={{ fontWeight: '700', fontSize: '12px', color: entry._charge ? '#dc2626' : '#059669' }}>
-                          {entry._charge ? '−' : '+'}{(entry.amount || 0).toLocaleString()} сум
+                         {entry._charge ? '−' : '+'}{(entry.amount || 0).toLocaleString()} сум
                         </span>
-                        {locked ? (
+                       {locked ? (
                           <span title="Списание за проведённое занятие. Снимается откатом занятия."
                             style={{ color: '#9ca3af', padding: '2px 6px', display: 'inline-flex' }}><Icon name="lock" size={13} /></span>
                         ) : (
@@ -852,63 +852,63 @@ export default function ClientCard() {
           )}
         </div>
 
-        {/* ПРАВАЯ КОЛОНКА — сводка */}
-        {/* Колонка прилипает к верху, поэтому при длинной ленте слева её низ уезжал
+       {/* ПРАВАЯ КОЛОНКА — сводка */}
+       {/* Колонка прилипает к верху, поэтому при длинной ленте слева её низ уезжал
             за экран. Даём ей собственную прокрутку по высоте окна. */}
         <aside style={{
           ...panel, position: 'sticky', top: '20px',
           maxHeight: 'calc(100vh - 40px)', overflowY: 'auto',
         }}>
-          {/* Остаток, платежи и цена занятия — деньги. Педагог их не видит. */}
-          {manages && (
+         {/* Остаток, платежи и цена занятия — деньги. Педагог их не видит. */}
+         {manages && (
           <>
-          {/* Заголовок и остаток в уроках — одной строкой, сумма под ними. */}
+         {/* Заголовок и остаток в уроках — одной строкой, сумма под ними. */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '10px' }}>
             <span style={{ fontSize: '12px', fontWeight: '600', color: '#111827' }}>Общий остаток</span>
             <span style={{ fontSize: '13px', fontWeight: '700', color: lessonsInStock < 0 ? '#dc2626' : '#7c3aed' }}
               title={lessonsInStock < 0 ? 'За столько занятий ученик ещё не заплатил' : undefined}>
-              {lessonsLabel(lessonsInStock)}
+             {lessonsLabel(lessonsInStock)}
             </span>
           </div>
           <div style={{ textAlign: 'right', marginBottom: '2px' }}>
             <div style={{ fontSize: '16px', fontWeight: '700', color: isPaid ? '#059669' : '#dc2626' }}>
-              {balance.toLocaleString()} сум
+             {balance.toLocaleString()} сум
             </div>
           </div>
 
           <div style={{ borderTop: '1px solid #f3f4f6', marginTop: '9px', paddingTop: '2px' }}>
             <SummaryRow label="ID">#{client.id.slice(0, 6)}</SummaryRow>
             <SummaryRow label="Платежи">{incomeCount} шт</SummaryRow>
-            {/* В AlfaCRM это было «п 1 / ф 14» — расшифровку никто не помнил.
+           {/* В AlfaCRM это было «п 1 / ф 14» — расшифровку никто не помнил.
                 Будущие занятия видны ниже, в блоке «Ближайшие занятия». */}
             <SummaryRow label="Проведено занятий">{lessonsDone}</SummaryRow>
-            {Number.isFinite(client.lessonPrice) && (
+           {Number.isFinite(client.lessonPrice) && (
               <SummaryRow label="Цена занятия">{client.lessonPrice.toLocaleString()} сум</SummaryRow>
             )}
           </div>
           </>
           )}
 
-          {/* Заказчик показывается, только когда платит юрлицо: это отдельная,
+         {/* Заказчик показывается, только когда платит юрлицо: это отдельная,
               не очевидная из контактов информация. Если платят родители, блок
               дублировал бы «Контакты» строкой ниже — там тот же человек. */}
-          {legalPayer && (
+         {legalPayer && (
             <SummaryBlock title="Заказчик">
-              <div style={{ fontSize: '13px', color: '#111827' }}>🏛️ {legalPayer.name}</div>
+              <div style={{ fontSize: '13px', color: '#111827' }}>{legalPayer.name}</div>
             </SummaryBlock>
           )}
 
           <SummaryBlock title="Контакты">
-            {contacts.length === 0 && <span style={notSet}>(не задано)</span>}
-            {contacts.map(r => (
+           {contacts.length === 0 && <span style={notSet}>(не задано)</span>}
+           {contacts.map(r => (
               <div key={r.role} style={{ fontSize: '12px', color: '#4b5563', marginBottom: '6px' }}>
                 <div style={{ color: '#6b7280', display: 'flex', alignItems: 'center', gap: '5px' }}>
                   <Icon name={r.role === 'Папа' ? 'boy' : 'girl'} size={13} />{contactTitle(r)}
                 </div>
-                {parentPhones(r).map((phone, i) => (
+               {parentPhones(r).map((phone, i) => (
                   <div key={`${phone}-${i}`}><a href={phoneUrl(phone)} style={link}>{phone}</a></div>
                 ))}
-                {r.instagram && (
+               {r.instagram && (
                   <a href={instagramUrl(r.instagram)} target="_blank" rel="noreferrer"
                     style={{ ...link, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     <Icon name="instagram" size={13} />@{r.instagram}
@@ -916,14 +916,14 @@ export default function ClientCard() {
                 )}
               </div>
             ))}
-            {client.childContacts && (
+           {client.childContacts && (
               <div style={{ fontSize: '12px', color: '#4b5563' }}>
-                <span style={{ color: '#6b7280' }}>🧒 Ребёнок</span> {client.childContacts}
+                <span style={{ color: '#6b7280' }}>Ребёнок</span> {client.childContacts}
               </div>
             )}
           </SummaryBlock>
 
-          {!isLead && manages && (
+         {!isLead && manages && (
           <SummaryBlock
             title="Абонементы"
             action={!issuing && !editingSub && (
@@ -933,9 +933,9 @@ export default function ClientCard() {
               }}>добавить</button>
             )}
           >
-            {subscriptions.length === 0 && !issuing && <span style={notSet}>(не задано)</span>}
+           {subscriptions.length === 0 && !issuing && <span style={notSet}>(не задано)</span>}
 
-            {currentSubs.map(sub => (
+           {currentSubs.map(sub => (
               editingSub?.id === sub.id ? (
                 <SubscriptionForm key={sub.id} initial={subscriptionToForm(sub)}
                   packages={packages} saving={saving}
@@ -948,24 +948,24 @@ export default function ClientCard() {
               )
             ))}
 
-            {issuing && (
+           {issuing && (
               <SubscriptionForm packages={packages} saving={saving}
                 accounts={accounts} incomeCategories={incomeCategories}
                 onSubmit={handleIssueSubscription} onCancel={() => setIssuing(false)} />
             )}
 
-            {/* Истёкшие и убранные в архив прячем под ссылку, как в AlfaCRM:
+           {/* Истёкшие и убранные в архив прячем под ссылку, как в AlfaCRM:
                 у иного ученика их шесть, и они забивают всю колонку. */}
-            {archivedSubs.length > 0 && (
+           {archivedSubs.length > 0 && (
               <div style={{ marginTop: '6px' }}>
                 <button onClick={() => setShowArchivedSubs(v => !v)} style={{
                   background: 'transparent', border: 'none', padding: 0,
                   color: '#7c3aed', fontSize: '12px', cursor: 'pointer',
                 }}>
-                  {showArchivedSubs ? '▴' : '▾'} Архивные абонементы ({archivedSubs.length})
+                 {showArchivedSubs ? '▴' : '▾'} Архивные абонементы ({archivedSubs.length})
                 </button>
 
-                {showArchivedSubs && archivedSubs.map(sub => (
+               {showArchivedSubs && archivedSubs.map(sub => (
                   editingSub?.id === sub.id ? (
                     <SubscriptionForm key={sub.id} initial={subscriptionToForm(sub)}
                       packages={packages} saving={saving}
@@ -983,8 +983,8 @@ export default function ClientCard() {
           )}
 
           <SummaryBlock title="Аллергии и особенности">
-            {client.allergies
-              ? <span style={{ fontSize: '13px', color: '#b91c1c' }}>⚠️ {client.allergies}</span>
+           {client.allergies
+              ? <span style={{ fontSize: '13px', color: '#b91c1c' }}>{client.allergies}</span>
               : <span style={notSet}>(не задано)</span>}
           </SummaryBlock>
 
@@ -992,27 +992,27 @@ export default function ClientCard() {
             <span style={notSet}>(не задано)</span>
           </SummaryBlock>
 
-          {!isLead && (
+         {!isLead && (
           <SummaryBlock title="Группы">
-            {myGroups.length === 0 && extraGroups.length === 0 && (
+           {myGroups.length === 0 && extraGroups.length === 0 && (
               <span style={notSet}>(не задано)</span>
             )}
 
-            {myGroups.map(group => (
+           {myGroups.map(group => (
               <div key={group.id} style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 fontSize: '13px', marginBottom: '4px', gap: '8px',
               }}>
                 <Link to={`/groups?open=${group.id}`} style={{ ...link, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                   <Icon name="groups" size={13} />{group.name}</Link>
-                {manages && (
+               {manages && (
                   <button onClick={() => handleLeaveGroup(group)} disabled={saving} title="Убрать из группы"
                     style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>✕</button>
                 )}
               </div>
             ))}
 
-            {extraGroups.map(group => (
+           {extraGroups.map(group => (
               <div key={group.id} style={{ fontSize: '13px', marginBottom: '4px' }}>
                 <Link to={`/groups?open=${group.id}`} style={{ ...link, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                   <Icon name="groups" size={13} />{group.name}</Link>
@@ -1020,12 +1020,12 @@ export default function ClientCard() {
               </div>
             ))}
 
-            {manages && availableGroups.length > 0 && (
+           {manages && availableGroups.length > 0 && (
               <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
                 <select style={{ ...inputStyle, fontSize: '13px', padding: '6px 8px' }}
                   value={pickGroup} onChange={e => setPickGroup(e.target.value)}>
                   <option value="">Добавить в группу…</option>
-                  {availableGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                 {availableGroups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                 </select>
                 <button onClick={() => handleJoinGroup(pickGroup)} disabled={!pickGroup || saving}
                   style={{ ...btn(), padding: '6px 12px', opacity: (!pickGroup || saving) ? 0.5 : 1 }}>+</button>
@@ -1035,38 +1035,38 @@ export default function ClientCard() {
           )}
 
           <SummaryBlock title="Ближайшие занятия">
-            {myUpcoming.length === 0 && <span style={notSet}>(не записан)</span>}
-            {myUpcoming.slice(0, 6).map(lesson => (
+           {myUpcoming.length === 0 && <span style={notSet}>(не записан)</span>}
+           {myUpcoming.slice(0, 6).map(lesson => (
               <div key={lesson.id} style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 fontSize: '13px', color: '#111827', marginBottom: '4px', gap: '8px',
               }}>
                 <span>
-                  {new Date(lesson.date).toLocaleDateString('ru')}
+                 {new Date(lesson.date).toLocaleDateString('ru')}
                   <span style={{ color: '#6b7280' }}> {lesson.timeFrom}</span>
                 </span>
-                {manages && (
+               {manages && (
                   <button onClick={() => handleLeaveLesson(lesson)} disabled={saving} title="Снять с занятия"
                     style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>✕</button>
                 )}
               </div>
             ))}
-            {myUpcoming.length > 6 && (
+           {myUpcoming.length > 6 && (
               <div style={{ fontSize: '12px', color: '#6b7280' }}>…и ещё {myUpcoming.length - 6}</div>
             )}
           </SummaryBlock>
 
-          {/* Лида на занятия записывают из воронки — кнопкой «Назначить пробное».
+         {/* Лида на занятия записывают из воронки — кнопкой «Назначить пробное».
               Педагог состав не меняет: это работа менеджера. */}
-          {!isLead && manages && (
+         {!isLead && manages && (
           <SummaryBlock title="Записать на занятия">
             <select style={{ ...inputStyle, fontSize: '13px', padding: '6px 8px', marginBottom: '8px' }}
               value={filterGroup} onChange={e => { setFilterGroup(e.target.value); setPickedLessons([]) }}>
               <option value="">Все занятия</option>
-              {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+             {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
 
-            {joinableLessons.length === 0 ? (
+           {joinableLessons.length === 0 ? (
               <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>
                 Нет занятий, куда можно записать.
               </p>
@@ -1076,7 +1076,7 @@ export default function ClientCard() {
                   maxHeight: '180px', overflowY: 'auto', border: '1px solid #e5e7eb',
                   borderRadius: '8px', padding: '4px',
                 }}>
-                  {joinableLessons.slice(0, 40).map(lesson => (
+                 {joinableLessons.slice(0, 40).map(lesson => (
                     <label key={lesson.id} style={{
                       display: 'flex', alignItems: 'center', gap: '8px', padding: '5px 6px',
                       cursor: 'pointer', fontSize: '12px', color: '#111827',
@@ -1084,9 +1084,9 @@ export default function ClientCard() {
                       <input type="checkbox" checked={pickedLessons.includes(lesson.id)}
                         onChange={() => togglePickedLesson(lesson.id)} />
                       <span>
-                        {new Date(lesson.date).toLocaleDateString('ru')}
+                       {new Date(lesson.date).toLocaleDateString('ru')}
                         <span style={{ color: '#6b7280' }}> {lesson.timeFrom}</span>
-                        {lesson.groupName && <span style={{ color: '#6b7280' }}> · {lesson.groupName}</span>}
+                       {lesson.groupName && <span style={{ color: '#6b7280' }}> · {lesson.groupName}</span>}
                       </span>
                     </label>
                   ))}
@@ -1097,7 +1097,7 @@ export default function ClientCard() {
                     ...btn(), width: '100%', marginTop: '8px', padding: '7px 12px',
                     opacity: (pickedLessons.length === 0 || saving) ? 0.5 : 1,
                   }}>
-                  {saving ? 'Записываем...' : `Записать (${pickedLessons.length})`}
+                 {saving ? 'Записываем...' : `Записать (${pickedLessons.length})`}
                 </button>
               </>
             )}

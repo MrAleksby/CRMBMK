@@ -7,8 +7,8 @@ export default function ErrorBanner({ message, onRetry }) {
       borderRadius: '12px', padding: '12px 14px', fontSize: '13px', marginBottom: '16px',
       display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
     }}>
-      <span>⚠️ {message}</span>
-      {onRetry && (
+      <span> {message}</span>
+     {onRetry && (
         <button onClick={onRetry} style={{
           background: 'transparent', color: '#b91c1c', border: '1px solid #fecaca',
           padding: '5px 12px', borderRadius: '8px', fontSize: '12px',

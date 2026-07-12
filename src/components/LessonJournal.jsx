@@ -60,7 +60,7 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
         <span>Сумма за занятие (с питанием)</span>
       </div>
 
-      {rows.map(row => {
+     {rows.map(row => {
         const present = row.status === 'present'
         return (
           <div key={row.clientId} style={{
@@ -78,7 +78,7 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
               }}>{ATTENDANCE[row.status].label}</span>
             </label>
 
-            {/* У отсутствующего сумма тоже вводится: пропуск без предупреждения
+           {/* У отсутствующего сумма тоже вводится: пропуск без предупреждения
                 руководитель может решить списать. Пусто — значит прощён. */}
             <input type="number" min="0" inputMode="numeric" style={inputStyle}
               placeholder={present ? 'Сумма' : 'Не списывать'}
@@ -90,18 +90,18 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ fontSize: '13px', color: '#4b5563' }}>
-          {editing ? 'Пришло' : 'Придёт'} {presentCount} из {rows.length}.{' '}
-          {editing ? 'Списано' : 'Спишется'}{' '}
+         {editing ? 'Пришло' : 'Придёт'} {presentCount} из {rows.length}.{' '}
+         {editing ? 'Списано' : 'Спишется'}{' '}
           <b style={{ color: '#111827' }}>{total.toLocaleString()} сум</b>
-          {paidSkips > 0 && (
+         {paidSkips > 0 && (
             <span style={{ color: '#b45309' }}>
-              {' '}· платных пропусков: {paidSkips}
+             {' '}· платных пропусков: {paidSkips}
             </span>
           )}
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button onClick={handleConduct} disabled={saving} style={{ ...btn('#059669'), opacity: saving ? 0.6 : 1 }}>
-            {saving
+           {saving
               ? (editing ? 'Сохраняем...' : 'Проводим...')
               : (editing ? '✓ Сохранить изменения' : '✓ Провести занятие')}
           </button>
@@ -109,17 +109,17 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
         </div>
       </div>
 
-      {editing && (
+     {editing && (
         <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '10px' }}>
           Правка пересчитает начисления на лицевых счетах и остатки по абонементам.
         </p>
       )}
 
-      {error && (
+     {error && (
         <p style={{
           background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca',
           borderRadius: '10px', padding: '8px 12px', fontSize: '13px', marginTop: '12px',
-        }}>⚠️ {error}</p>
+        }}> {error}</p>
       )}
     </div>
   )

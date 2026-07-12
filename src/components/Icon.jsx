@@ -68,6 +68,11 @@ const paths = {
   arrowRight: <><path d="M5 12h14" /><path d="M13 6l6 6-6 6" /></>,
   recommend: <><path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1z" /><path d="M7 11l4-7a2 2 0 0 1 3 1.7V9h4.5a2 2 0 0 1 2 2.4l-1.3 6A2 2 0 0 1 17.2 19H7" /></>,
   help: <><circle cx="12" cy="12" r="8.5" /><path d="M9.6 9.5a2.5 2.5 0 0 1 4.8.8c0 1.7-2.4 2-2.4 3.4" /><path d="M12 17h.01" /></>,
+
+  teacher: <><path d="M12 4l9 4-9 4-9-4z" /><path d="M6.5 10v4.5c0 1.4 2.5 2.5 5.5 2.5s5.5-1.1 5.5-2.5V10" /><path d="M21 8v5" /></>,
+  list: <><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3.5 6h.01" /><path d="M3.5 12h.01" /><path d="M3.5 18h.01" /></>,
+  alert: <><path d="M12 4l9 16H3z" /><path d="M12 10v4" /><path d="M12 17h.01" /></>,
+  run: <><circle cx="14" cy="5" r="1.8" /><path d="M10.5 20l1.5-5-2.5-2 1-5 3 3 3 1" /><path d="M9 12l-2.5 1.5" /><path d="M14 15l2 5" /></>,
 }
 
 

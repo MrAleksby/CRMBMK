@@ -117,7 +117,7 @@ function LeadCard({ lead, responsibleName, onOpen, onDragStart, onAdvance, onCon
         padding: '10px 12px', cursor: 'grab', display: 'flex', flexDirection: 'column', gap: '4px',
       }}
     >
-      {/* Как в AlfaCRM: в покое справа дата, под курсором на её месте — действия. */}
+     {/* Как в AlfaCRM: в покое справа дата, под курсором на её месте — действия. */}
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '6px' }}>
         <button
           onClick={() => onOpen(lead)}
@@ -127,10 +127,10 @@ function LeadCard({ lead, responsibleName, onOpen, onDragStart, onAdvance, onCon
             textDecoration: 'underline', cursor: 'pointer',
           }}
         >
-          {lead.childName}{age !== null && ` (${ageLabel(age)})`}
+         {lead.childName}{age !== null && ` (${ageLabel(age)})`}
         </button>
 
-        {hover ? (
+       {hover ? (
           <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
             <CardAction title="Сделать клиентом" color="#059669" onClick={() => onConvert(lead)}><Icon name="userCheck" size={14} /></CardAction>
             <CardAction title={forward ? `Перевести: ${stageInfo(forward).label}` : ''}
@@ -139,45 +139,45 @@ function LeadCard({ lead, responsibleName, onOpen, onDragStart, onAdvance, onCon
           </div>
         ) : (
           <span style={{ fontSize: '11px', color: '#9ca3af', whiteSpace: 'nowrap' }}>
-            {formatShortDate(lead.createdAt)}
+           {formatShortDate(lead.createdAt)}
           </span>
         )}
       </div>
 
-      {lead.note && (
+     {lead.note && (
         <span style={{ fontSize: '12px', color: '#4b5563', whiteSpace: 'pre-line' }}>{lead.note}</span>
       )}
 
-      {source && (
+     {source && (
         <span style={{ fontSize: '12px', color: '#6b7280', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
           <Icon name={source.iconName} size={13} />{source.label}
         </span>
       )}
 
-      {phones.map(phone => (
+     {phones.map(phone => (
         <span key={phone} style={{ fontSize: '12px' }}>
           <a href={phoneUrl(phone)} onClick={stop} style={{ ...cardLink, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
             <Icon name="phone" size={12} />{phone}</a>
-          {parent && <span style={{ color: '#6b7280' }}> ({parent})</span>}
+         {parent && <span style={{ color: '#6b7280' }}> ({parent})</span>}
         </span>
       ))}
 
-      {lead.telegram && (
+     {lead.telegram && (
         <a href={telegramUrl(lead.telegram)} target="_blank" rel="noreferrer" onClick={stop}
           style={{ ...cardLink, fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
           <Icon name="telegram" size={12} />@{lead.telegram}</a>
       )}
-      {lead.instagram && (
+     {lead.instagram && (
         <a href={instagramUrl(lead.instagram)} target="_blank" rel="noreferrer" onClick={stop}
           style={{ ...cardLink, fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
           <Icon name="instagram" size={12} />@{lead.instagram}</a>
       )}
 
-      {phones.length === 0 && !lead.telegram && !lead.instagram && parent && (
+     {phones.length === 0 && !lead.telegram && !lead.instagram && parent && (
         <span style={{ fontSize: '12px', color: '#6b7280' }}>{parent}</span>
       )}
 
-      {responsibleName && (
+     {responsibleName && (
         <span style={{ fontSize: '11px', color: '#6b7280' }}>{responsibleName}</span>
       )}
     </div>
@@ -209,11 +209,11 @@ function Column({
         <span>{leads.length}</span>
       </div>
 
-      {leads.map(lead => (
+     {leads.map(lead => (
         <LeadCard key={lead.id} lead={lead} responsibleName={responsibleName(lead)} {...actions} />
       ))}
 
-      {leads.length === 0 && (
+     {leads.length === 0 && (
         <p style={{ fontSize: '12px', color: '#9ca3af', textAlign: 'center', padding: '12px 0' }}>Пусто</p>
       )}
     </div>
@@ -244,7 +244,7 @@ function Modal({ children, onClose }) {
       }}
     >
       <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '620px' }}>
-        {children}
+       {children}
       </div>
     </div>
   )
@@ -266,7 +266,7 @@ function LeadPayForm({ lead, accounts, categories, saving, onSubmit, onCancel })
       <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', margin: '0 0 12px' }}>
         Оплата за пробное: {lead.childName}
       </h3>
-      {accounts.length === 0 || categories.length === 0 ? (
+     {accounts.length === 0 || categories.length === 0 ? (
         <p style={{ fontSize: '13px', color: '#b91c1c' }}>Сначала заведите кассы и доходные статьи в Настройках.</p>
       ) : (
         <>
@@ -277,10 +277,10 @@ function LeadPayForm({ lead, accounts, categories, saving, onSubmit, onCancel })
               <input type="date" style={{ ...inputStyle, width: '100%' }} value={f.date} onChange={set('date')} /></div>
             <div><label style={fLabel}>Касса *</label>
               <select style={{ ...inputStyle, width: '100%' }} value={f.accountId} onChange={set('accountId')}>
-                {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
+               {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
             <div><label style={fLabel}>Статья *</label>
               <select style={{ ...inputStyle, width: '100%' }} value={f.categoryId} onChange={set('categoryId')}>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
           </div>
           <div style={{ marginBottom: '14px' }}><label style={fLabel}>Комментарий</label>
             <input style={{ ...inputStyle, width: '100%' }} value={f.comment} onChange={set('comment')} placeholder="Оплата пробного" /></div>
@@ -303,7 +303,7 @@ function LeadTrialForm({ lead, staff, saving, onSubmit, onCancel }) {
   return (
     <div style={card}>
       <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', margin: '0 0 12px' }}>
-        ✱ Пробное занятие: {lead.childName}
+        Пробное занятие: {lead.childName}
       </h3>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
         <div><label style={fLabel}>Дата *</label>
@@ -311,7 +311,7 @@ function LeadTrialForm({ lead, staff, saving, onSubmit, onCancel }) {
         <div><label style={fLabel}>Педагог</label>
           <select style={{ ...inputStyle, width: '100%' }} value={f.teacherId} onChange={set('teacherId')}>
             <option value="">Не задан</option>
-            {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+           {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
         <div><label style={fLabel}>Начало</label>
           <input type="time" style={{ ...inputStyle, width: '100%' }} value={f.timeFrom} onChange={set('timeFrom')} /></div>
         <div><label style={fLabel}>Конец</label>
@@ -319,7 +319,7 @@ function LeadTrialForm({ lead, staff, saving, onSubmit, onCancel }) {
       </div>
       <div style={{ display: 'flex', gap: '10px' }}>
         <button onClick={() => onSubmit(f)} disabled={saving || !f.date} style={primaryBtn(saving || !f.date)}>
-          {saving ? 'Создаём...' : 'Назначить'}
+         {saving ? 'Создаём...' : 'Назначить'}
         </button>
         <button onClick={onCancel} style={ghostBtn}>Отмена</button>
       </div>
@@ -357,20 +357,20 @@ function LeadMoney({ money, clientId }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', gap: '10px' }}>
         <span style={{ fontSize: '13px', fontWeight: '600', color: '#111827' }}>Оплаты и пробные</span>
         <span style={{ fontSize: '14px', fontWeight: '700', color: inDebt ? '#dc2626' : '#059669' }}>
-          {balance.toLocaleString()} сум
+         {balance.toLocaleString()} сум
           <span style={{ fontSize: '11px', fontWeight: '400', color: '#6b7280' }}>
-            {' '}{inDebt ? 'долг' : 'предоплата'}
+           {' '}{inDebt ? 'долг' : 'предоплата'}
           </span>
         </span>
       </div>
 
-      {upcoming.map(lesson => (
+     {upcoming.map(lesson => (
         <div key={lesson.id} style={{ fontSize: '12px', color: '#4b5563', marginBottom: '4px' }}>
-          ✱ Пробное {ruDate(lesson.date)} {lesson.timeFrom} — запланировано
+          Пробное {ruDate(lesson.date)} {lesson.timeFrom} — запланировано
         </div>
       ))}
 
-      {entries.map(entry => {
+     {entries.map(entry => {
         // Списание за занятие и возврат денег родителю оба уменьшают баланс.
         const minus = entry._charge || entry.kind === KIND_REFUND
         const icon = entry._charge ? '✱' : (entry.kind === KIND_REFUND ? '' : '')
@@ -384,7 +384,7 @@ function LeadMoney({ money, clientId }) {
           }}>
             <span>{icon} {ruDate(entry.date)} {title}</span>
             <span style={{ whiteSpace: 'nowrap', color: minus ? '#dc2626' : '#059669' }}>
-              {minus ? '−' : '+'}{(entry.amount || 0).toLocaleString()}
+             {minus ? '−' : '+'}{(entry.amount || 0).toLocaleString()}
             </span>
           </div>
         )
@@ -691,7 +691,7 @@ export default function Leads() {
         <Stat label="Конверсия" value={`${stats.rate}%`} color="#7c3aed" />
       </div>
 
-      {adding && (
+     {adding && (
         <LeadForm saving={saving} staff={staff}
           onSubmit={handleAdd} onCancel={() => setAdding(false)} />
       )}
@@ -704,13 +704,13 @@ export default function Leads() {
         <button onClick={() => setView(ARCHIVE)} style={tab(view === ARCHIVE)}>
           Архив ({leads.filter(l => l.archived).length})
         </button>
-        <input placeholder="🔍 Поиск по имени, телефону, нику..." style={{ ...inputStyle, width: '280px' }}
+        <input placeholder="Поиск по имени, телефону, нику..." style={{ ...inputStyle, width: '280px' }}
           value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      {view === FUNNEL ? (
+     {view === FUNNEL ? (
         <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '12px', alignItems: 'flex-start' }}>
-          {LEAD_STAGES.map(stage => (
+         {LEAD_STAGES.map(stage => (
             <Column
               key={stage.value}
               stage={stage.value}
@@ -726,7 +726,7 @@ export default function Leads() {
         </div>
       ) : (
         <div style={card}>
-          {archived.length === 0 ? (
+         {archived.length === 0 ? (
             <p style={{ color: '#6b7280', fontSize: '14px', textAlign: 'center', padding: '24px' }}>
               Архив пуст
             </p>
@@ -738,14 +738,14 @@ export default function Leads() {
             }}>
               <div>
                 <span style={{ fontSize: '14px', fontWeight: '600', color: '#111827' }}>{lead.childName}</span>
-                {lead.parentName && lead.parentName !== lead.childName && (
+               {lead.parentName && lead.parentName !== lead.childName && (
                   <span style={{ fontSize: '13px', color: '#6b7280' }}> · {lead.parentName}</span>
                 )}
                 <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
-                  {isConverted(lead) ? (
+                 {isConverted(lead) ? (
                     <>
-                      <span style={{ color: '#059669' }}>✓ Стал клиентом</span>
-                      {' — '}
+                      <span style={{ color: '#059669' }}>Стал клиентом</span>
+                     {' — '}
                       <Link to={`/clients/${lead.clientId}`} style={{ color: '#7c3aed', textDecoration: 'none' }}>
                         открыть карточку
                       </Link>
@@ -757,7 +757,7 @@ export default function Leads() {
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={() => { setOpenId(lead.id); setMode('view') }} style={ghostBtn}>Открыть</button>
-                {isRejected(lead) && (
+               {isRejected(lead) && (
                   <button onClick={() => handleRestore(lead)} disabled={saving} style={ghostBtn}>
                     Вернуть в воронку
                   </button>
@@ -768,7 +768,7 @@ export default function Leads() {
         </div>
       )}
 
-      {open && mode === 'view' && (
+     {open && mode === 'view' && (
         <Modal onClose={closeModal}>
           <div style={card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
@@ -784,21 +784,21 @@ export default function Leads() {
 
             <div style={{ margin: '16px 0' }}>
               <Row label="Кто обратился">
-                {open.parentName === open.childName ? '' : open.parentName}
+               {open.parentName === open.childName ? '' : open.parentName}
               </Row>
               <Row label="Телефоны">
-                {(open.phones || []).map(p => (
+               {(open.phones || []).map(p => (
                   <a key={p} href={phoneUrl(p)} style={{ color: '#7c3aed', textDecoration: 'none', marginRight: '10px' }}>{p}</a>
                 ))}
               </Row>
               <Row label="Telegram">
-                {open.telegram && (
+               {open.telegram && (
                   <a href={telegramUrl(open.telegram)} target="_blank" rel="noreferrer"
                     style={{ color: '#7c3aed', textDecoration: 'none' }}>@{open.telegram}</a>
                 )}
               </Row>
               <Row label="Instagram">
-                {open.instagram && (
+               {open.instagram && (
                   <a href={instagramUrl(open.instagram)} target="_blank" rel="noreferrer"
                     style={{ color: '#7c3aed', textDecoration: 'none' }}>@{open.instagram}</a>
                 )}
@@ -807,32 +807,32 @@ export default function Leads() {
               <Row label="Ответственный">{staff.find(s => s.id === open.responsibleId)?.name}</Row>
               <Row label="Создан">{formatLeadDate(open.createdAt)}</Row>
               <Row label="Примечание">{open.note}</Row>
-              {isConverted(open) && (
+             {isConverted(open) && (
                 <Row label="Клиент">
                   <Link to={`/clients/${open.clientId}`} style={{ color: '#7c3aed', textDecoration: 'none' }}>
                     открыть карточку ученика
                   </Link>
                 </Row>
               )}
-              {isRejected(open) && <Row label="Причина отказа">{rejectLabel(open.rejectReason)}</Row>}
+             {isRejected(open) && <Row label="Причина отказа">{rejectLabel(open.rejectReason)}</Row>}
             </div>
 
             <LeadMoney money={money} clientId={open.clientId} />
 
-            {!open.archived && (
+           {!open.archived && (
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
                   Этап воронки
                 </label>
                 <select style={{ ...inputStyle, width: '100%' }} value={open.stage} disabled={saving}
                   onChange={e => handleMoveStage(open, e.target.value)}>
-                  {LEAD_STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                 {LEAD_STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
               </div>
             )}
 
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {!isConverted(open) && (
+             {!isConverted(open) && (
                 <>
                   <button onClick={() => setMode('pay')} disabled={saving} style={primaryBtn(saving)}>
                     Принять оплату
@@ -843,17 +843,17 @@ export default function Leads() {
                 </>
               )}
               <button onClick={() => setMode('edit')} style={ghostBtn}>Править</button>
-              {!isConverted(open) && (
+             {!isConverted(open) && (
                 <button onClick={() => setMode('convert')} disabled={saving} style={ghostBtn}>
                   Сделать клиентом
                 </button>
               )}
-              {!open.archived && (
+             {!open.archived && (
                 <button onClick={() => { setReason(REJECT_REASONS[0].value); setMode('reject') }} style={ghostBtn}>
                   Отказ
                 </button>
               )}
-              {isRejected(open) && (
+             {isRejected(open) && (
                 <button onClick={() => handleRestore(open)} disabled={saving} style={ghostBtn}>
                   Вернуть в воронку
                 </button>
@@ -865,14 +865,14 @@ export default function Leads() {
         </Modal>
       )}
 
-      {open && mode === 'edit' && (
+     {open && mode === 'edit' && (
         <Modal onClose={() => setMode('view')}>
           <LeadForm initial={leadToForm(open)} saving={saving} staff={staff}
             onSubmit={handleEdit} onCancel={() => setMode('view')} />
         </Modal>
       )}
 
-      {open && mode === 'reject' && (
+     {open && mode === 'reject' && (
         <Modal onClose={() => setMode('view')}>
           <div style={card}>
             <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', margin: '0 0 6px' }}>
@@ -883,7 +883,7 @@ export default function Leads() {
             </p>
             <select style={{ ...inputStyle, width: '100%', marginBottom: '16px' }}
               value={reason} onChange={e => setReason(e.target.value)}>
-              {REJECT_REASONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+             {REJECT_REASONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
             <div style={{ display: 'flex', gap: '10px' }}>
               <button onClick={handleReject} disabled={saving} style={{
@@ -897,21 +897,21 @@ export default function Leads() {
         </Modal>
       )}
 
-      {open && mode === 'pay' && (
+     {open && mode === 'pay' && (
         <Modal onClose={() => setMode('view')}>
           <LeadPayForm lead={open} accounts={accounts} categories={categories} saving={saving}
             onSubmit={handlePay} onCancel={() => setMode('view')} />
         </Modal>
       )}
 
-      {open && mode === 'trial' && (
+     {open && mode === 'trial' && (
         <Modal onClose={() => setMode('view')}>
           <LeadTrialForm lead={open} staff={staff} saving={saving}
             onSubmit={handleTrial} onCancel={() => setMode('view')} />
         </Modal>
       )}
 
-      {open && mode === 'convert' && (
+     {open && mode === 'convert' && (
         <Modal onClose={() => setMode('view')}>
           <div>
             <p style={{

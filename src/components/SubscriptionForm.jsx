@@ -81,14 +81,14 @@ export default function SubscriptionForm({
         <label style={labelStyle}>Абонемент</label>
         <select required style={inputStyle} value={form.packageId} onChange={setPackage}>
           <option value="">Выберите…</option>
-          {options.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+         {options.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
       </div>
 
-      {chosen && (
+     {chosen && (
         <p style={{ fontSize: '11px', color: '#4b5563', marginBottom: '8px' }}>
-          {chosen.lessonsCount} уроков · {Number(chosen.price).toLocaleString()} сум
-          {price !== null && <> · <b>{price.toLocaleString()} сум за урок</b></>}
+         {chosen.lessonsCount} уроков · {Number(chosen.price).toLocaleString()} сум
+         {price !== null && <> · <b>{price.toLocaleString()} сум за урок</b></>}
         </p>
       )}
 
@@ -115,19 +115,19 @@ export default function SubscriptionForm({
           placeholder="Любое текстовое примечание" />
       </div>
 
-      {/* Оплата за абонемент. За него всегда платят при выдаче: одно нажатие
+     {/* Оплата за абонемент. За него всегда платят при выдаче: одно нажатие
           создаёт и абонемент, и доход. При правке этого блока нет. */}
-      {withPayment && (
+     {withPayment && (
         accounts.length === 0 || incomeCategories.length === 0 ? (
           <p style={{ fontSize: '11px', color: '#b91c1c', marginBottom: '8px' }}>
-            ⚠️ Чтобы принять оплату, заведите кассы и доходные статьи в Настройках.
+             Чтобы принять оплату, заведите кассы и доходные статьи в Настройках.
           </p>
         ) : (
           <div style={{
             borderTop: '1px dashed #e5e7eb', paddingTop: '8px', marginBottom: '8px',
           }}>
             <p style={{ fontSize: '11px', fontWeight: '700', color: '#059669', marginBottom: '6px' }}>
-              💰 Оплата за абонемент
+               Оплата за абонемент
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
               <div>
@@ -144,14 +144,14 @@ export default function SubscriptionForm({
                 <label style={labelStyle}>Касса</label>
                 <select required style={inputStyle} value={form.payAccountId} onChange={set('payAccountId')}>
                   <option value="">Выберите…</option>
-                  {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                 {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               </div>
               <div>
                 <label style={labelStyle}>Статья</label>
                 <select required style={inputStyle} value={form.payCategoryId} onChange={set('payCategoryId')}>
                   <option value="">Выберите…</option>
-                  {incomeCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                 {incomeCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
             </div>
@@ -159,8 +159,8 @@ export default function SubscriptionForm({
         )
       )}
 
-      {error && (
-        <p style={{ fontSize: '12px', color: '#b91c1c', marginBottom: '8px' }}>⚠️ {error}</p>
+     {error && (
+        <p style={{ fontSize: '12px', color: '#b91c1c', marginBottom: '8px' }}> {error}</p>
       )}
 
       <div style={{ display: 'flex', gap: '6px' }}>
@@ -171,7 +171,7 @@ export default function SubscriptionForm({
           borderRadius: '8px', fontSize: '12px', fontWeight: '600', cursor: 'pointer',
           opacity: saving ? 0.6 : 1,
         }}>
-          {saving ? 'Сохраняем...' : editing ? 'Сохранить' : 'Выдать'}
+         {saving ? 'Сохраняем...' : editing ? 'Сохранить' : 'Выдать'}
         </button>
         <button type="button" onClick={onCancel} style={{
           background: 'transparent', color: '#6b7280', border: '1px solid #e5e7eb',

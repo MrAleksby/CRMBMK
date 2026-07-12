@@ -108,20 +108,20 @@ export default function AlfaImportPanel() {
         из папки <code>data/alfacrm</code>. Импорт заменит текущих учеников, занятия и финансы.
       </p>
 
-      {error && (
+     {error && (
         <p style={{
           background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca',
           borderRadius: '10px', padding: '10px 12px', fontSize: '13px', marginBottom: '14px',
-        }}>⚠️ {error}</p>
+        }}> {error}</p>
       )}
 
-      {existing && existingTotal > 0 && (
+     {existing && existingTotal > 0 && (
         <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '12px', padding: '12px', marginBottom: '16px' }}>
           <p style={{ fontSize: '13px', color: '#b45309', margin: '0 0 6px', fontWeight: '600' }}>
             В базе уже есть данные — импорт их заменит
           </p>
           <p style={{ fontSize: '12px', color: '#92400e', margin: 0 }}>
-            {REPLACED.filter(n => existing[n] > 0).map(n => `${n}: ${existing[n]}`).join(' · ')}
+           {REPLACED.filter(n => existing[n] > 0).map(n => `${n}: ${existing[n]}`).join(' · ')}
           </p>
         </div>
       )}
@@ -129,16 +129,16 @@ export default function AlfaImportPanel() {
       <input ref={fileInput} type="file" multiple accept=".json" onChange={handleFiles}
         style={{ display: 'none' }} />
       <button onClick={() => fileInput.current?.click()} style={ghostBtn} disabled={running}>
-        📁 Выбрать файлы выгрузки
+         Выбрать файлы выгрузки
       </button>
 
-      {dump && missing.length > 0 && (
+     {dump && missing.length > 0 && (
         <p style={{ fontSize: '13px', color: '#b91c1c', marginTop: '12px' }}>
-          ⚠️ Не хватает файлов: {missing.join(', ')}
+           Не хватает файлов: {missing.join(', ')}
         </p>
       )}
 
-      {plan && check && (
+     {plan && check && (
         <>
           <div style={{ background: '#f7f8fa', borderRadius: '12px', padding: '12px', margin: '16px 0' }}>
             <Row label="Учеников" value={plan.clients.length} />
@@ -156,7 +156,7 @@ export default function AlfaImportPanel() {
             borderRadius: '12px', padding: '12px', marginBottom: '16px',
           }}>
             <p style={{ fontSize: '14px', fontWeight: '600', margin: '0 0 8px', color: check.ok ? '#059669' : '#b91c1c' }}>
-              {check.ok ? '✓ Сверка с AlfaCRM пройдена' : '⚠️ Данные не сходятся с AlfaCRM'}
+             {check.ok ? '✓ Сверка с AlfaCRM пройдена' : ' Данные не сходятся с AlfaCRM'}
             </p>
             <Row label="Балансы учеников совпали"
               value={`${check.clients.matched} из ${check.clients.total}`}
@@ -164,18 +164,18 @@ export default function AlfaImportPanel() {
             <Row label="Сумма доходов"
               value={`${money(check.income.expected)} → ${money(check.income.actual)}`}
               color={check.income.ok ? '#059669' : '#dc2626'} />
-            {check.clients.mismatched.length > 0 && (
+           {check.clients.mismatched.length > 0 && (
               <div style={{ marginTop: '8px' }}>
-                {check.clients.mismatched.map(m => (
+               {check.clients.mismatched.map(m => (
                   <p key={m.id} style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>
-                    {m.name}: у нас {money(m.наш)}, в AlfaCRM {money(m.альфа)}
+                   {m.name}: у нас {money(m.наш)}, в AlfaCRM {money(m.альфа)}
                   </p>
                 ))}
               </div>
             )}
           </div>
 
-          {!check.ok && (
+         {!check.ok && (
             <p style={{ fontSize: '13px', color: '#b91c1c', marginBottom: '12px' }}>
               Импорт заблокирован: сначала нужно понять, откуда расхождение.
             </p>
@@ -183,14 +183,14 @@ export default function AlfaImportPanel() {
 
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
             <button onClick={handleBackup} style={ghostBtn} disabled={running}>
-              💾 {backedUp ? 'Копия скачана' : 'Сначала скачать копию'}
+              {backedUp ? 'Копия скачана' : 'Сначала скачать копию'}
             </button>
             <button onClick={handleRun} disabled={!ready}
               style={{ ...btn('#dc2626'), opacity: ready ? 1 : 0.5, cursor: ready ? 'pointer' : 'not-allowed' }}>
-              {running ? 'Импортируем...' : 'Заменить данные и импортировать'}
+             {running ? 'Импортируем...' : 'Заменить данные и импортировать'}
             </button>
           </div>
-          {!backedUp && (
+         {!backedUp && (
             <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>
               Кнопка импорта включится после скачивания резервной копии.
             </p>
@@ -198,15 +198,15 @@ export default function AlfaImportPanel() {
         </>
       )}
 
-      {log.length > 0 && (
+     {log.length > 0 && (
         <div style={{ marginTop: '16px', background: '#f7f8fa', borderRadius: '12px', padding: '12px' }}>
-          {log.map((line, i) => (
+         {log.map((line, i) => (
             <p key={i} style={{ fontSize: '12px', color: '#4b5563', margin: 0, fontFamily: 'monospace' }}>{line}</p>
           ))}
         </div>
       )}
 
-      {done && (
+     {done && (
         <div style={{ marginTop: '16px', background: '#f0fdf4', border: '1px solid #dcfce7', borderRadius: '12px', padding: '12px' }}>
           <p style={{ fontSize: '14px', fontWeight: '600', color: '#059669', margin: '0 0 6px' }}>
             ✓ Импорт завершён

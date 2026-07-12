@@ -6,12 +6,12 @@ import { durationMinutes } from '../lib/calendar'
 // Плитки посещений: цвет говорит о деньгах, значок — о факте.
 // Точно так же читается виджет в AlfaCRM.
 const LEGEND = [
-  { icon: '', background: '#f3f4f6', color: '#4b5563', label: 'Запланирован' },
-  { icon: '✓', background: '#dcfce7', color: '#059669', label: 'Проведён и оплачен' },
-  { icon: '✓', background: '#fef3c7', color: '#b45309', label: 'Проведён бесплатно' },
-  { icon: '✗', background: '#fef3c7', color: '#b45309', label: 'Пропуск' },
-  { icon: '?', background: '#ffffff', color: '#dc2626', dashed: true, label: 'Забыли провести' },
-  { icon: '⊖', background: '#f3f4f6', color: '#9ca3af', strike: true, label: 'Отменён' },
+ { icon: '', background: '#f3f4f6', color: '#4b5563', label: 'Запланирован' },
+ { icon: '✓', background: '#dcfce7', color: '#059669', label: 'Проведён и оплачен' },
+ { icon: '✓', background: '#fef3c7', color: '#b45309', label: 'Проведён бесплатно' },
+ { icon: '✗', background: '#fef3c7', color: '#b45309', label: 'Пропуск' },
+ { icon: '?', background: '#ffffff', color: '#dc2626', dashed: true, label: 'Забыли провести' },
+ { icon: '⊖', background: '#f3f4f6', color: '#9ca3af', strike: true, label: 'Отменён' },
 ]
 
 const notSet = { color: '#dc2626', fontStyle: 'italic' }
@@ -45,7 +45,7 @@ function LessonPopover({ lesson, clients, teachers }) {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
         <span style={{ fontSize: '13px', fontWeight: '700', color: '#111827' }}>
-          {lessonTypeLabel(lesson.type)}
+         {lessonTypeLabel(lesson.type)}
         </span>
         <span style={{
           fontSize: '11px', padding: '2px 8px', borderRadius: '20px',
@@ -60,19 +60,19 @@ function LessonPopover({ lesson, clients, teachers }) {
       <div style={row}>
         <span style={{ color: '#6b7280' }}>Время</span>
         <span style={{ color: '#111827' }}>
-          {lesson.timeFrom}–{lesson.timeTo}
+         {lesson.timeFrom}–{lesson.timeTo}
           <span style={{ color: '#6b7280' }}> ({durationMinutes(lesson)} мин.)</span>
         </span>
       </div>
       <div style={row}>
         <span style={{ color: '#6b7280' }}>Группа</span>
-        {lesson.groupName
+       {lesson.groupName
           ? <span style={{ color: '#111827' }}>{lesson.groupName}</span>
           : <span style={notSet}>(без группы)</span>}
       </div>
       <div style={row}>
         <span style={{ color: '#6b7280' }}>Педагог</span>
-        {teacher
+       {teacher
           ? <span style={{ color: '#111827' }}>{teacher.name}</span>
           : <span style={notSet}>(не задан)</span>}
       </div>
@@ -81,21 +81,21 @@ function LessonPopover({ lesson, clients, teachers }) {
         <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>
           Кто был ({names.length})
         </div>
-        {names.slice(0, 10).map((person, i) => (
+       {names.slice(0, 10).map((person, i) => (
           <div key={`${person.name}-${i}`} style={{
             display: 'flex', justifyContent: 'space-between', gap: '8px', fontSize: '12px', padding: '2px 0',
           }}>
             <span style={{ color: person.absent ? '#9ca3af' : '#111827', textDecoration: person.absent ? 'line-through' : 'none' }}>
-              {person.name}
+             {person.name}
             </span>
-            {person.amount !== null && (
+           {person.amount !== null && (
               <span style={{ color: person.amount > 0 ? '#dc2626' : '#9ca3af', whiteSpace: 'nowrap' }}>
-                {person.amount > 0 ? `${person.amount.toLocaleString()} сум` : '—'}
+               {person.amount > 0 ? `${person.amount.toLocaleString()} сум` : '—'}
               </span>
             )}
           </div>
         ))}
-        {names.length > 10 && (
+       {names.length > 10 && (
           <div style={{ fontSize: '11px', color: '#6b7280' }}>…и ещё {names.length - 10}</div>
         )}
       </div>
@@ -128,7 +128,7 @@ function Tile({ lesson, tile, clients, teachers, onOpen }) {
         <div style={{ fontSize: '11px', fontWeight: '600' }}>{day}.{month}</div>
       </div>
 
-      {hover && <LessonPopover lesson={lesson} clients={clients} teachers={teachers} />}
+     {hover && <LessonPopover lesson={lesson} clients={clients} teachers={teachers} />}
     </div>
   )
 }
@@ -160,19 +160,19 @@ export default function AttendanceWidget({ lessons, clients, teachers = [], clie
 
   return (
     <div>
-      {/* Кнопка сверху: старые занятия раскрываются вверх, свежие остаются
+     {/* Кнопка сверху: старые занятия раскрываются вверх, свежие остаются
           на месте — глаз не теряет то, на что смотрел. */}
-      {hidden > 0 && (
+     {hidden > 0 && (
         <button onClick={() => setShowAll(v => !v)} style={{
           background: 'transparent', border: 'none', padding: '0 0 8px',
           color: '#7c3aed', fontSize: '12px', cursor: 'pointer',
         }}>
-          {showAll ? '▴ Свернуть' : `▾ Показать ещё ${hidden}`}
+         {showAll ? '▴ Свернуть' : `▾ Показать ещё ${hidden}`}
         </button>
       )}
 
       <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '10px' }}>
-        {shown.map(lesson => (
+       {shown.map(lesson => (
           <Tile key={lesson.id} lesson={lesson} tile={attendanceTile(lesson, clientId)}
             clients={clients} teachers={teachers} onOpen={onOpenLesson} />
         ))}
@@ -181,7 +181,7 @@ export default function AttendanceWidget({ lessons, clients, teachers = [], clie
       <details>
         <summary style={{ fontSize: '12px', color: '#7c3aed', cursor: 'pointer' }}>Показать легенду</summary>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '10px' }}>
-          {LEGEND.map(item => (
+         {LEGEND.map(item => (
             <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <div style={{
                 width: '22px', height: '22px', borderRadius: '6px', fontSize: '11px',

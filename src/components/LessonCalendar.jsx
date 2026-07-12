@@ -61,25 +61,25 @@ function LessonChip({ lesson, clients, onOpen, compact, dense }) {
         fontSize: dense ? '10px' : '11px', fontWeight: '700', color: style.color,
         whiteSpace: 'nowrap',
       }}>
-        {dense ? `${mark}${lesson.timeFrom}` : `${mark}${lesson.timeFrom}–${lesson.timeTo}`}
+       {dense ? `${mark}${lesson.timeFrom}` : `${mark}${lesson.timeFrom}–${lesson.timeTo}`}
       </div>
 
       <div style={{
         fontSize: dense ? '10px' : '12px', color: style.color, fontWeight: '600',
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
-        {trial && <span title="Пробный урок">✱ </span>}
-        {lesson.groupName || (trial ? 'Пробный' : lessonTypeLabel(lesson.type))}
+       {trial && <span title="Пробный урок">✱ </span>}
+       {lesson.groupName || (trial ? 'Пробный' : lessonTypeLabel(lesson.type))}
       </div>
 
-      {names.length > 0 && (
+     {names.length > 0 && (
         <div style={{ fontSize: nameFont, color: style.color, marginTop: dense ? '2px' : '4px', lineHeight: 1.35 }}>
-          {names.slice(0, maxNames).map((n, i) => (
+         {names.slice(0, maxNames).map((n, i) => (
             <div key={`${n}-${i}`} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               · {n}
             </div>
           ))}
-          {names.length > maxNames && <div>…ещё {names.length - maxNames}</div>}
+         {names.length > maxNames && <div>…ещё {names.length - maxNames}</div>}
         </div>
       )}
     </div>
@@ -132,7 +132,7 @@ function LessonPreview({ lesson, clients, teachers, onOpen, onClose, hideMoney =
           padding: '12px 16px', borderBottom: '1px solid #e5e7eb', background: style.background,
         }}>
           <span style={{ fontSize: '14px', fontWeight: '700', color: style.color }}>
-            {trial ? '✱ ' : `${lessonTypeIcon(lesson.type)} `}{lessonTypeLabel(lesson.type)} · {status.label}
+           {trial ? '✱ ' : `${lessonTypeIcon(lesson.type)} `}{lessonTypeLabel(lesson.type)} · {status.label}
           </span>
           <button onClick={onClose} style={{
             background: 'transparent', border: 'none', fontSize: '16px', color: '#6b7280', cursor: 'pointer',
@@ -158,7 +158,7 @@ function LessonPreview({ lesson, clients, teachers, onOpen, onClose, hideMoney =
             <div style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginBottom: '4px' }}>
               Состав ({rows.length})
             </div>
-            {rows.length === 0 ? (
+           {rows.length === 0 ? (
               <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0' }}>Учеников нет</p>
             ) : rows.map((r, i) => (
               <div key={r.clientId || i} style={{
@@ -166,24 +166,24 @@ function LessonPreview({ lesson, clients, teachers, onOpen, onClose, hideMoney =
                 fontSize: '13px', padding: '4px 0',
                 borderTop: i === 0 ? 'none' : '1px solid #f3f4f6',
               }}>
-                {/* Имя — ссылка на карточку ученика: у тёзок так понятно, кто есть кто.
+               {/* Имя — ссылка на карточку ученика: у тёзок так понятно, кто есть кто.
                     Открываем в новой вкладке, чтобы не потерять окно занятия. */}
                 <span style={{ color: conducted && !r.present ? '#9ca3af' : '#111827' }}>
-                  {i + 1}.{' '}
-                  {r.clientId ? (
+                 {i + 1}.{' '}
+                 {r.clientId ? (
                     <Link to={`/clients/${r.clientId}`} target="_blank" rel="noreferrer"
                       onClick={e => e.stopPropagation()}
                       style={{ color: '#7c3aed', textDecoration: 'none' }}>{r.name}</Link>
                   ) : r.name}
                 </span>
-                {r.amount !== null && !hideMoney && (
+               {r.amount !== null && !hideMoney && (
                   <span style={{ color: r.amount > 0 ? '#dc2626' : '#9ca3af', whiteSpace: 'nowrap' }}>
-                    {r.amount > 0 ? `${r.amount.toLocaleString()} сум` : '—'}
+                   {r.amount > 0 ? `${r.amount.toLocaleString()} сум` : '—'}
                   </span>
                 )}
               </div>
             ))}
-            {total !== null && (
+           {total !== null && (
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', fontSize: '13px', fontWeight: '700' }}>
                 <span>Списано</span>
                 <span style={{ color: '#111827' }}>{total.toLocaleString()} сум</span>
@@ -197,7 +197,7 @@ function LessonPreview({ lesson, clients, teachers, onOpen, onClose, hideMoney =
             background: '#7c3aed', color: '#fff', border: 'none', padding: '9px 16px',
             borderRadius: '10px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', flex: 1,
           }}>
-            {conducted ? '✎ Открыть занятие' : '✓ Открыть и провести'}
+           {conducted ? ' Открыть занятие' : '✓ Открыть и провести'}
           </button>
           <button onClick={onClose} style={{
             background: 'transparent', color: '#6b7280', border: '1px solid #e5e7eb',
@@ -221,9 +221,9 @@ function TimeGrid({ days, lessons, clients, onOpen }) {
         gridTemplateColumns: `48px repeat(${days.length}, minmax(0, 1fr))`,
         minWidth: days.length > 1 ? '640px' : 'auto',
       }}>
-        {/* Шапка с днями */}
+       {/* Шапка с днями */}
         <div />
-        {days.map(day => {
+       {days.map(day => {
           const isToday = toISO(day) === todayISO()
           return (
             <div key={day.toISOString()} style={{
@@ -232,16 +232,16 @@ function TimeGrid({ days, lessons, clients, onOpen }) {
               color: isToday ? '#7c3aed' : '#4b5563',
               fontWeight: isToday ? '700' : '500',
             }}>
-              {days.length > 1
+             {days.length > 1
                 ? `${String(day.getDate()).padStart(2, '0')}.${String(day.getMonth() + 1).padStart(2, '0')}, ${WEEKDAY_SHORT[(day.getDay() + 6) % 7]}`
                 : WEEKDAY_SHORT[(day.getDay() + 6) % 7]}
             </div>
           )
         })}
 
-        {/* Часы */}
+       {/* Часы */}
         <div style={{ borderRight: '1px solid #e5e7eb' }}>
-          {hours.slice(0, -1).map(hour => (
+         {hours.slice(0, -1).map(hour => (
             <div key={hour} style={{
               height: `${HOUR_HEIGHT}px`, fontSize: '12px', color: '#9ca3af',
               textAlign: 'right', paddingRight: '8px', transform: 'translateY(-7px)',
@@ -249,8 +249,8 @@ function TimeGrid({ days, lessons, clients, onOpen }) {
           ))}
         </div>
 
-        {/* Колонки дней */}
-        {days.map(day => {
+       {/* Колонки дней */}
+       {days.map(day => {
           const dayLessons = lessonsOn(lessons, day)
           return (
             <div key={day.toISOString()} style={{
@@ -259,7 +259,7 @@ function TimeGrid({ days, lessons, clients, onOpen }) {
               height: `${(DAY_END_HOUR - DAY_START_HOUR) * HOUR_HEIGHT}px`,
               background: 'repeating-linear-gradient(to bottom, transparent, transparent 55px, #f3f4f6 55px, #f3f4f6 56px)',
             }}>
-              {dayLessons.map((lesson, index) => {
+             {dayLessons.map((lesson, index) => {
                 const box = lessonBox(lesson)
                 const width = 100 / dayLessons.length
                 return (
@@ -267,7 +267,7 @@ function TimeGrid({ days, lessons, clients, onOpen }) {
                     position: 'absolute', top: `${box.top}px`, height: `${box.height}px`,
                     left: `${index * width}%`, width: `calc(${width}% - 4px)`, padding: '0 2px',
                   }}>
-                    {/* Тесно только в неделе: там колонки узкие и делятся между
+                   {/* Тесно только в неделе: там колонки узкие и делятся между
                         занятиями. В режиме «День» колонка широкая — даже несколько
                         занятий показывают полный состав, как в AlfaCRM. */}
                     <LessonChip lesson={lesson} clients={clients} onOpen={onOpen}
@@ -292,7 +292,7 @@ function MonthGrid({ date, lessons, clients, onOpen }) {
     <div style={{ overflowX: 'auto' }}>
       <div style={{ minWidth: '760px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
-          {WEEKDAY_SHORT.map(day => (
+         {WEEKDAY_SHORT.map(day => (
             <div key={day} style={{
               textAlign: 'center', padding: '8px', fontSize: '12px',
               color: '#6b7280', fontWeight: '600', borderBottom: '1px solid #e5e7eb',
@@ -300,9 +300,9 @@ function MonthGrid({ date, lessons, clients, onOpen }) {
           ))}
         </div>
 
-        {weeks.map((week, i) => (
+       {weeks.map((week, i) => (
           <div key={i} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
-            {week.map(day => {
+           {week.map(day => {
               const dayLessons = lessonsOn(lessons, day)
               const isToday = toISO(day) === todayISO()
               const other = day.getMonth() !== currentMonth
@@ -317,10 +317,10 @@ function MonthGrid({ date, lessons, clients, onOpen }) {
                     fontWeight: isToday ? '700' : '500',
                   }}>{day.getDate()}</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {dayLessons.slice(0, 3).map(lesson => (
+                   {dayLessons.slice(0, 3).map(lesson => (
                       <LessonChip key={lesson.id} lesson={lesson} clients={clients} onOpen={onOpen} compact />
                     ))}
-                    {dayLessons.length > 3 && (
+                   {dayLessons.length > 3 && (
                       <div style={{ fontSize: '11px', color: '#6b7280' }}>…и ещё {dayLessons.length - 3}</div>
                     )}
                   </div>
@@ -358,11 +358,11 @@ export default function LessonCalendar({
         </div>
 
         <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: 0 }}>
-          {rangeTitle(date, view)}
+         {rangeTitle(date, view)}
         </h3>
 
         <div style={{ display: 'flex' }}>
-          {VIEWS.map((v, i) => (
+         {VIEWS.map((v, i) => (
             <button key={v.value} onClick={() => onViewChange(v.value)} style={{
               ...viewBtn(view === v.value),
               borderRadius: i === 0 ? '8px 0 0 8px' : i === VIEWS.length - 1 ? '0 8px 8px 0' : 0,
@@ -371,11 +371,11 @@ export default function LessonCalendar({
         </div>
       </div>
 
-      {view === 'month'
+     {view === 'month'
         ? <MonthGrid date={date} lessons={lessons} clients={clients} onOpen={setPreview} />
         : <TimeGrid days={days} lessons={lessons} clients={clients} onOpen={setPreview} />}
 
-      {preview && (
+     {preview && (
         <LessonPreview
           lesson={preview}
           clients={clients}

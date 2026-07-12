@@ -75,15 +75,15 @@ export default function LessonForm({ clients, teachers, saving, onSubmit, onCanc
         <div>
           <label style={labelStyle}>Тип</label>
           <select style={inputStyle} value={form.type} onChange={set('type')}>
-            {LESSON_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+           {LESSON_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </div>
         <div>
           <label style={labelStyle}>Педагог</label>
           <select style={inputStyle} value={form.teacherId} onChange={set('teacherId')}>
             <option value="">Не выбран</option>
-            {/* Уроки ведут только педагоги: менеджеру занятие не назначить. */}
-            {teachers.filter(isTeacher).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+           {/* Уроки ведут только педагоги: менеджеру занятие не назначить. */}
+           {teachers.filter(isTeacher).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         </div>
         <div>
@@ -94,30 +94,30 @@ export default function LessonForm({ clients, teachers, saving, onSubmit, onCanc
 
       <div style={{ marginTop: '14px' }}>
         <label style={labelStyle}>Ученики ({form.studentIds.length})</label>
-        <input style={{ ...inputStyle, marginBottom: '8px' }} placeholder="🔍 Найти ученика"
+        <input style={{ ...inputStyle, marginBottom: '8px' }} placeholder=" Найти ученика"
           value={search} onChange={e => setSearch(e.target.value)} />
         <div style={{
           maxHeight: '200px', overflowY: 'auto', background: '#f7f8fa',
           border: '1px solid #e5e7eb', borderRadius: '10px', padding: '6px',
         }}>
-          {visible.map(c => (
+         {visible.map(c => (
             <label key={c.id} style={{
               display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 8px',
               cursor: 'pointer', fontSize: '13px', color: '#111827',
             }}>
               <input type="checkbox" checked={form.studentIds.includes(c.id)} onChange={() => toggleStudent(c.id)} />
-              {c.childName}
+             {c.childName}
             </label>
           ))}
-          {visible.length === 0 && <p style={{ fontSize: '13px', color: '#6b7280', padding: '8px' }}>Никого не найдено</p>}
+         {visible.length === 0 && <p style={{ fontSize: '13px', color: '#6b7280', padding: '8px' }}>Никого не найдено</p>}
         </div>
       </div>
 
-      {error && (
+     {error && (
         <p style={{
           background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca',
           borderRadius: '10px', padding: '8px 12px', fontSize: '13px', marginTop: '12px',
-        }}>⚠️ {error}</p>
+        }}> {error}</p>
       )}
 
       <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>

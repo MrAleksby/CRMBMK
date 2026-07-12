@@ -79,11 +79,11 @@ export default function GroupForm({ initial, clients, teachers, saving, schedule
       borderRadius: '16px', padding: '20px', marginBottom: '16px',
     }}>
       <h3 style={{ color: '#111827', fontSize: '16px', fontWeight: '600', marginBottom: '16px' }}>
-        {editing ? 'Изменить группу' : 'Новая группа'}
+       {editing ? 'Изменить группу' : 'Новая группа'}
       </h3>
 
       <div style={section}>
-        <p style={sectionTitle}>📋 Основное</p>
+        <p style={sectionTitle}> Основное</p>
         <div style={grid}>
           <Field label="Название *">
             <input required style={inputStyle} value={form.name} onChange={set('name')}
@@ -92,14 +92,14 @@ export default function GroupForm({ initial, clients, teachers, saving, schedule
           <Field label="Педагог">
             <select style={inputStyle} value={form.teacherId} onChange={set('teacherId')}>
               <option value="">Не выбран</option>
-              {/* Группу ведёт педагог, а не менеджер. */}
-              {teachers.filter(isTeacher).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+             {/* Группу ведёт педагог, а не менеджер. */}
+             {teachers.filter(isTeacher).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </Field>
         </div>
       </div>
 
-      {scheduleLocked ? (
+     {scheduleLocked ? (
         <div style={{ ...section, background: '#fffbeb', border: '1px solid #fde68a' }}>
           <p style={{ fontSize: '13px', color: '#92400e', margin: 0 }}>
             Расписание менять нельзя: в группе есть проведённые занятия, за ними стоят списания.
@@ -109,10 +109,10 @@ export default function GroupForm({ initial, clients, teachers, saving, schedule
         </div>
       ) : (
         <div style={section}>
-          <p style={sectionTitle}>🗓 Расписание</p>
+          <p style={sectionTitle}> Расписание</p>
 
           <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
-            {GROUP_MODES.map(m => (
+           {GROUP_MODES.map(m => (
               <button key={m.value} type="button" onClick={() => setForm({ ...form, mode: m.value })}
                 style={{
                   flex: 1, minWidth: '200px', textAlign: 'left', cursor: 'pointer',
@@ -121,18 +121,18 @@ export default function GroupForm({ initial, clients, teachers, saving, schedule
                   borderRadius: '10px', padding: '10px 12px',
                 }}>
                 <div style={{ fontSize: '13px', fontWeight: '600', color: form.mode === m.value ? '#5b21b6' : '#111827' }}>
-                  {m.label}
+                 {m.label}
                 </div>
                 <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{m.hint}</div>
               </button>
             ))}
           </div>
 
-          {form.mode === 'weekly' && (
+         {form.mode === 'weekly' && (
             <div style={{ marginBottom: '12px' }}>
               <label style={labelStyle}>Дни недели</label>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {WEEKDAYS.map(day => {
+               {WEEKDAYS.map(day => {
                   const active = form.weekdays.includes(day.value)
                   return (
                     <button key={day.value} type="button" onClick={() => toggleWeekday(day.value)}
@@ -165,15 +165,15 @@ export default function GroupForm({ initial, clients, teachers, saving, schedule
             </Field>
           </div>
 
-          {dates.length > 0 && (
+         {dates.length > 0 && (
             <p style={{ fontSize: '13px', color: '#4b5563', marginTop: '12px' }}>
-              {rebuilding ? 'Занятия будут пересозданы' : 'Будет создано занятий'}: <b>{dates.length}</b>
-              {' — '}
+             {rebuilding ? 'Занятия будут пересозданы' : 'Будет создано занятий'}: <b>{dates.length}</b>
+             {' — '}
               с {new Date(dates[0]).toLocaleDateString('ru')} по {new Date(dates[dates.length - 1]).toLocaleDateString('ru')}
             </p>
           )}
 
-          {rebuilding && (
+         {rebuilding && (
             <p style={{
               fontSize: '12px', color: '#92400e', background: '#fffbeb',
               border: '1px solid #fde68a', borderRadius: '10px', padding: '8px 10px', marginTop: '10px',
@@ -186,39 +186,39 @@ export default function GroupForm({ initial, clients, teachers, saving, schedule
       )}
 
       <div style={section}>
-        <p style={sectionTitle}>👶 Ученики ({form.studentIds.length})</p>
-        <input style={{ ...inputStyle, marginBottom: '10px' }} placeholder="🔍 Найти ученика"
+        <p style={sectionTitle}> Ученики ({form.studentIds.length})</p>
+        <input style={{ ...inputStyle, marginBottom: '10px' }} placeholder=" Найти ученика"
           value={studentSearch} onChange={e => setStudentSearch(e.target.value)} />
 
-        {clients.length === 0 ? (
+       {clients.length === 0 ? (
           <p style={{ fontSize: '13px', color: '#6b7280' }}>Сначала заведите клиентов</p>
         ) : (
           <div style={{
             maxHeight: '220px', overflowY: 'auto', background: '#ffffff',
             border: '1px solid #e5e7eb', borderRadius: '10px', padding: '6px',
           }}>
-            {visibleClients.map(c => (
+           {visibleClients.map(c => (
               <label key={c.id} style={{
                 display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 8px',
                 borderRadius: '8px', cursor: 'pointer', fontSize: '13px', color: '#111827',
               }}>
                 <input type="checkbox" checked={form.studentIds.includes(c.id)}
                   onChange={() => toggleStudent(c.id)} />
-                {c.childName}
+               {c.childName}
               </label>
             ))}
-            {visibleClients.length === 0 && (
+           {visibleClients.length === 0 && (
               <p style={{ fontSize: '13px', color: '#6b7280', padding: '8px' }}>Никого не найдено</p>
             )}
           </div>
         )}
       </div>
 
-      {error && (
+     {error && (
         <p style={{
           background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca',
           borderRadius: '10px', padding: '8px 12px', fontSize: '13px', marginBottom: '12px',
-        }}>⚠️ {error}</p>
+        }}> {error}</p>
       )}
 
       <div style={{ display: 'flex', gap: '10px' }}>

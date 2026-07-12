@@ -89,7 +89,7 @@ export default function Login() {
         borderRadius: '20px', padding: '40px', width: '100%', maxWidth: '400px',
       }}>
         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-          <div style={{ fontSize: '48px', marginBottom: '12px' }}>🎠</div>
+          
           <h1 style={{ fontSize: '22px', fontWeight: '700', color: '#111827', margin: 0 }}>FinGam CRM</h1>
           <p style={{ fontSize: '14px', color: '#6b7280', marginTop: '6px' }}>
             {isSignUp ? 'Заявка на доступ' : 'Войдите в систему'}
@@ -136,7 +136,7 @@ export default function Login() {
               borderRadius: '10px', padding: '10px 14px',
               color: '#dc2626', fontSize: '13px', marginBottom: '16px',
             }}>
-              ❌ {error}
+              {error}
             </div>
           )}
 

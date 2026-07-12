@@ -346,7 +346,7 @@ export default function Clients() {
 
       {/* Фильтры */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        <input placeholder="🔍 Поиск по имени, телефону, нику..." style={{ ...inputStyle, width: '280px' }}
+        <input placeholder="Поиск по имени, телефону, нику..." style={{ ...inputStyle, width: '280px' }}
           value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
         <select style={{ ...inputStyle, width: '160px' }} value={filterStatus}
           onChange={e => { setFilterStatus(e.target.value); setPage(1) }}>
@@ -357,8 +357,8 @@ export default function Clients() {
           <select style={{ ...inputStyle, width: '170px' }} value={filterBalance}
             onChange={e => { setFilterBalance(e.target.value); setPage(1) }}>
             <option value="all">Любой баланс</option>
-            <option value="paid">✅ Есть баланс</option>
-            <option value="debt">🔴 Долг</option>
+            <option value="paid">Есть баланс</option>
+            <option value="debt">Долг</option>
           </select>
         )}
       </div>
@@ -458,7 +458,7 @@ export default function Clients() {
                         {c.childName}
                       </Link>
                       {c.allergies && (
-                        <div style={{ fontSize: '10px', color: '#b91c1c', marginTop: '2px' }}>⚠️ {c.allergies}</div>
+                        <div style={{ fontSize: '10px', color: '#b91c1c', marginTop: '2px' }}>{c.allergies}</div>
                       )}
                       {birth && <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{birth}</div>}
                     </td>
@@ -506,7 +506,7 @@ export default function Clients() {
                           ))}
                           {r.phones.length === 0 && r.instagram && (
                             <div style={{ fontSize: '11px' }}>
-                              <a href={instagramUrl(r.instagram)} target="_blank" rel="noreferrer" style={link}>📸 @{r.instagram}</a>
+                              <a href={instagramUrl(r.instagram)} target="_blank" rel="noreferrer" style={link}>@{r.instagram}</a>
                             </div>
                           )}
                         </div>

@@ -473,8 +473,8 @@ export default function Reports() {
             ], debtRows)}
           >
             <select value={debtFilter} onChange={e => setDebtFilter(e.target.value)} style={select}>
-              <option value="debt">🔴 Должники</option>
-              <option value="prepaid">✅ Предоплаты</option>
+              <option value="debt">Должники</option>
+              <option value="prepaid">Предоплаты</option>
               <option value="all">Все с ненулевым балансом</option>
             </select>
           </ReportHead>
