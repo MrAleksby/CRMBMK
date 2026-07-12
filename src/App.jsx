@@ -13,6 +13,7 @@ import Leads from './pages/Leads'
 import Groups from './pages/Groups'
 import Lessons from './pages/Lessons'
 import Finance from './pages/Finance'
+import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
 
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { to: '/finance', label: 'Финансы', icon: '💰', can: canSeeCompanyMoney },
   { to: '/groups', label: 'Группы', icon: '👥' },
   { to: '/leads', label: 'Лиды', icon: '🎯', can: canManage },
+  { to: '/reports', label: 'Отчёты', icon: '📈', can: canManage },
   { to: '/settings', label: 'Настройки', icon: '⚙️', can: canSeeSettings },
 ]
 
@@ -159,6 +161,7 @@ function App() {
             <Route path="/groups" element={<Groups />} />
             <Route path="/lessons" element={<Lessons />} />
             <Route path="/finance" element={seesMoney ? <Finance /> : <Navigate to="/lessons" replace />} />
+            <Route path="/reports" element={manages ? <Reports /> : <Navigate to="/lessons" replace />} />
             {/* Расходы переехали в «Финансы». Старые закладки не должны ломаться. */}
             <Route path="/expenses" element={<Navigate to="/finance" replace />} />
             <Route path="/settings" element={seesSettings ? <Settings /> : <Navigate to="/lessons" replace />} />
