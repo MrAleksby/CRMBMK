@@ -138,14 +138,20 @@ function birthLine(client) {
   return date ? `${ageLabel(age)} (${date})` : ageLabel(age)
 }
 
+// Мальчик и девочка различаются и рисунком, и цветом кружка: в списке из
+// пятидесяти строк это читается быстрее, чем подпись.
 function Avatar({ client }) {
   const gender = genderInfo(client)
+  const female = gender?.value === 'female'
+  const color = !gender ? '#6b7280' : (female ? '#db2777' : '#2563eb')
+  const background = !gender ? '#f3f4f6' : (female ? '#fce7f3' : '#dbeafe')
+
   return (
     <div style={{
-      width: '30px', height: '30px', borderRadius: '50%', background: '#f3f4f6',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px',
+      width: '30px', height: '30px', borderRadius: '50%', background,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', color,
     }}>
-      {gender ? gender.icon : '🧒'}
+      <Icon name={female ? 'girl' : 'boy'} size={17} />
     </div>
   )
 }
@@ -385,8 +391,8 @@ export default function Clients() {
       <ActionToolbar
         count={selection.count}
         busy={saving}
-        addLabel="✚ Добавить ученика"
-        editLabel="✎ Открыть карточку"
+        addLabel="Добавить ученика"
+        editLabel="Открыть карточку"
         onAdd={() => setShowAddClient(true)}
         onEdit={() => selection.rows.length === 1 && navigate(`/clients/${selection.rows[0].id}`)}
         onDelete={handleDeleteSelected}
@@ -485,7 +491,8 @@ export default function Clients() {
                         <div key={r.role} style={{ marginBottom: '4px' }}>
                           {r.phones.map((phone, idx) => (
                             <div key={`${phone}-${idx}`} style={{ fontSize: '11px' }}>
-                              <a href={phoneUrl(phone)} style={{ ...link, color: '#7c3aed' }}>📞 {phone}</a>
+                              <a href={phoneUrl(phone)} style={{ ...link, color: '#7c3aed', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <Icon name="phone" size={12} />{phone}</a>
                               {(r.name || r.telegram) && (
                                 <span style={{ color: '#6b7280' }}>
                                   {' '}({contactTitle(r)}

@@ -1,15 +1,16 @@
 // Справочники и хелперы для карточки клиента.
 
 export const GENDERS = [
-  { value: 'male', label: 'Мальчик', icon: '👦' },
-  { value: 'female', label: 'Девочка', icon: '👧' },
+  { value: 'male', label: 'Мальчик', iconName: 'boy' },
+  { value: 'female', label: 'Девочка', iconName: 'girl' },
 ]
 
+// `iconName` — имя линейной иконки (src/components/Icon.jsx).
 export const SOURCES = [
-  { value: 'instagram_ads', label: 'Реклама в Instagram', icon: '📸' },
-  { value: 'telegram_ads', label: 'Реклама в Telegram', icon: '✈️' },
-  { value: 'recommendation', label: 'По рекомендации', icon: '🤝' },
-  { value: 'other', label: 'Другое', icon: '❓' },
+  { value: 'instagram_ads', label: 'Реклама в Instagram', iconName: 'instagram' },
+  { value: 'telegram_ads', label: 'Реклама в Telegram', iconName: 'telegram' },
+  { value: 'recommendation', label: 'По рекомендации', iconName: 'recommend' },
+  { value: 'other', label: 'Другое', iconName: 'help' },
 ]
 
 const MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня',

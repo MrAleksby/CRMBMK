@@ -140,7 +140,7 @@ export default function ClientForm({ initial, saving, onSubmit, onCancel, legalE
           <Field label="Пол">
             <select style={inputStyle} value={form.gender} onChange={set('gender')}>
               <option value="">Не указан</option>
-              {GENDERS.map(g => <option key={g.value} value={g.value}>{g.icon} {g.label}</option>)}
+              {GENDERS.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
             </select>
           </Field>
           <Field label="Контакты ребёнка">
@@ -192,7 +192,7 @@ export default function ClientForm({ initial, saving, onSubmit, onCancel, legalE
           <Field label="Источник">
             <select style={inputStyle} value={form.source} onChange={set('source')}>
               <option value="">Не указан</option>
-              {SOURCES.map(s => <option key={s.value} value={s.value}>{s.icon} {s.label}</option>)}
+              {SOURCES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </Field>
           {form.source === 'other' && (

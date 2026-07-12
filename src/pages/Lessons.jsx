@@ -503,10 +503,10 @@ export default function Lessons() {
 
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
                     {lesson.groupName
-                      ? <span style={chip('#ede9fe', '#5b21b6')}>👥 {lesson.groupName}</span>
+                      ? <span style={chip('#ede9fe', '#5b21b6')}>{lesson.groupName}</span>
                       : <span style={chip('#f3f4f6', '#4b5563')}>{lessonTypeLabel(lesson.type)}</span>}
                     <span style={chip('#f3f4f6', '#4b5563')}>👶 {(lesson.studentIds || []).length} учеников</span>
-                    {teacher && <span style={chip('#f3f4f6', '#4b5563')}>🎓 {teacher}</span>}
+                    {teacher && <span style={chip('#f3f4f6', '#4b5563')}>{teacher}</span>}
                     {lesson.status === 'conducted' && (
                       <span style={chip('#dcfce7', '#059669')}>
                         ✓ {presentCount} пришло · {conductedSum.toLocaleString()} сум
@@ -535,7 +535,7 @@ export default function Lessons() {
                         {open ? 'Закрыть журнал' : '✎ Изменить журнал'}
                       </button>
                       <button onClick={() => handleReturnToPlanned(lesson)} disabled={saving} style={secondaryBtn}>
-                        ↩ Вернуть в запланированные
+                        Вернуть в запланированные
                       </button>
                     </>
                   )}

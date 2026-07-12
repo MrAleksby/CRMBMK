@@ -132,10 +132,10 @@ function LeadCard({ lead, responsibleName, onOpen, onDragStart, onAdvance, onCon
 
         {hover ? (
           <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-            <CardAction title="Сделать клиентом" color="#059669" onClick={() => onConvert(lead)}>👤</CardAction>
+            <CardAction title="Сделать клиентом" color="#059669" onClick={() => onConvert(lead)}><Icon name="userCheck" size={14} /></CardAction>
             <CardAction title={forward ? `Перевести: ${stageInfo(forward).label}` : ''}
-              color="#7c3aed" disabled={!forward} onClick={() => onAdvance(lead, forward)}>➔</CardAction>
-            <CardAction title="Удалить лид" color="#dc2626" onClick={() => onDelete(lead)}>🗑</CardAction>
+              color="#7c3aed" disabled={!forward} onClick={() => onAdvance(lead, forward)}><Icon name="arrowRight" size={14} /></CardAction>
+            <CardAction title="Удалить лид" color="#dc2626" onClick={() => onDelete(lead)}><Icon name="trash" size={14} /></CardAction>
           </div>
         ) : (
           <span style={{ fontSize: '11px', color: '#9ca3af', whiteSpace: 'nowrap' }}>
@@ -149,23 +149,28 @@ function LeadCard({ lead, responsibleName, onOpen, onDragStart, onAdvance, onCon
       )}
 
       {source && (
-        <span style={{ fontSize: '12px', color: '#6b7280' }}>{source.icon} {source.label}</span>
+        <span style={{ fontSize: '12px', color: '#6b7280', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+          <Icon name={source.iconName} size={13} />{source.label}
+        </span>
       )}
 
       {phones.map(phone => (
         <span key={phone} style={{ fontSize: '12px' }}>
-          <a href={phoneUrl(phone)} onClick={stop} style={cardLink}>📞 {phone}</a>
+          <a href={phoneUrl(phone)} onClick={stop} style={{ ...cardLink, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <Icon name="phone" size={12} />{phone}</a>
           {parent && <span style={{ color: '#6b7280' }}> ({parent})</span>}
         </span>
       ))}
 
       {lead.telegram && (
         <a href={telegramUrl(lead.telegram)} target="_blank" rel="noreferrer" onClick={stop}
-          style={{ ...cardLink, fontSize: '12px' }}>✈️ @{lead.telegram}</a>
+          style={{ ...cardLink, fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+          <Icon name="telegram" size={12} />@{lead.telegram}</a>
       )}
       {lead.instagram && (
         <a href={instagramUrl(lead.instagram)} target="_blank" rel="noreferrer" onClick={stop}
-          style={{ ...cardLink, fontSize: '12px' }}>📸 @{lead.instagram}</a>
+          style={{ ...cardLink, fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+          <Icon name="instagram" size={12} />@{lead.instagram}</a>
       )}
 
       {phones.length === 0 && !lead.telegram && !lead.instagram && parent && (
@@ -173,7 +178,7 @@ function LeadCard({ lead, responsibleName, onOpen, onDragStart, onAdvance, onCon
       )}
 
       {responsibleName && (
-        <span style={{ fontSize: '11px', color: '#6b7280' }}>📌 {responsibleName}</span>
+        <span style={{ fontSize: '11px', color: '#6b7280' }}>{responsibleName}</span>
       )}
     </div>
   )
@@ -259,7 +264,7 @@ function LeadPayForm({ lead, accounts, categories, saving, onSubmit, onCancel })
   return (
     <div style={card}>
       <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', margin: '0 0 12px' }}>
-        💰 Оплата за пробное: {lead.childName}
+        Оплата за пробное: {lead.childName}
       </h3>
       {accounts.length === 0 || categories.length === 0 ? (
         <p style={{ fontSize: '13px', color: '#b91c1c' }}>Сначала заведите кассы и доходные статьи в Настройках.</p>
@@ -368,7 +373,7 @@ function LeadMoney({ money, clientId }) {
       {entries.map(entry => {
         // Списание за занятие и возврат денег родителю оба уменьшают баланс.
         const minus = entry._charge || entry.kind === KIND_REFUND
-        const icon = entry._charge ? '✱' : (entry.kind === KIND_REFUND ? '↩' : '💰')
+        const icon = entry._charge ? '✱' : (entry.kind === KIND_REFUND ? '' : '')
         const title = entry._charge
           ? (entry.description || 'Занятие')
           : (entry.comment || (entry.kind === KIND_REFUND ? 'Возврат' : 'Оплата'))
@@ -692,12 +697,12 @@ export default function Leads() {
       )}
 
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <button onClick={() => setAdding(true)} style={primaryBtn(false)}>✚ Добавить лид</button>
+        <button onClick={() => setAdding(true)} style={primaryBtn(false)}>Добавить лид</button>
         <button onClick={() => setView(FUNNEL)} style={tab(view === FUNNEL)}>
-          📊 Воронка ({leads.filter(l => !l.archived).length})
+          Воронка ({leads.filter(l => !l.archived).length})
         </button>
         <button onClick={() => setView(ARCHIVE)} style={tab(view === ARCHIVE)}>
-          📦 Архив ({leads.filter(l => l.archived).length})
+          Архив ({leads.filter(l => l.archived).length})
         </button>
         <input placeholder="🔍 Поиск по имени, телефону, нику..." style={{ ...inputStyle, width: '280px' }}
           value={search} onChange={e => setSearch(e.target.value)} />
@@ -746,7 +751,7 @@ export default function Leads() {
                       </Link>
                     </>
                   ) : (
-                    <span style={{ color: '#dc2626' }}>✕ Отказ: {rejectLabel(lead.rejectReason) || 'без причины'}</span>
+                    <span style={{ color: '#dc2626' }}>Отказ: {rejectLabel(lead.rejectReason) || 'без причины'}</span>
                   )}
                 </div>
               </div>
@@ -830,22 +835,22 @@ export default function Leads() {
               {!isConverted(open) && (
                 <>
                   <button onClick={() => setMode('pay')} disabled={saving} style={primaryBtn(saving)}>
-                    💰 Принять оплату
+                    Принять оплату
                   </button>
                   <button onClick={() => setMode('trial')} disabled={saving} style={ghostBtn}>
-                    ✱ Назначить пробное
+                    Назначить пробное
                   </button>
                 </>
               )}
-              <button onClick={() => setMode('edit')} style={ghostBtn}>✎ Править</button>
+              <button onClick={() => setMode('edit')} style={ghostBtn}>Править</button>
               {!isConverted(open) && (
                 <button onClick={() => setMode('convert')} disabled={saving} style={ghostBtn}>
-                  ✓ Сделать клиентом
+                  Сделать клиентом
                 </button>
               )}
               {!open.archived && (
                 <button onClick={() => { setReason(REJECT_REASONS[0].value); setMode('reject') }} style={ghostBtn}>
-                  ✕ Отказ
+                  Отказ
                 </button>
               )}
               {isRejected(open) && (
@@ -854,7 +859,7 @@ export default function Leads() {
                 </button>
               )}
               <button onClick={() => handleDelete(open)} disabled={saving}
-                style={{ ...ghostBtn, color: '#dc2626', marginLeft: 'auto' }}>🗑 Удалить</button>
+                style={{ ...ghostBtn, color: '#dc2626', marginLeft: 'auto' }}>Удалить</button>
             </div>
           </div>
         </Modal>

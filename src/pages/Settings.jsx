@@ -51,15 +51,15 @@ export default function Settings() {
           </button>
         ))}
         <button onClick={() => setActiveKey(MIGRATION)} style={tab(activeKey === MIGRATION)}>
-          🔄 Перенос финансов
+          Перенос финансов
         </button>
         <button onClick={() => setActiveKey(IMPORT)} style={tab(activeKey === IMPORT)}>
-          📥 Импорт из AlfaCRM
+          Импорт из AlfaCRM
         </button>
         {/* Не «Сотрудники»: так уже называется справочник педагогов. Здесь — вход в систему. */}
         {admin && (
           <button onClick={() => setActiveKey(STAFF)} style={tab(activeKey === STAFF)}>
-            🔑 Доступ в систему
+            Доступ в систему
           </button>
         )}
       </div>

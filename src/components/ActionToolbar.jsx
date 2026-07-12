@@ -1,7 +1,9 @@
+import Icon from './Icon'
 // Панель действий над списком: добавить, править отмеченную, удалить отмеченные.
 // Повторяет привычную по AlfaCRM логику — сначала отмечаешь строки, потом жмёшь кнопку.
 
 const btn = (color, disabled) => ({
+  display: 'inline-flex', alignItems: 'center', gap: '6px',
   background: disabled ? '#f3f4f6' : color,
   color: disabled ? '#9ca3af' : '#fff',
   border: 'none', padding: '10px 18px', borderRadius: '10px',
@@ -16,9 +18,9 @@ const ghost = {
 
 export default function ActionToolbar({
   count = 0,
-  addLabel = '✚ Добавить',
-  editLabel = '✎ Править',
-  deleteLabel = '🗑 Удалить',
+  addLabel = 'Добавить',
+  editLabel = 'Править',
+  deleteLabel = 'Удалить',
   busy = false,
   onAdd,
   onEdit,
@@ -32,14 +34,16 @@ export default function ActionToolbar({
   return (
     <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
       {onAdd && (
-        <button onClick={onAdd} style={btn('#7c3aed', false)}>{addLabel}</button>
+        <button onClick={onAdd} style={{ ...btn('#7c3aed', false), display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <Icon name="plus" size={15} />{addLabel}
+        </button>
       )}
 
       {onEdit && (
         <button onClick={onEdit} disabled={notExactlyOne}
           title={notExactlyOne ? 'Отметьте одну строку' : 'Править отмеченную строку'}
           style={btn('#2563eb', notExactlyOne)}>
-          {editLabel}
+          <Icon name="edit" size={15} />{editLabel}
         </button>
       )}
 
@@ -47,7 +51,7 @@ export default function ActionToolbar({
         <button onClick={onDelete} disabled={noneSelected || busy}
           title={noneSelected ? 'Отметьте строки' : 'Удалить отмеченные'}
           style={btn('#dc2626', noneSelected || busy)}>
-          {deleteLabel}{count > 0 ? ` (${count})` : ''}
+          <Icon name="trash" size={15} />{deleteLabel}{count > 0 ? ` (${count})` : ''}
         </button>
       )}
 

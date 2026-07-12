@@ -8,6 +8,7 @@ import { useAuth } from '../AuthContext'
 import { canManage } from '../lib/access'
 import ClientForm from '../components/ClientForm'
 import ErrorBanner from '../components/ErrorBanner'
+import Icon from '../components/Icon'
 import AttendanceWidget from '../components/AttendanceWidget'
 import SubscriptionForm from '../components/SubscriptionForm'
 import {
@@ -114,13 +115,16 @@ function SubscriptionRow({ sub, archived, onEdit, onArchive, onRestore, onDelete
         <span style={{
           fontSize: '13px', color: '#111827', fontWeight: '600',
           textDecoration: archived ? 'line-through' : 'none',
-        }}>🎫 {subscriptionTitle(sub)}</span>
+        }}>
+          <Icon name="ticket" size={14} style={{ marginRight: '5px', verticalAlign: '-2px', color: '#7c3aed' }} />
+          {subscriptionTitle(sub)}
+        </span>
 
         <span style={{ display: 'flex', flexShrink: 0 }}>
-          <button onClick={onEdit} title="Править абонемент" style={subIcon}>✎</button>
-          {onArchive && <button onClick={onArchive} title="Убрать в архив" style={subIcon}>📦</button>}
-          {onRestore && <button onClick={onRestore} title="Вернуть из архива" style={subIcon}>↩</button>}
-          <button onClick={onDelete} title="Удалить абонемент" style={subIcon}>✕</button>
+          <button onClick={onEdit} title="Править абонемент" style={subIcon}><Icon name="edit" size={13} /></button>
+          {onArchive && <button onClick={onArchive} title="Убрать в архив" style={subIcon}><Icon name="archive" size={13} /></button>}
+          {onRestore && <button onClick={onRestore} title="Вернуть из архива" style={subIcon}><Icon name="undo" size={13} /></button>}
+          <button onClick={onDelete} title="Удалить абонемент" style={subIcon}><Icon name="close" size={13} /></button>
         </span>
       </div>
 
@@ -632,14 +636,23 @@ export default function ClientCard() {
                 gap: '10px', flexWrap: 'wrap', marginBottom: '14px', padding: '9px 12px',
                 background: '#ede9fe', borderRadius: '10px', fontSize: '13px', color: '#5b21b6',
               }}>
-                <span>✱ Это лид, а не ученик. В списке клиентов его нет — до конверсии он живёт в воронке.</span>
+                <span>Это лид, а не ученик. В списке клиентов его нет — до конверсии он живёт в воронке.</span>
                 <Link to="/leads" style={{ ...link, fontWeight: '600', whiteSpace: 'nowrap' }}>Открыть воронку →</Link>
               </div>
             )}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                  {gender && <span style={{ fontSize: '20px' }} title={gender.label}>{gender.icon}</span>}
+                  {gender && (
+                    <span title={gender.label} style={{
+                      width: '30px', height: '30px', borderRadius: '50%',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      background: gender.value === 'female' ? '#fce7f3' : '#dbeafe',
+                      color: gender.value === 'female' ? '#db2777' : '#2563eb',
+                    }}>
+                      <Icon name={gender.value === 'female' ? 'girl' : 'boy'} size={18} />
+                    </span>
+                  )}
                   <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#111827', margin: 0 }}>{client.childName}</h2>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' }}>
@@ -649,10 +662,22 @@ export default function ClientCard() {
                       {isPaid ? '✅ Оплачено' : '🔴 Долг'}
                     </span>
                   )}
-                  {gender && <span style={chip('#f3f4f6', '#4b5563')}>{gender.icon} {gender.label}</span>}
+                  {gender && (
+                    <span style={{ ...chip('#f3f4f6', '#4b5563'), display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                      <Icon name={gender.value === 'female' ? 'girl' : 'boy'} size={13} />{gender.label}
+                    </span>
+                  )}
                   {age !== null && <span style={chip('#f3f4f6', '#4b5563')}>{ageLabel(age)}</span>}
-                  {birthday && <span style={chip('#f3f4f6', '#4b5563')}>🎂 {birthday}</span>}
-                  {source && <span style={chip('#ede9fe', '#5b21b6')}>{source.icon} {source.label}</span>}
+                  {birthday && (
+                    <span style={{ ...chip('#f3f4f6', '#4b5563'), display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                      <Icon name="cake" size={13} />{birthday}
+                    </span>
+                  )}
+                  {source && (
+                    <span style={{ ...chip('#ede9fe', '#5b21b6'), display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                      <Icon name={source.iconName} size={13} />{source.label}
+                    </span>
+                  )}
                 </div>
               </div>
               {manages && (
@@ -714,7 +739,7 @@ export default function ClientCard() {
                   open: true, amount: '', description: '',
                   date: today, accountId: accounts[0]?.id || '', categoryId: incomeCategories[0]?.id || '',
                 })}>
-                  💰 Принять оплату
+                  <Icon name="money" size={15} style={{ marginRight: '6px', verticalAlign: '-2px' }} />Принять оплату
                 </button>
               </div>
             )}
@@ -722,7 +747,7 @@ export default function ClientCard() {
             {form.open && (
               <div style={{ background: '#f7f8fa', borderRadius: '12px', padding: '14px', marginBottom: '14px' }}>
                 <p style={{ fontWeight: '600', fontSize: '14px', marginBottom: '12px', color: '#059669' }}>
-                  💰 Принять оплату
+                  <Icon name="money" size={15} style={{ marginRight: '6px', verticalAlign: '-2px' }} />Принять оплату
                 </p>
 
                 {accounts.length === 0 || incomeCategories.length === 0 ? (
@@ -810,7 +835,7 @@ export default function ClientCard() {
                         </span>
                         {locked ? (
                           <span title="Списание за проведённое занятие. Снимается откатом занятия."
-                            style={{ color: '#9ca3af', fontSize: '13px', padding: '2px 6px' }}>🔒</span>
+                            style={{ color: '#9ca3af', padding: '2px 6px', display: 'inline-flex' }}><Icon name="lock" size={13} /></span>
                         ) : (
                           <button onClick={() => handleDeleteEntry(entry)} style={{
                             background: 'transparent', color: '#9ca3af', border: 'none',
@@ -877,12 +902,17 @@ export default function ClientCard() {
             {contacts.length === 0 && <span style={notSet}>(не задано)</span>}
             {contacts.map(r => (
               <div key={r.role} style={{ fontSize: '12px', color: '#4b5563', marginBottom: '6px' }}>
-                <div style={{ color: '#6b7280' }}>{r.icon} {contactTitle(r)}</div>
+                <div style={{ color: '#6b7280', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Icon name={r.role === 'Папа' ? 'boy' : 'girl'} size={13} />{contactTitle(r)}
+                </div>
                 {parentPhones(r).map((phone, i) => (
                   <div key={`${phone}-${i}`}><a href={phoneUrl(phone)} style={link}>{phone}</a></div>
                 ))}
                 {r.instagram && (
-                  <a href={instagramUrl(r.instagram)} target="_blank" rel="noreferrer" style={link}>📸 @{r.instagram}</a>
+                  <a href={instagramUrl(r.instagram)} target="_blank" rel="noreferrer"
+                    style={{ ...link, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <Icon name="instagram" size={13} />@{r.instagram}
+                  </a>
                 )}
               </div>
             ))}
@@ -973,7 +1003,8 @@ export default function ClientCard() {
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 fontSize: '13px', marginBottom: '4px', gap: '8px',
               }}>
-                <Link to={`/groups?open=${group.id}`} style={link}>👥 {group.name}</Link>
+                <Link to={`/groups?open=${group.id}`} style={{ ...link, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  <Icon name="groups" size={13} />{group.name}</Link>
                 {manages && (
                   <button onClick={() => handleLeaveGroup(group)} disabled={saving} title="Убрать из группы"
                     style={{ background: 'transparent', border: 'none', color: '#9ca3af', cursor: 'pointer' }}>✕</button>
@@ -983,7 +1014,8 @@ export default function ClientCard() {
 
             {extraGroups.map(group => (
               <div key={group.id} style={{ fontSize: '13px', marginBottom: '4px' }}>
-                <Link to={`/groups?open=${group.id}`} style={link}>👥 {group.name}</Link>
+                <Link to={`/groups?open=${group.id}`} style={{ ...link, display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  <Icon name="groups" size={13} />{group.name}</Link>
                 <span style={{ fontSize: '11px', color: '#6b7280' }}> — только занятия</span>
               </div>
             ))}

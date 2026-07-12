@@ -38,10 +38,10 @@ const inputStyle = {
 // Долги видны в карточке ученика и в списке клиентов.
 const TABS = [
   { value: 'all', label: 'Все' },
-  { value: KIND_INCOME, label: '💰 Доходы' },
-  { value: KIND_EXPENSE, label: '📉 Расходы' },
-  { value: KIND_SALARY, label: '👥 Выплаты ЗП' },
-  { value: KIND_REFUND, label: '↩️ Возвраты' },
+  { value: KIND_INCOME, label: 'Доходы' },
+  { value: KIND_EXPENSE, label: 'Расходы' },
+  { value: KIND_SALARY, label: 'Выплаты ЗП' },
+  { value: KIND_REFUND, label: 'Возвраты' },
 ]
 
 // Колонки таблицы — как в AlfaCRM. Каждая сортируется.

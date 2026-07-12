@@ -43,6 +43,7 @@ const dateInput = { ...select, padding: '6px 8px' }
 const exportBtn = {
   background: 'transparent', border: '1px solid #e5e7eb', borderRadius: '8px',
   padding: '6px 10px', color: '#4b5563', fontSize: '12px', cursor: 'pointer', whiteSpace: 'nowrap',
+  display: 'inline-flex', alignItems: 'center', gap: '5px',
 }
 
 const money = (n) => Math.round(n).toLocaleString('ru')
@@ -65,7 +66,9 @@ function ReportHead({ title, hint, children, onExport }) {
         <h3 style={{ fontSize: '13px', fontWeight: '600', color: '#111827', margin: 0 }}>{title}</h3>
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
           {children}
-          <button onClick={onExport} style={exportBtn}>⤓ Excel</button>
+          <button onClick={onExport} style={exportBtn}>
+            <Icon name="download" size={14} />Excel
+          </button>
         </div>
       </div>
       {hint && <p style={{ fontSize: '11px', color: '#6b7280', margin: '6px 0 0' }}>{hint}</p>}
@@ -643,7 +646,9 @@ export default function Reports() {
             <tbody>
               {sources.map(s => (
                 <tr key={s.value} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                  <td style={tdLeft}>{s.icon} {s.label}</td>
+                  <td style={{ ...tdLeft, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Icon name={s.iconName} size={14} style={{ color: '#6b7280' }} />{s.label}
+                  </td>
                   <td style={td}>{s.leads || '—'}</td>
                   <td style={{ ...td, fontWeight: '600' }}>{s.clients || '—'}</td>
                   <td style={td}>{s.conversion === null ? '—' : `${s.conversion}%`}</td>
