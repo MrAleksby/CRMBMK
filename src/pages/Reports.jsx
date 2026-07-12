@@ -230,8 +230,7 @@ export default function Reports() {
         <span style={{ fontSize: '12px', color: '#6b7280' }}>—</span>
         <input type="date" value={range.to} onChange={e => setDate('to', e.target.value)} style={dateInput} />
       </div>
-
-      {/* 1. Деньги по месяцам */}
+      {/* Финансы: 1. Деньги по месяцам */}
       {seesMoney && (
         <div style={card}>
           <ReportHead
@@ -302,211 +301,7 @@ export default function Reports() {
           </div>
         </div>
       )}
-
-      {/* 2. Ученики */}
-      <div style={card}>
-        <ReportHead
-          title="Ученики"
-          hint="Занимался — был хотя бы на одном занятии в месяце. Ушёл — ходил в прошлом месяце и не пришёл ни разу в этом. За текущий месяц отток не считается: он ещё не кончился."
-          onExport={() => downloadCsv(`ученики ${period}`, [
-            { label: 'Месяц', value: r => r.label },
-            { label: 'Занимались', value: r => r.active },
-            { label: 'Пришли', value: r => r.joined },
-            { label: 'Ушли', value: r => r.churned },
-            ...(seesMoney ? [
-              { label: 'Оплатили', value: r => r.paid },
-              { label: 'Средний чек', value: r => r.avgCheck },
-            ] : []),
-          ], studentRows)}
-        >
-          <select value={studentFilters.groupId} style={select}
-            onChange={e => setStudentFilters(f => ({ ...f, groupId: e.target.value }))}>
-            <option value="">Все группы</option>
-            {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-          </select>
-          <select value={studentFilters.teacherId} style={select}
-            onChange={e => setStudentFilters(f => ({ ...f, teacherId: e.target.value }))}>
-            <option value="">Все педагоги</option>
-            {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-        </ReportHead>
-
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '520px' }}>
-            <thead>
-              <tr>
-                <th style={thLeft}>Месяц</th>
-                <th style={th}>Занимались</th>
-                <th style={th}>Пришли</th>
-                <th style={th}>Ушли</th>
-                {seesMoney && <th style={th}>Оплатили</th>}
-                {seesMoney && <th style={th}>Средний чек</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {studentRows.map(r => (
-                <tr key={r.key} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                  <td style={tdLeft}>{r.label}</td>
-                  <td style={{ ...td, fontWeight: '600' }}>{r.active}</td>
-                  <td style={{ ...td, color: '#059669' }}>{r.joined ? `+${r.joined}` : '—'}</td>
-                  <td style={{ ...td, color: r.churned ? '#dc2626' : '#9ca3af' }}>
-                    {r.churned ? `−${r.churned}` : '—'}
-                  </td>
-                  {seesMoney && <td style={td}>{money(r.paid)}</td>}
-                  {seesMoney && <td style={td}>{money(r.avgCheck)}</td>}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* 3. Воронка и источники */}
-      <div style={card}>
-        <ReportHead
-          title="Воронка"
-          onExport={() => downloadCsv(`воронка ${period}`, [
-            { label: 'Этап', value: r => r.label },
-            { label: 'В работе', value: r => r.active },
-            { label: 'Всего', value: r => r.count },
-          ], funnel.stages)}
-        >
-          <select value={funnelFilters.source} style={select}
-            onChange={e => setFunnelFilters({ source: e.target.value })}>
-            <option value="">Все источники</option>
-            {SOURCES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
-        </ReportHead>
-
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
-          {funnel.stages.map(stage => (
-            <div key={stage.value} style={{
-              flex: '1 1 120px', background: stage.background, borderRadius: '10px', padding: '8px 10px',
-            }}>
-              <div style={{ fontSize: '11px', color: stage.color }}>{stage.label}</div>
-              <div style={{ fontSize: '16px', fontWeight: '700', color: stage.color }}>{stage.active}</div>
-            </div>
-          ))}
-        </div>
-        <p style={{ fontSize: '12px', color: '#4b5563', margin: '0 0 16px' }}>
-          Лидов за период: <b>{funnel.total}</b> · стали клиентами: <b style={{ color: '#059669' }}>{funnel.converted}</b>
-          {' '}· отказались: <b style={{ color: '#dc2626' }}>{funnel.rejected}</b>
-          {' '}· конверсия: <b style={{ color: '#7c3aed' }}>{funnel.conversion}%</b>
-        </p>
-
-        <ReportHead
-          title="Источники"
-          hint="Считаем не лиды, а деньги: источник, дающий сто обращений и ноль клиентов, обходится дороже, чем кажется. Выручка — оплаты за период от клиентов этого источника."
-          onExport={() => downloadCsv(`источники ${period}`, [
-            { label: 'Источник', value: r => r.label },
-            { label: 'Лидов', value: r => r.leads },
-            { label: 'Клиентов', value: r => r.clients },
-            { label: 'Конверсия, %', value: r => r.conversion ?? '' },
-            ...(seesMoney ? [{ label: 'Выручка', value: r => r.revenue }] : []),
-          ], sources)}
-        />
-
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '520px' }}>
-            <thead>
-              <tr>
-                <th style={thLeft}>Источник</th>
-                <th style={th}>Лидов</th>
-                <th style={th}>Клиентов</th>
-                <th style={th}>Конверсия</th>
-                {seesMoney && <th style={th}>Выручка</th>}
-                {seesMoney && <th style={{ ...th, width: '110px' }} />}
-              </tr>
-            </thead>
-            <tbody>
-              {sources.map(s => (
-                <tr key={s.value} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                  <td style={tdLeft}>{s.icon} {s.label}</td>
-                  <td style={td}>{s.leads || '—'}</td>
-                  <td style={{ ...td, fontWeight: '600' }}>{s.clients || '—'}</td>
-                  <td style={td}>{s.conversion === null ? '—' : `${s.conversion}%`}</td>
-                  {seesMoney && <td style={{ ...td, color: '#059669', fontWeight: '600' }}>{money(s.revenue)}</td>}
-                  {seesMoney && <td style={td}><Bar value={s.revenue} max={maxRevenue} color="#059669" /></td>}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* 5. Должники и предоплаты */}
-      {seesDebts && (
-        <div style={card}>
-          <ReportHead
-            title="Должники и предоплаты"
-            hint="Баланс за всё время, а не за период: долг не «за июль», он просто есть. Минус в уроках — за столько занятий ученик ещё не заплатил."
-            onExport={() => downloadCsv(`должники ${period}`, [
-              { label: 'Ученик', value: r => r.name },
-              { label: 'Статус', value: r => statusInfo({ status: r.status }).label },
-              { label: 'Баланс', value: r => r.balance },
-              { label: 'Уроков', value: r => r.lessons },
-              { label: 'Последняя оплата', value: r => r.lastPayment },
-            ], debtRows)}
-          >
-            <select value={debtFilter} onChange={e => setDebtFilter(e.target.value)} style={select}>
-              <option value="debt">🔴 Должники</option>
-              <option value="prepaid">✅ Предоплаты</option>
-              <option value="all">Все с ненулевым балансом</option>
-            </select>
-          </ReportHead>
-
-          <p style={{ fontSize: '12px', color: '#4b5563', margin: '0 0 10px' }}>
-            Учеников: <b>{debtRows.length}</b> · сумма:{' '}
-            <b style={{ color: debtSum < 0 ? '#dc2626' : '#059669' }}>{money(debtSum)} сум</b>
-          </p>
-
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '560px' }}>
-              <thead>
-                <tr>
-                  <th style={thLeft}>Ученик</th>
-                  <th style={thLeft}>Статус</th>
-                  <th style={th}>Баланс</th>
-                  <th style={th}>Уроков</th>
-                  <th style={th}>Последняя оплата</th>
-                </tr>
-              </thead>
-              <tbody>
-                {debtRows.length === 0 && (
-                  <tr><td style={tdLeft} colSpan={5}>Никого</td></tr>
-                )}
-                {debtRows.map(r => {
-                  const status = statusInfo({ status: r.status })
-                  return (
-                    <tr key={r.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                      <td style={tdLeft}>
-                        <Link to={`/clients/${r.id}`} style={{ color: '#7c3aed', textDecoration: 'none', fontWeight: '600' }}>
-                          {r.name}
-                        </Link>
-                      </td>
-                      <td style={tdLeft}>
-                        <span style={{
-                          fontSize: '11px', padding: '2px 8px', borderRadius: '6px',
-                          background: status.background, color: status.color,
-                        }}>{status.label}</span>
-                      </td>
-                      <td style={{ ...td, fontWeight: '700', color: r.balance < 0 ? '#dc2626' : '#059669' }}>
-                        {money(r.balance)}
-                      </td>
-                      <td style={{ ...td, color: r.lessons < 0 ? '#dc2626' : '#4b5563' }}>{r.lessons}</td>
-                      <td style={{ ...td, color: '#6b7280' }}>
-                        {r.lastPayment ? r.lastPayment.split('-').reverse().join('.') : '—'}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* 6. Кассы и статьи */}
+      {/* Финансы: 2. Кассы и статьи */}
       {seesMoney && (
         <div style={card}>
           <ReportHead
@@ -604,8 +399,7 @@ export default function Reports() {
           </div>
         </div>
       )}
-
-      {/* 7. Выплаты ЗП */}
+      {/* Финансы: 3. Выплаты зарплат */}
       {seesMoney && (
         <div style={card}>
           <ReportHead
@@ -658,8 +452,207 @@ export default function Reports() {
           </div>
         </div>
       )}
+      {/* Финансы: 4. Должники и предоплаты */}
+      {seesDebts && (
+        <div style={card}>
+          <ReportHead
+            title="Должники и предоплаты"
+            hint="Баланс за всё время, а не за период: долг не «за июль», он просто есть. Минус в уроках — за столько занятий ученик ещё не заплатил."
+            onExport={() => downloadCsv(`должники ${period}`, [
+              { label: 'Ученик', value: r => r.name },
+              { label: 'Статус', value: r => statusInfo({ status: r.status }).label },
+              { label: 'Баланс', value: r => r.balance },
+              { label: 'Уроков', value: r => r.lessons },
+              { label: 'Последняя оплата', value: r => r.lastPayment },
+            ], debtRows)}
+          >
+            <select value={debtFilter} onChange={e => setDebtFilter(e.target.value)} style={select}>
+              <option value="debt">🔴 Должники</option>
+              <option value="prepaid">✅ Предоплаты</option>
+              <option value="all">Все с ненулевым балансом</option>
+            </select>
+          </ReportHead>
 
-      {/* 4. Занятия и педагоги */}
+          <p style={{ fontSize: '12px', color: '#4b5563', margin: '0 0 10px' }}>
+            Учеников: <b>{debtRows.length}</b> · сумма:{' '}
+            <b style={{ color: debtSum < 0 ? '#dc2626' : '#059669' }}>{money(debtSum)} сум</b>
+          </p>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '560px' }}>
+              <thead>
+                <tr>
+                  <th style={thLeft}>Ученик</th>
+                  <th style={thLeft}>Статус</th>
+                  <th style={th}>Баланс</th>
+                  <th style={th}>Уроков</th>
+                  <th style={th}>Последняя оплата</th>
+                </tr>
+              </thead>
+              <tbody>
+                {debtRows.length === 0 && (
+                  <tr><td style={tdLeft} colSpan={5}>Никого</td></tr>
+                )}
+                {debtRows.map(r => {
+                  const status = statusInfo({ status: r.status })
+                  return (
+                    <tr key={r.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                      <td style={tdLeft}>
+                        <Link to={`/clients/${r.id}`} style={{ color: '#7c3aed', textDecoration: 'none', fontWeight: '600' }}>
+                          {r.name}
+                        </Link>
+                      </td>
+                      <td style={tdLeft}>
+                        <span style={{
+                          fontSize: '11px', padding: '2px 8px', borderRadius: '6px',
+                          background: status.background, color: status.color,
+                        }}>{status.label}</span>
+                      </td>
+                      <td style={{ ...td, fontWeight: '700', color: r.balance < 0 ? '#dc2626' : '#059669' }}>
+                        {money(r.balance)}
+                      </td>
+                      <td style={{ ...td, color: r.lessons < 0 ? '#dc2626' : '#4b5563' }}>{r.lessons}</td>
+                      <td style={{ ...td, color: '#6b7280' }}>
+                        {r.lastPayment ? r.lastPayment.split('-').reverse().join('.') : '—'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {/* Работа школы: 5. Ученики */}
+      <div style={card}>
+        <ReportHead
+          title="Ученики"
+          hint="Занимался — был хотя бы на одном занятии в месяце. Ушёл — ходил в прошлом месяце и не пришёл ни разу в этом. За текущий месяц отток не считается: он ещё не кончился."
+          onExport={() => downloadCsv(`ученики ${period}`, [
+            { label: 'Месяц', value: r => r.label },
+            { label: 'Занимались', value: r => r.active },
+            { label: 'Пришли', value: r => r.joined },
+            { label: 'Ушли', value: r => r.churned },
+            ...(seesMoney ? [
+              { label: 'Оплатили', value: r => r.paid },
+              { label: 'Средний чек', value: r => r.avgCheck },
+            ] : []),
+          ], studentRows)}
+        >
+          <select value={studentFilters.groupId} style={select}
+            onChange={e => setStudentFilters(f => ({ ...f, groupId: e.target.value }))}>
+            <option value="">Все группы</option>
+            {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+          <select value={studentFilters.teacherId} style={select}
+            onChange={e => setStudentFilters(f => ({ ...f, teacherId: e.target.value }))}>
+            <option value="">Все педагоги</option>
+            {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </ReportHead>
+
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '520px' }}>
+            <thead>
+              <tr>
+                <th style={thLeft}>Месяц</th>
+                <th style={th}>Занимались</th>
+                <th style={th}>Пришли</th>
+                <th style={th}>Ушли</th>
+                {seesMoney && <th style={th}>Оплатили</th>}
+                {seesMoney && <th style={th}>Средний чек</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {studentRows.map(r => (
+                <tr key={r.key} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  <td style={tdLeft}>{r.label}</td>
+                  <td style={{ ...td, fontWeight: '600' }}>{r.active}</td>
+                  <td style={{ ...td, color: '#059669' }}>{r.joined ? `+${r.joined}` : '—'}</td>
+                  <td style={{ ...td, color: r.churned ? '#dc2626' : '#9ca3af' }}>
+                    {r.churned ? `−${r.churned}` : '—'}
+                  </td>
+                  {seesMoney && <td style={td}>{money(r.paid)}</td>}
+                  {seesMoney && <td style={td}>{money(r.avgCheck)}</td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {/* Работа школы: 6. Воронка и источники */}
+      <div style={card}>
+        <ReportHead
+          title="Воронка"
+          onExport={() => downloadCsv(`воронка ${period}`, [
+            { label: 'Этап', value: r => r.label },
+            { label: 'В работе', value: r => r.active },
+            { label: 'Всего', value: r => r.count },
+          ], funnel.stages)}
+        >
+          <select value={funnelFilters.source} style={select}
+            onChange={e => setFunnelFilters({ source: e.target.value })}>
+            <option value="">Все источники</option>
+            {SOURCES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        </ReportHead>
+
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+          {funnel.stages.map(stage => (
+            <div key={stage.value} style={{
+              flex: '1 1 120px', background: stage.background, borderRadius: '10px', padding: '8px 10px',
+            }}>
+              <div style={{ fontSize: '11px', color: stage.color }}>{stage.label}</div>
+              <div style={{ fontSize: '16px', fontWeight: '700', color: stage.color }}>{stage.active}</div>
+            </div>
+          ))}
+        </div>
+        <p style={{ fontSize: '12px', color: '#4b5563', margin: '0 0 16px' }}>
+          Лидов за период: <b>{funnel.total}</b> · стали клиентами: <b style={{ color: '#059669' }}>{funnel.converted}</b>
+          {' '}· отказались: <b style={{ color: '#dc2626' }}>{funnel.rejected}</b>
+          {' '}· конверсия: <b style={{ color: '#7c3aed' }}>{funnel.conversion}%</b>
+        </p>
+
+        <ReportHead
+          title="Источники"
+          hint="Считаем не лиды, а деньги: источник, дающий сто обращений и ноль клиентов, обходится дороже, чем кажется. Выручка — оплаты за период от клиентов этого источника."
+          onExport={() => downloadCsv(`источники ${period}`, [
+            { label: 'Источник', value: r => r.label },
+            { label: 'Лидов', value: r => r.leads },
+            { label: 'Клиентов', value: r => r.clients },
+            { label: 'Конверсия, %', value: r => r.conversion ?? '' },
+            ...(seesMoney ? [{ label: 'Выручка', value: r => r.revenue }] : []),
+          ], sources)}
+        />
+
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '520px' }}>
+            <thead>
+              <tr>
+                <th style={thLeft}>Источник</th>
+                <th style={th}>Лидов</th>
+                <th style={th}>Клиентов</th>
+                <th style={th}>Конверсия</th>
+                {seesMoney && <th style={th}>Выручка</th>}
+                {seesMoney && <th style={{ ...th, width: '110px' }} />}
+              </tr>
+            </thead>
+            <tbody>
+              {sources.map(s => (
+                <tr key={s.value} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  <td style={tdLeft}>{s.icon} {s.label}</td>
+                  <td style={td}>{s.leads || '—'}</td>
+                  <td style={{ ...td, fontWeight: '600' }}>{s.clients || '—'}</td>
+                  <td style={td}>{s.conversion === null ? '—' : `${s.conversion}%`}</td>
+                  {seesMoney && <td style={{ ...td, color: '#059669', fontWeight: '600' }}>{money(s.revenue)}</td>}
+                  {seesMoney && <td style={td}><Bar value={s.revenue} max={maxRevenue} color="#059669" /></td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {/* Работа школы: 7. Занятия и педагоги */}
       <div style={card}>
         <ReportHead
           title="Занятия"
@@ -696,6 +689,7 @@ export default function Reports() {
               <tr>
                 <th style={thLeft}>Месяц</th>
                 <th style={th}>Проведено</th>
+                <th style={th}>Запланировано</th>
                 <th style={th}>Отменено</th>
                 <th style={th}>Посещений</th>
                 <th style={th}>Пропусков</th>
@@ -707,9 +701,10 @@ export default function Reports() {
               {lessonRows.map(r => (
                 <tr key={r.key} style={{ borderBottom: '1px solid #f3f4f6' }}>
                   <td style={tdLeft}>{r.label}</td>
-                  <td style={{ ...td, fontWeight: '600' }}>{r.conducted}</td>
+                  <td style={{ ...td, fontWeight: '600' }}>{r.conducted || '—'}</td>
+                  <td style={{ ...td, color: r.planned ? '#7c3aed' : '#9ca3af' }}>{r.planned || '—'}</td>
                   <td style={{ ...td, color: r.cancelled ? '#b45309' : '#9ca3af' }}>{r.cancelled || '—'}</td>
-                  <td style={{ ...td, color: '#059669' }}>{r.present}</td>
+                  <td style={{ ...td, color: '#059669' }}>{r.present || '—'}</td>
                   <td style={{ ...td, color: r.absent ? '#b45309' : '#9ca3af' }}>{r.absent || '—'}</td>
                   {seesMoney && <td style={td}>{money(r.charged)}</td>}
                   <td style={td}><Bar value={r.conducted} max={maxLessons} color="#7c3aed" /></td>
