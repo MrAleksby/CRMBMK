@@ -1,17 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { auth } from '../firebase'
 import { useAuth } from '../AuthContext'
-import { canSeeCompanyMoney } from '../lib/access'
+import { canSeeCompanyMoney, canSeeClientMoney } from '../lib/access'
 import { withTimeout, describeError } from '../lib/withTimeout'
-import { readCollection } from '../lib/store'
+import { readCollection, readClientMoney } from '../lib/store'
 import ErrorBanner from '../components/ErrorBanner'
 import { LEAD_STAGES } from '../lib/lead'
 import { SOURCES } from '../lib/client'
 import { LESSON_TYPES } from '../lib/lesson'
+import { lessonsLeft } from '../lib/subscription'
+import { statusInfo } from '../lib/client'
+import { TX_KINDS } from '../lib/finance'
 import { downloadCsv } from '../lib/export'
 import {
   monthlyMoney, monthlyStudents, funnelReport, sourceReport,
   monthlyLessons, teacherReport, presetRange, PRESETS,
+  debtorsReport, accountsReport, categoriesReport, salaryReport,
 } from '../lib/reports'
 
 const card = {
@@ -70,6 +75,8 @@ function ReportHead({ title, hint, children, onExport }) {
 export default function Reports() {
   const { user, profile } = useAuth()
   const seesMoney = canSeeCompanyMoney(user?.uid, profile)
+  // Долги учеников — работа менеджера: ему по ним звонить. Кассы компании — нет.
+  const seesDebts = canSeeClientMoney(user?.uid, profile)
 
   const [transactions, setTransactions] = useState([])
   const [charges, setCharges] = useState([])
@@ -80,6 +87,8 @@ export default function Reports() {
   const [groups, setGroups] = useState([])
   const [accounts, setAccounts] = useState([])
   const [categories, setCategories] = useState([])
+  const [subscriptions, setSubscriptions] = useState([])
+  const [clientMoney, setClientMoney] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
 
@@ -92,6 +101,8 @@ export default function Reports() {
   const [studentFilters, setStudentFilters] = useState({ groupId: '', teacherId: '' })
   const [funnelFilters, setFunnelFilters] = useState({ source: '' })
   const [lessonFilters, setLessonFilters] = useState({ teacherId: '', groupId: '', type: '' })
+  const [debtFilter, setDebtFilter] = useState('debt')     // debt | prepaid | all
+  const [categoryKind, setCategoryKind] = useState('')
 
   const applyPreset = (value) => {
     setPreset(value)
@@ -106,13 +117,15 @@ export default function Reports() {
     setLoadError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [ch, cs, ls, lds, ts, gs] = await Promise.all([
+      const [ch, cs, ls, lds, ts, gs, ss, cm] = await Promise.all([
         readCollection('charges'),
         readCollection('clients'),
         readCollection('lessons'),
         readCollection('leads'),
         readCollection('teachers'),
         readCollection('groups'),
+        readCollection('subscriptions'),
+        readClientMoney(),
       ])
       setCharges(ch)
       setClients(cs)
@@ -120,6 +133,8 @@ export default function Reports() {
       setLeads(lds)
       setTeachers(ts)
       setGroups(gs)
+      setSubscriptions(ss)
+      setClientMoney(cm)
 
       // Полная лента операций, кассы и статьи — это касса компании, только админ.
       if (seesMoney) {
@@ -160,6 +175,18 @@ export default function Reports() {
     [lessons, charges, range, lessonFilters])
   const teacherRows = useMemo(() => teacherReport(lessons, charges, teachers, range, { groupId: lessonFilters.groupId }), [lessons, charges, teachers, range, lessonFilters.groupId])
   const funnel = useMemo(() => funnelReport(leads, LEAD_STAGES, range, funnelFilters), [leads, range, funnelFilters])
+
+  // Долги считаются по оплатам и возвратам — их менеджеру отдают, а кассу нет.
+  const debtors = useMemo(
+    () => debtorsReport(clients, clientMoney, charges, subscriptions, lessonsLeft),
+    [clients, clientMoney, charges, subscriptions])
+  const debtRows = useMemo(() => debtors.filter(r =>
+    debtFilter === 'all' || (debtFilter === 'debt' ? r.balance < 0 : r.balance > 0)),
+    [debtors, debtFilter])
+
+  const accountRows = useMemo(() => accountsReport(transactions, accounts, range), [transactions, accounts, range])
+  const categoryRows = useMemo(() => categoriesReport(transactions, categories, range, { kind: categoryKind }), [transactions, categories, range, categoryKind])
+  const salaryRows = useMemo(() => salaryReport(transactions, lessons, teachers, range), [transactions, lessons, teachers, range])
   const sources = useMemo(() => sourceReport(leads, clients, transactions, SOURCES, range), [leads, clients, transactions, range])
 
   if (loading) return <div style={{ color: '#6b7280', padding: '32px' }}>Загрузка...</div>
@@ -175,6 +202,9 @@ export default function Reports() {
     charged: acc.charged + r.charged,
     profit: acc.profit + r.profit,
   }), { income: 0, expense: 0, salary: 0, charged: 0, profit: 0 })
+
+  const debtSum = debtRows.reduce((sum, r) => sum + r.balance, 0)
+  const maxCategory = Math.max(...categoryRows.map(c => c.total), 1)
 
   const period = `${range.from}—${range.to}`
 
@@ -403,6 +433,231 @@ export default function Reports() {
           </table>
         </div>
       </div>
+
+      {/* 5. Должники и предоплаты */}
+      {seesDebts && (
+        <div style={card}>
+          <ReportHead
+            title="Должники и предоплаты"
+            hint="Баланс за всё время, а не за период: долг не «за июль», он просто есть. Минус в уроках — за столько занятий ученик ещё не заплатил."
+            onExport={() => downloadCsv(`должники ${period}`, [
+              { label: 'Ученик', value: r => r.name },
+              { label: 'Статус', value: r => statusInfo({ status: r.status }).label },
+              { label: 'Баланс', value: r => r.balance },
+              { label: 'Уроков', value: r => r.lessons },
+              { label: 'Последняя оплата', value: r => r.lastPayment },
+            ], debtRows)}
+          >
+            <select value={debtFilter} onChange={e => setDebtFilter(e.target.value)} style={select}>
+              <option value="debt">🔴 Должники</option>
+              <option value="prepaid">✅ Предоплаты</option>
+              <option value="all">Все с ненулевым балансом</option>
+            </select>
+          </ReportHead>
+
+          <p style={{ fontSize: '12px', color: '#4b5563', margin: '0 0 10px' }}>
+            Учеников: <b>{debtRows.length}</b> · сумма:{' '}
+            <b style={{ color: debtSum < 0 ? '#dc2626' : '#059669' }}>{money(debtSum)} сум</b>
+          </p>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '560px' }}>
+              <thead>
+                <tr>
+                  <th style={thLeft}>Ученик</th>
+                  <th style={thLeft}>Статус</th>
+                  <th style={th}>Баланс</th>
+                  <th style={th}>Уроков</th>
+                  <th style={th}>Последняя оплата</th>
+                </tr>
+              </thead>
+              <tbody>
+                {debtRows.length === 0 && (
+                  <tr><td style={tdLeft} colSpan={5}>Никого</td></tr>
+                )}
+                {debtRows.map(r => {
+                  const status = statusInfo({ status: r.status })
+                  return (
+                    <tr key={r.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                      <td style={tdLeft}>
+                        <Link to={`/clients/${r.id}`} style={{ color: '#7c3aed', textDecoration: 'none', fontWeight: '600' }}>
+                          {r.name}
+                        </Link>
+                      </td>
+                      <td style={tdLeft}>
+                        <span style={{
+                          fontSize: '11px', padding: '2px 8px', borderRadius: '6px',
+                          background: status.background, color: status.color,
+                        }}>{status.label}</span>
+                      </td>
+                      <td style={{ ...td, fontWeight: '700', color: r.balance < 0 ? '#dc2626' : '#059669' }}>
+                        {money(r.balance)}
+                      </td>
+                      <td style={{ ...td, color: r.lessons < 0 ? '#dc2626' : '#4b5563' }}>{r.lessons}</td>
+                      <td style={{ ...td, color: '#6b7280' }}>
+                        {r.lastPayment ? r.lastPayment.split('-').reverse().join('.') : '—'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Кассы и статьи */}
+      {seesMoney && (
+        <div style={card}>
+          <ReportHead
+            title="Кассы"
+            hint="Приход и расход — за выбранный период. Остаток — за всё время: касса не обнуляется первого числа, и сумма остатков равна балансу компании."
+            onExport={() => downloadCsv(`кассы ${period}`, [
+              { label: 'Касса', value: r => r.name },
+              { label: 'Приход за период', value: r => r.income },
+              { label: 'Расход за период', value: r => r.outcome },
+              { label: 'Остаток (всё время)', value: r => r.total },
+            ], accountRows)}
+          />
+
+          <div style={{ overflowX: 'auto', marginBottom: '18px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '520px' }}>
+              <thead>
+                <tr>
+                  <th style={thLeft}>Касса</th>
+                  <th style={th}>Приход</th>
+                  <th style={th}>Расход</th>
+                  <th style={th}>Остаток</th>
+                </tr>
+              </thead>
+              <tbody>
+                {accountRows.map(a => (
+                  <tr key={a.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                    <td style={tdLeft}>{a.name}</td>
+                    <td style={{ ...td, color: '#059669' }}>{money(a.income)}</td>
+                    <td style={{ ...td, color: '#dc2626' }}>{money(a.outcome)}</td>
+                    <td style={{ ...td, fontWeight: '700', color: a.total < 0 ? '#dc2626' : '#111827' }}>
+                      {money(a.total)}
+                    </td>
+                  </tr>
+                ))}
+                <tr>
+                  <td style={{ ...tdLeft, fontWeight: '700', color: '#111827' }}>Итого</td>
+                  <td style={{ ...td, fontWeight: '700', color: '#059669' }}>
+                    {money(accountRows.reduce((s, a) => s + a.income, 0))}
+                  </td>
+                  <td style={{ ...td, fontWeight: '700', color: '#dc2626' }}>
+                    {money(accountRows.reduce((s, a) => s + a.outcome, 0))}
+                  </td>
+                  <td style={{ ...td, fontWeight: '700' }}>
+                    {money(accountRows.reduce((s, a) => s + a.total, 0))}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <ReportHead
+            title="Статьи"
+            onExport={() => downloadCsv(`статьи ${period}`, [
+              { label: 'Статья', value: r => r.name },
+              { label: 'Вид', value: r => TX_KINDS.find(k => k.value === r.kind)?.label || r.kind },
+              { label: 'Операций', value: r => r.count },
+              { label: 'Сумма', value: r => r.total },
+            ], categoryRows)}
+          >
+            <select value={categoryKind} onChange={e => setCategoryKind(e.target.value)} style={select}>
+              <option value="">Все виды</option>
+              {TX_KINDS.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
+            </select>
+          </ReportHead>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '520px' }}>
+              <thead>
+                <tr>
+                  <th style={thLeft}>Статья</th>
+                  <th style={thLeft}>Вид</th>
+                  <th style={th}>Операций</th>
+                  <th style={th}>Сумма</th>
+                  <th style={{ ...th, width: '110px' }} />
+                </tr>
+              </thead>
+              <tbody>
+                {categoryRows.length === 0 && (
+                  <tr><td style={tdLeft} colSpan={5}>Операций за период нет</td></tr>
+                )}
+                {categoryRows.map(c => {
+                  const meta = TX_KINDS.find(k => k.value === c.kind)
+                  return (
+                    <tr key={c.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                      <td style={tdLeft}>{c.name}</td>
+                      <td style={{ ...tdLeft, color: meta?.color || '#6b7280' }}>{meta?.label || c.kind}</td>
+                      <td style={td}>{c.count}</td>
+                      <td style={{ ...td, fontWeight: '600', color: meta?.color || '#111827' }}>{money(c.total)}</td>
+                      <td style={td}><Bar value={c.total} max={maxCategory} color={meta?.color || '#7c3aed'} /></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 7. Выплаты ЗП */}
+      {seesMoney && (
+        <div style={card}>
+          <ReportHead
+            title="Выплаты зарплат"
+            hint="Рядом — сколько занятий педагог провёл за тот же период, чтобы видеть стоимость одного занятия."
+            onExport={() => downloadCsv(`зарплаты ${period}`, [
+              { label: 'Педагог', value: r => r.name },
+              { label: 'Выплат', value: r => r.payments },
+              { label: 'Всего выплачено', value: r => r.total },
+              { label: 'Занятий за период', value: r => r.lessons },
+              { label: 'На одно занятие', value: r => r.perLesson },
+            ], salaryRows)}
+          />
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '560px' }}>
+              <thead>
+                <tr>
+                  <th style={thLeft}>Педагог</th>
+                  <th style={th}>Выплат</th>
+                  <th style={th}>Выплачено</th>
+                  <th style={th}>Занятий</th>
+                  <th style={th}>На занятие</th>
+                </tr>
+              </thead>
+              <tbody>
+                {salaryRows.length === 0 && (
+                  <tr><td style={tdLeft} colSpan={5}>Выплат за период нет</td></tr>
+                )}
+                {salaryRows.map(r => (
+                  <tr key={r.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                    <td style={tdLeft}>{r.name}</td>
+                    <td style={td}>{r.payments}</td>
+                    <td style={{ ...td, fontWeight: '700', color: '#dc2626' }}>{money(r.total)}</td>
+                    <td style={td}>{r.lessons || '—'}</td>
+                    <td style={{ ...td, color: '#6b7280' }}>{r.perLesson ? money(r.perLesson) : '—'}</td>
+                  </tr>
+                ))}
+                <tr>
+                  <td style={{ ...tdLeft, fontWeight: '700', color: '#111827' }}>Итого</td>
+                  <td style={td} />
+                  <td style={{ ...td, fontWeight: '700', color: '#dc2626' }}>
+                    {money(salaryRows.reduce((s, r) => s + r.total, 0))}
+                  </td>
+                  <td style={td} />
+                  <td style={td} />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* 4. Занятия и педагоги */}
       <div style={card}>

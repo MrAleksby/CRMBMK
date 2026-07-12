@@ -318,6 +318,147 @@ export function monthlyLessons(lessons, charges, range, filters = {}) {
   return [...rows.values()].sort((a, b) => a.key.localeCompare(b.key))
 }
 
+// --- 5. Должники и предоплаты -------------------------------------------------
+//
+// Баланс считается за всё время, а не за период: долг не «за июль», он просто есть.
+// Период здесь ни при чём — иначе ученик, заплативший в мае за июньские занятия,
+// в июньском отчёте выглядел бы должником.
+export function debtorsReport(clients, transactions, charges, subscriptions, lessonsLeftFn) {
+  const balances = new Map()
+  const add = (clientId, delta) => {
+    if (!clientId) return
+    balances.set(clientId, (balances.get(clientId) || 0) + delta)
+  }
+  for (const t of transactions) {
+    if (t.kind === KIND_INCOME) add(t.clientId, t.amount || 0)
+    if (t.kind === KIND_REFUND) add(t.clientId, -(t.amount || 0))
+  }
+  for (const c of charges) add(c.clientId, -(c.amount || 0))
+
+  const chargesBy = new Map()
+  for (const c of charges) {
+    if (!chargesBy.has(c.clientId)) chargesBy.set(c.clientId, [])
+    chargesBy.get(c.clientId).push(c)
+  }
+
+  const lastPayment = new Map()
+  for (const t of transactions) {
+    if (t.kind !== KIND_INCOME || !t.clientId) continue
+    const day = dayOf(t.date)
+    if (!day) continue
+    const prev = lastPayment.get(t.clientId)
+    if (!prev || day > prev) lastPayment.set(t.clientId, day)
+  }
+
+  return clients
+    .filter(c => !isLeadClient(c))
+    .map(client => {
+      const balance = balances.get(client.id) || 0
+      return {
+        id: client.id,
+        name: client.childName,
+        status: client.status || 'active',
+        balance,
+        // Минус — за столько занятий ученик ещё не заплатил.
+        lessons: lessonsLeftFn
+          ? lessonsLeftFn(subscriptions, client.id, balance, chargesBy.get(client.id) || [], client)
+          : 0,
+        lastPayment: lastPayment.get(client.id) || '',
+      }
+    })
+    .filter(row => row.balance !== 0)
+    .sort((a, b) => a.balance - b.balance)   // сначала самые крупные долги
+}
+
+// --- 6. Кассы и статьи --------------------------------------------------------
+//
+// Остаток по кассе — за всё время: касса не обнуляется первого числа. А приход
+// и расход — за выбранный период: это движение, оно и должно быть периодным.
+export function accountsReport(transactions, accounts, range) {
+  const sign = { [KIND_INCOME]: 1, [KIND_EXPENSE]: -1, [KIND_SALARY]: -1, [KIND_REFUND]: -1 }
+
+  return accounts.map(account => {
+    const mine = transactions.filter(t => t.accountId === account.id)
+    const inPeriod = mine.filter(t => inRange(t.date, range))
+
+    const income = inPeriod.filter(t => t.kind === KIND_INCOME)
+      .reduce((s, t) => s + (t.amount || 0), 0)
+    const outcome = inPeriod.filter(t => t.kind !== KIND_INCOME)
+      .reduce((s, t) => s + (t.amount || 0), 0)
+
+    return {
+      id: account.id,
+      name: account.name,
+      income,
+      outcome,
+      // Остаток — по всей истории кассы, иначе он не сойдётся с «Финансами».
+      total: mine.reduce((s, t) => s + (sign[t.kind] ?? 0) * (t.amount || 0), 0),
+    }
+  }).sort((a, b) => b.total - a.total)
+}
+
+export function categoriesReport(transactions, categories, range, filters = {}) {
+  const { kind } = filters
+
+  return categories.map(category => {
+    const mine = transactions.filter(t =>
+      t.categoryId === category.id
+      && inRange(t.date, range)
+      && (!kind || t.kind === kind))
+
+    return {
+      id: category.id,
+      name: category.name,
+      kind: category.kind,
+      count: mine.length,
+      total: mine.reduce((s, t) => s + (t.amount || 0), 0),
+    }
+  })
+    .filter(row => row.count > 0)
+    .sort((a, b) => b.total - a.total)
+}
+
+// --- 7. Выплаты зарплат -------------------------------------------------------
+//
+// Рядом с выплатой показываем, сколько занятий педагог провёл за тот же период:
+// так видно, сколько стоит одно занятие в его исполнении.
+export function salaryReport(transactions, lessons, teachers, range) {
+  const paid = transactions.filter(t => t.kind === KIND_SALARY && inRange(t.date, range))
+
+  const rows = teachers.map(teacher => {
+    const mine = paid.filter(t => t.teacherId === teacher.id)
+    const conducted = lessons.filter(l =>
+      l.teacherId === teacher.id
+      && l.status === 'conducted'
+      && l.date && inRange(l.date, range))
+
+    const total = mine.reduce((s, t) => s + (t.amount || 0), 0)
+    return {
+      id: teacher.id,
+      name: teacher.name,
+      payments: mine.length,
+      total,
+      lessons: conducted.length,
+      perLesson: conducted.length ? Math.round(total / conducted.length) : 0,
+    }
+  })
+
+  // Выплаты без педагога тоже показываем: иначе сумма не сойдётся с «Финансами».
+  const orphan = paid.filter(t => !t.teacherId)
+  if (orphan.length) {
+    rows.push({
+      id: '(none)',
+      name: '(педагог не указан)',
+      payments: orphan.length,
+      total: orphan.reduce((s, t) => s + (t.amount || 0), 0),
+      lessons: 0,
+      perLesson: 0,
+    })
+  }
+
+  return rows.filter(r => r.payments > 0).sort((a, b) => b.total - a.total)
+}
+
 export function teacherReport(lessons, charges, teachers, range, filters = {}) {
   const { groupId } = filters
 
