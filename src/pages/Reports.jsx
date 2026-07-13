@@ -165,7 +165,7 @@ export default function Reports() {
   // смотреть нечего, а строки с нулями только мешают читать таблицу.
   const moneyRows = useMemo(
     () => monthlyMoney(transactions, charges, range, moneyFilters)
-      .filter(r => r.income || r.expense || r.salary || r.refund || r.charged),
+      .filter(r => r.income || r.expense || r.salary || r.refund || r.draw || r.charged),
     [transactions, charges, range, moneyFilters])
 
   const studentRows = useMemo(
@@ -203,9 +203,10 @@ export default function Reports() {
     income: acc.income + r.income,
     expense: acc.expense + r.expense,
     salary: acc.salary + r.salary,
+    draw: acc.draw + r.draw,
     charged: acc.charged + r.charged,
     profit: acc.profit + r.profit,
-  }), { income: 0, expense: 0, salary: 0, charged: 0, profit: 0 })
+  }), { income: 0, expense: 0, salary: 0, draw: 0, charged: 0, profit: 0 })
 
   const debtSum = debtRows.reduce((sum, r) => sum + r.balance, 0)
   const maxCategory = Math.max(...categoryRows.map(c => c.total), 1)
@@ -241,7 +242,7 @@ export default function Reports() {
         <div style={card}>
           <ReportHead
             title="Деньги по месяцам"
-            hint="Прибыль = списано за занятия − расходы − ЗП. Не «доходы − расходы»: абонемент оплачивают разом, а зарабатывают его по мере занятий. При фильтре по кассе или статье списания не показываются — у них нет ни того, ни другого."
+            hint="Прибыль = списано за занятия − расходы − ЗП. Не «доходы − расходы»: абонемент оплачивают разом, а зарабатывают его по мере занятий. Изъятия владельца прибыль не уменьшают — это распределение уже заработанного, а не затрата школы. При фильтре по кассе или статье списания не показываются — у них нет ни того, ни другого."
             onExport={() => downloadCsv(`деньги ${period}`, [
               { label: 'Месяц', value: r => r.label },
               { label: 'Оплаты', value: r => r.income },
@@ -249,6 +250,7 @@ export default function Reports() {
               { label: 'Расходы', value: r => r.expense },
               { label: 'Зарплаты', value: r => r.salary },
               { label: 'Возвраты', value: r => r.refund },
+              { label: 'Изъятия владельца', value: r => r.draw },
               { label: 'Прибыль', value: r => r.profit },
             ], moneyRows)}
           >
@@ -273,6 +275,7 @@ export default function Reports() {
                   <th style={th}>Списано</th>
                   <th style={th}>Расходы</th>
                   <th style={th}>ЗП</th>
+                  <th style={th}>Изъятия</th>
                   <th style={th}>Прибыль</th>
                   <th style={{ ...th, width: '110px' }} />
                 </tr>
@@ -285,6 +288,7 @@ export default function Reports() {
                     <td style={td}>{money(r.charged)}</td>
                     <td style={{ ...td, color: '#dc2626' }}>{money(r.expense)}</td>
                     <td style={{ ...td, color: '#dc2626' }}>{money(r.salary)}</td>
+                    <td style={{ ...td, color: '#b45309' }}>{money(r.draw)}</td>
                     <td style={{ ...td, fontWeight: '700', color: r.profit < 0 ? '#dc2626' : '#059669' }}>
                       {money(r.profit)}
                     </td>
@@ -297,6 +301,7 @@ export default function Reports() {
                   <td style={{ ...td, fontWeight: '700' }}>{money(totals.charged)}</td>
                   <td style={{ ...td, fontWeight: '700', color: '#dc2626' }}>{money(totals.expense)}</td>
                   <td style={{ ...td, fontWeight: '700', color: '#dc2626' }}>{money(totals.salary)}</td>
+                  <td style={{ ...td, fontWeight: '700', color: '#b45309' }}>{money(totals.draw)}</td>
                   <td style={{ ...td, fontWeight: '700', color: totals.profit < 0 ? '#dc2626' : '#059669' }}>
                     {money(totals.profit)}
                   </td>

@@ -6,9 +6,9 @@ import { withTimeout, describeError } from '../lib/withTimeout'
 import { readCollection, invalidate } from '../lib/store'
 import { MONTHS_SHORT } from '../lib/constants'
 import {
-  KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, kindMeta,
+  KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, KIND_DRAW, kindMeta,
   toJsDate, inPeriod, availableYears, documentNumber, sortTransactions,
-  incomeTotal, expenseTotal, salaryTotal, refundTotal,
+  incomeTotal, expenseTotal, salaryTotal, refundTotal, drawTotal,
   companyBalance, periodProfit, accountTotals, categoryTotals,
 } from '../lib/finance'
 import { buildTransaction, transactionToForm } from '../lib/transaction'
@@ -42,6 +42,7 @@ const TABS = [
  { value: KIND_EXPENSE, label: 'Расходы' },
  { value: KIND_SALARY, label: 'Выплаты ЗП' },
  { value: KIND_REFUND, label: 'Возвраты' },
+ { value: KIND_DRAW, label: 'Изъятия' },
 ]
 
 // Колонки таблицы — как в AlfaCRM. Каждая сортируется.
@@ -422,6 +423,8 @@ export default function Finance() {
         <Metric label="Расходы компании" value={money(expenseTotal(periodTx))} color="#dc2626" />
         <Metric label="Выплаты ЗП" value={money(salaryTotal(periodTx))} color="#dc2626" />
         <Metric label="Возвраты клиентам" value={money(refundTotal(periodTx))} color="#dc2626" />
+        {/* Изъятия стоят рядом с прибылью: сколько школа заработала и сколько владелец забрал. */}
+        <Metric label="Изъятия владельца" value={money(drawTotal(periodTx))} color="#b45309" />
         <Metric label="Прибыль за период" value={money(profit)}
           color={profit >= 0 ? '#059669' : '#dc2626'} />
         <Metric label="Баланс компании" value={money(balance)}

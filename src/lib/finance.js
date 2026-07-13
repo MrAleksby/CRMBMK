@@ -17,6 +17,15 @@ export const KIND_EXPENSE = 'expense'
 export const KIND_SALARY = 'salary'
 export const KIND_REFUND = 'refund'
 
+// Изъятие — владелец забрал деньги себе (продукты, дом, личные траты).
+// Это НЕ расход школы: школа ничего не купила и не оплатила работу, деньги просто
+// вышли из кассы в карман собственника. Поэтому изъятие уменьшает кассу, но не
+// уменьшает прибыль: прибыль сначала заработана, потом распределена.
+//
+// Раньше такие траты проводили как «Выплату ЗП» с комментарием, и прибыль в отчётах
+// уходила в минус на 22 млн — школа выглядела убыточной, хотя зарабатывала.
+export const KIND_DRAW = 'draw'
+
 // Деньги ученика: оплаты и возвраты. Только они входят в баланс (см. balance.js),
 // поэтому всем страницам, кроме «Финансов», больше ничего и не нужно.
 //
@@ -33,6 +42,7 @@ const SIGN = {
   [KIND_EXPENSE]: -1,
   [KIND_SALARY]: -1,
   [KIND_REFUND]: -1,
+  [KIND_DRAW]: -1,
 }
 
 export const TX_KINDS = [
@@ -40,6 +50,7 @@ export const TX_KINDS = [
   { value: KIND_EXPENSE, label: 'Расход', iconName: 'download', color: '#dc2626' },
   { value: KIND_SALARY, label: 'Выплата ЗП', iconName: 'teacher', color: '#dc2626' },
   { value: KIND_REFUND, label: 'Возврат клиенту', iconName: 'undo', color: '#dc2626' },
+  { value: KIND_DRAW, label: 'Изъятие', iconName: 'logout', color: '#b45309' },
 ]
 
 export const kindMeta = (kind) => TX_KINDS.find(k => k.value === kind) ?? TX_KINDS[0]
@@ -76,15 +87,21 @@ export const incomeTotal = (transactions) => sumAmount(ofKind(transactions, KIND
 export const expenseTotal = (transactions) => sumAmount(ofKind(transactions, KIND_EXPENSE))
 export const salaryTotal = (transactions) => sumAmount(ofKind(transactions, KIND_SALARY))
 export const refundTotal = (transactions) => sumAmount(ofKind(transactions, KIND_REFUND))
+export const drawTotal = (transactions) => sumAmount(ofKind(transactions, KIND_DRAW))
 
 // Сколько денег у компании: всё пришедшее минус всё выплаченное.
-// Начисления за занятия не участвуют — они не деньги, а долг ученика.
+// Изъятия входят: деньги физически ушли из кассы, и остаток обязан сойтись
+// с наличностью. Начисления за занятия не участвуют — они не деньги, а долг ученика.
 export const companyBalance = (transactions) =>
   transactions.reduce((total, t) => total + (SIGN[t.kind] ?? 0) * (t.amount || 0), 0)
 
 // Прибыль за период — по фактическим деньгам, прошедшим через кассу.
 // Проведённое, но не оплаченное занятие сюда не попадает: это долг, а не доход.
-export const periodProfit = (transactions) => companyBalance(transactions)
+//
+// Изъятия владельца прибыль НЕ уменьшают: они не затрата, а распределение уже
+// заработанного. Поэтому прибыль = баланс кассы + то, что владелец из неё забрал.
+export const periodProfit = (transactions) =>
+  companyBalance(transactions) + drawTotal(transactions)
 
 // Остаток по каждой кассе за всё время. Порядок — как в справочнике.
 export function accountTotals(transactions, accounts) {

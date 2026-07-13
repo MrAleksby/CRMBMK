@@ -6,11 +6,13 @@ import DirectoryTable from '../components/DirectoryTable'
 import MigrationPanel from '../components/MigrationPanel'
 import AlfaImportPanel from '../components/AlfaImportPanel'
 import StaffPanel from '../components/StaffPanel'
+import DrawsPanel from '../components/DrawsPanel'
 import Icon from '../components/Icon'
 
 const MIGRATION = 'migration'
 const IMPORT = 'import'
 const STAFF = 'staff'
+const DRAWS = 'draws'
 
 const tab = (isActive) => ({
   // inline-flex, а не иконка внутри строки: во flex-ряду кнопка сжимается,
@@ -56,6 +58,12 @@ export default function Settings() {
             <Icon name={d.iconName} size={14} />{d.label}
           </button>
         ))}
+        {/* Переразметка старых «зарплат себе». Деньги владельца — дело владельца. */}
+        {admin && (
+          <button onClick={() => setActiveKey(DRAWS)} style={tab(activeKey === DRAWS)}>
+            <Icon name="logout" size={14} />Изъятия
+          </button>
+        )}
         <button onClick={() => setActiveKey(MIGRATION)} style={tab(activeKey === MIGRATION)}>
           Перенос финансов
         </button>
@@ -73,6 +81,7 @@ export default function Settings() {
      {activeKey === MIGRATION ? <MigrationPanel />
         : activeKey === IMPORT ? <AlfaImportPanel />
         : activeKey === STAFF ? (admin ? <StaffPanel /> : null)
+        : activeKey === DRAWS ? (admin ? <DrawsPanel /> : null)
         : <DirectoryTable dir={dir} />}
     </div>
   )

@@ -13,8 +13,13 @@ export const CATEGORY_KINDS = [
   { value: 'income', label: 'Доход' },
   { value: 'expense', label: 'Расход' },
   { value: 'salary', label: 'Выплата ЗП' },
-  { value: 'refund', label: '↩️ Возврат клиенту' },
+  { value: 'refund', label: 'Возврат клиенту' },
+  { value: 'draw', label: 'Изъятие' },
 ]
+
+// Статья, которую панель переразметки ставит бывшим «зарплатам себе».
+// Заводится сама, если её ещё нет: операция без статьи не сохраняется.
+export const DRAW_CATEGORY = { name: 'Изъятие владельца', kind: 'draw' }
 
 // Порядок внутри типа — как перечислил владелец, поэтому фиксируем его полем order.
 const CATEGORY_SEED = [
@@ -39,6 +44,8 @@ const CATEGORY_SEED = [
   { name: 'Аутсорс', kind: 'salary' },
 
   { name: 'Возврат средств', kind: 'refund' },
+
+  { name: DRAW_CATEGORY.name, kind: DRAW_CATEGORY.kind },
 ].map((row, index) => ({ ...row, order: index }))
 
 // Роль сотрудника. Зарплату получают все, уроки ведут только педагоги.

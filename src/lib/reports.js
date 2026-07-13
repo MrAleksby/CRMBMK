@@ -10,7 +10,7 @@
 // в AlfaCRM у каждого отчёта была своя панель фильтров, и без произвольного
 // периода не посмотреть ни квартал, ни неделю.
 
-import { KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, toJsDate } from './finance'
+import { KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, KIND_DRAW, toJsDate } from './finance'
 import { isLeadClient } from './client'
 import { isConverted } from './lead'
 
@@ -103,7 +103,7 @@ export function monthlyMoney(transactions, charges, range, filters = {}) {
     if (!rows.has(key)) {
       rows.set(key, {
         key, label: monthLabel(key),
-        income: 0, expense: 0, salary: 0, refund: 0, charged: 0, lessons: 0,
+        income: 0, expense: 0, salary: 0, refund: 0, draw: 0, charged: 0, lessons: 0,
       })
     }
     return rows.get(key)
@@ -121,6 +121,7 @@ export function monthlyMoney(transactions, charges, range, filters = {}) {
     else if (t.kind === KIND_EXPENSE) target.expense += amount
     else if (t.kind === KIND_SALARY) target.salary += amount
     else if (t.kind === KIND_REFUND) target.refund += amount
+    else if (t.kind === KIND_DRAW) target.draw += amount
   }
 
   // Начисления кассы и статьи не имеют, поэтому при фильтре по ним их не считаем:
@@ -137,8 +138,10 @@ export function monthlyMoney(transactions, charges, range, filters = {}) {
 
   const list = [...rows.values()].sort((a, b) => a.key.localeCompare(b.key))
   for (const item of list) {
+    // Изъятия владельца в прибыль не входят: школа их не тратила, владелец забрал
+    // из уже заработанного. В движение по кассе (cash) — входят: денег стало меньше.
     item.profit = item.charged - item.expense - item.salary
-    item.cash = item.income - item.expense - item.salary - item.refund
+    item.cash = item.income - item.expense - item.salary - item.refund - item.draw
   }
   return list
 }
@@ -375,7 +378,9 @@ export function debtorsReport(clients, transactions, charges, subscriptions, les
 // Остаток по кассе — за всё время: касса не обнуляется первого числа. А приход
 // и расход — за выбранный период: это движение, оно и должно быть периодным.
 export function accountsReport(transactions, accounts, range) {
-  const sign = { [KIND_INCOME]: 1, [KIND_EXPENSE]: -1, [KIND_SALARY]: -1, [KIND_REFUND]: -1 }
+  const sign = {
+    [KIND_INCOME]: 1, [KIND_EXPENSE]: -1, [KIND_SALARY]: -1, [KIND_REFUND]: -1, [KIND_DRAW]: -1,
+  }
 
   return accounts.map(account => {
     const mine = transactions.filter(t => t.accountId === account.id)
