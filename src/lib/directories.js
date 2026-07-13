@@ -10,9 +10,9 @@ export const FIELD_HANDLE = 'handle'
 // Типы операций. «Выплата ЗП» и «Возврат клиенту» стоят отдельно от расходов —
 // так же, как в AlfaCRM, где это самостоятельные типы документа.
 export const CATEGORY_KINDS = [
-  { value: 'income', label: '📈 Доход' },
-  { value: 'expense', label: '📉 Расход' },
-  { value: 'salary', label: '👥 Выплата ЗП' },
+  { value: 'income', label: 'Доход' },
+  { value: 'expense', label: 'Расход' },
+  { value: 'salary', label: 'Выплата ЗП' },
   { value: 'refund', label: '↩️ Возврат клиенту' },
 ]
 
@@ -44,9 +44,9 @@ const CATEGORY_SEED = [
 // Роль сотрудника. Зарплату получают все, уроки ведут только педагоги.
 // Записи без роли — педагоги: справочник заводился, когда менеджеров в нём не было.
 export const STAFF_ROLES = [
-  { value: 'teacher', label: '🎓 Педагог' },
-  { value: 'manager', label: '💼 Менеджер' },
-  { value: 'other', label: '👤 Другое' },
+  { value: 'teacher', label: 'Педагог' },
+  { value: 'manager', label: 'Менеджер' },
+  { value: 'other', label: 'Другое' },
 ]
 
 export const isTeacher = (staff) => (staff?.role || 'teacher') === 'teacher'
@@ -58,7 +58,7 @@ export const DIRECTORIES = [
   {
     key: 'teachers',
     label: 'Сотрудники',
-    icon: '🎓',
+    iconName: 'teacher',
     itemName: 'сотрудника',
     hint: 'Педагоги ведут уроки. Менеджерам и аутсорсу можно провести выплату ЗП, ' +
       'но в занятия они не попадают.',
@@ -77,7 +77,7 @@ export const DIRECTORIES = [
   {
     key: 'packages',
     label: 'Абонементы',
-    icon: '🎫',
+    iconName: 'ticket',
     itemName: 'абонемент',
     hint: 'Пакет уроков. Цена за занятие подставится в журнал автоматически, но её можно изменить.',
     fields: [
@@ -90,7 +90,7 @@ export const DIRECTORIES = [
   {
     key: 'accounts',
     label: 'Кассы',
-    icon: '🏦',
+    iconName: 'finance',
     itemName: 'кассу',
     hint: 'Порядок задаёт, как кассы идут в отчёте по остаткам. Меньше число — выше строка.',
     // Порядок кассы задан вручную: в отчёте она должна стоять там, где привык владелец,
@@ -101,8 +101,8 @@ export const DIRECTORIES = [
       {
         key: 'kind', label: 'Тип', type: FIELD_SELECT, required: true,
         options: [
-          { value: 'cash', label: '💵 Наличные' },
-          { value: 'card', label: '💳 Карта' },
+          { value: 'cash', label: 'Наличные' },
+          { value: 'card', label: 'Карта' },
         ],
       },
       { key: 'order', label: 'Порядок в отчёте', type: FIELD_COUNT, min: 0 },
@@ -116,7 +116,7 @@ export const DIRECTORIES = [
   {
     key: 'categories',
     label: 'Статьи',
-    icon: '🏷️',
+    iconName: 'list',
     itemName: 'статью',
     hint: 'Статьи доходов и расходов. «Выплата ЗП» — отдельный тип операции, как в AlfaCRM. ' +
       'Налог 1% вносится вручную как расход.',
@@ -136,7 +136,7 @@ export const DIRECTORIES = [
   {
     key: 'legalEntities',
     label: 'Юр. лица',
-    icon: '🏛️',
+    iconName: 'archive',
     itemName: 'юр. лицо',
     hint: 'Организации, которые платят за учеников вместо родителей.',
     fields: [

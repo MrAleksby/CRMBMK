@@ -573,8 +573,11 @@ export default function Finance() {
                       <td style={td()}>
                        {/* Иконка и тип не разрываются: в узкой колонке значок
                             иначе отрывается от слова. Номер документа — строкой ниже. */}
-                        <span style={{ color: meta.color, fontWeight: '600', whiteSpace: 'nowrap' }}>
-                         {meta.icon} {meta.label}
+                        <span style={{
+                          color: meta.color, fontWeight: '600', whiteSpace: 'nowrap',
+                          display: 'inline-flex', alignItems: 'center', gap: '5px',
+                        }}>
+                          <Icon name={meta.iconName} size={13} />{meta.label}
                         </span>
                        {number && (
                           <div style={{ color: '#9ca3af', fontSize: '11px', marginTop: '1px' }}>{number}</div>

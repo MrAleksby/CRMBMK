@@ -29,8 +29,8 @@ export function parentPhones(parent) {
 }
 
 export const PAYER_TYPES = [
-  { value: 'parent', label: '👤 Родители' },
-  { value: 'legal', label: '🏛️ Юр. лицо' },
+  { value: 'parent', label: 'Родители' },
+  { value: 'legal', label: 'Юр. лицо' },
 ]
 
 // Статус обучения, как в AlfaCRM. Статус «лид» — техническая основа карточки
@@ -200,7 +200,6 @@ export function contactRows(client) {
   if (rows.length === 0 && (client.parentName || client.phone || client.email)) {
     rows.push({
       role: 'Родитель',
-      icon: '👤',
       name: client.parentName || '',
       phones: client.phone ? [client.phone] : [],
       email: client.email || '',

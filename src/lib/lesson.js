@@ -10,17 +10,18 @@ export const ATTENDANCE = {
 }
 
 export const LESSON_TYPES = [
-  { value: 'group', label: 'Групповой', icon: '👥' },
-  { value: 'individual', label: 'Индивидуальный', icon: '🧑' },
-  { value: 'trial', label: 'Пробный', icon: '✱' },
+  { value: 'group', label: 'Групповой', iconName: 'groups' },
+  { value: 'individual', label: 'Индивидуальный', iconName: 'clients' },
+  { value: 'trial', label: 'Пробный', iconName: 'star' },
 ]
 
 // Пробное занятие: помечено звёздочкой, как в AlfaCRM. Ребёнок пришёл впервые,
 // группы у него ещё нет.
 export const isTrial = (lesson) => lesson?.type === 'trial'
 
-export const lessonTypeIcon = (type) =>
-  LESSON_TYPES.find(t => t.value === type)?.icon || '👥'
+// Имя линейной иконки типа занятия (см. components/Icon.jsx).
+export const lessonTypeIconName = (type) =>
+  LESSON_TYPES.find(t => t.value === type)?.iconName || 'groups'
 
 // Список имён учеников занятия по составу. Для проведённого берём из журнала
 // (там зафиксирован факт), для запланированного — из studentIds.

@@ -36,10 +36,10 @@ const SIGN = {
 }
 
 export const TX_KINDS = [
-  { value: KIND_INCOME, label: 'Доход', icon: '💰', color: '#059669' },
-  { value: KIND_EXPENSE, label: 'Расход', icon: '📉', color: '#dc2626' },
-  { value: KIND_SALARY, label: 'Выплата ЗП', icon: '👥', color: '#dc2626' },
-  { value: KIND_REFUND, label: 'Возврат клиенту', icon: '↩️', color: '#dc2626' },
+  { value: KIND_INCOME, label: 'Доход', iconName: 'money', color: '#059669' },
+  { value: KIND_EXPENSE, label: 'Расход', iconName: 'download', color: '#dc2626' },
+  { value: KIND_SALARY, label: 'Выплата ЗП', iconName: 'teacher', color: '#dc2626' },
+  { value: KIND_REFUND, label: 'Возврат клиенту', iconName: 'undo', color: '#dc2626' },
 ]
 
 export const kindMeta = (kind) => TX_KINDS.find(k => k.value === kind) ?? TX_KINDS[0]

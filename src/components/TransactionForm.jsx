@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { TX_KINDS, KIND_INCOME, KIND_SALARY, KIND_REFUND } from '../lib/finance'
 import { emptyTransactionForm, categoriesForKind, validateTransactionForm, suggestPayer } from '../lib/transaction'
 import { staffRoleLabel, perLessonPrice } from '../lib/directories'
+import Icon from './Icon'
 
 const inputStyle = {
   background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '10px',
@@ -126,7 +127,9 @@ export default function TransactionForm({
               border: `1px solid ${active ? '#ddd6fe' : '#e5e7eb'}`,
               padding: '8px 14px', borderRadius: '10px',
               fontSize: '13px', fontWeight: '600', cursor: 'pointer',
-            }}>{k.icon} {k.label}</button>
+            }}>
+              <Icon name={k.iconName} size={13} style={{ verticalAlign: '-2px', marginRight: '4px' }} />{k.label}
+            </button>
           )
         })}
       </div>

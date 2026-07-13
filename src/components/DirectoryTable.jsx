@@ -9,6 +9,7 @@ import {
   FIELD_AMOUNT, FIELD_COUNT, FIELD_SELECT, FIELD_HANDLE,
   emptyItem, optionLabel, perLessonPrice, sortItems, nextOrder,
 } from '../lib/directories'
+import Icon from './Icon'
 
 const card = {
   background: '#ffffff',
@@ -231,8 +232,11 @@ export default function DirectoryTable({ dir }) {
     <div>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', marginBottom: '16px' }}>
         <div>
-          <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#111827', margin: 0 }}>
-           {dir.icon} {dir.label}
+          <h3 style={{
+            fontSize: '18px', fontWeight: '700', color: '#111827', margin: 0,
+            display: 'flex', alignItems: 'center', gap: '7px',
+          }}>
+            <Icon name={dir.iconName} size={16} style={{ color: '#7c3aed' }} />{dir.label}
           </h3>
          {dir.hint && <p style={{ fontSize: '13px', color: '#6b7280', marginTop: '6px', maxWidth: '520px' }}>{dir.hint}</p>}
         </div>

@@ -739,7 +739,7 @@ export default function ClientCard() {
                   open: true, amount: '', description: '',
                   date: today, accountId: accounts[0]?.id || '', categoryId: incomeCategories[0]?.id || '',
                 })}>
-                  <Icon name="money" size={15} style={{ marginRight: '6px', verticalAlign: '-2px' }} />Принять оплату
+                  Принять оплату
                 </button>
               </div>
             )}
@@ -747,7 +747,7 @@ export default function ClientCard() {
            {form.open && (
               <div style={{ background: '#f7f8fa', borderRadius: '12px', padding: '14px', marginBottom: '14px' }}>
                 <p style={{ fontWeight: '600', fontSize: '14px', marginBottom: '12px', color: '#059669' }}>
-                  <Icon name="money" size={15} style={{ marginRight: '6px', verticalAlign: '-2px' }} />Принять оплату
+                  Принять оплату
                 </p>
 
                {accounts.length === 0 || incomeCategories.length === 0 ? (

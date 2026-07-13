@@ -7,8 +7,9 @@ import {
   durationMinutes,
 } from '../lib/calendar'
 import {
-  isTrial, lessonTypeLabel, lessonTypeIcon, lessonStudentNames, formatLessonDate,
+  isTrial, lessonTypeLabel, lessonTypeIconName, lessonStudentNames, formatLessonDate,
 } from '../lib/lesson'
+import Icon from './Icon'
 
 const navBtn = {
   background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px',
@@ -132,7 +133,9 @@ function LessonPreview({ lesson, clients, teachers, onOpen, onClose, hideMoney =
           padding: '12px 16px', borderBottom: '1px solid #e5e7eb', background: style.background,
         }}>
           <span style={{ fontSize: '14px', fontWeight: '700', color: style.color }}>
-           {trial ? '✱ ' : `${lessonTypeIcon(lesson.type)} `}{lessonTypeLabel(lesson.type)} · {status.label}
+            <Icon name={trial ? 'star' : lessonTypeIconName(lesson.type)} size={14}
+              style={{ verticalAlign: '-2px', marginRight: '5px' }} />
+            {lessonTypeLabel(lesson.type)} · {status.label}
           </span>
           <button onClick={onClose} style={{
             background: 'transparent', border: 'none', fontSize: '16px', color: '#6b7280', cursor: 'pointer',
