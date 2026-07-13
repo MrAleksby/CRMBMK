@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { invalidate } from '../lib/store'
@@ -105,6 +105,7 @@ export default function DirectoryTable({ dir }) {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(() => emptyItem(dir))
   const [error, setError] = useState('')
+  const formRef = useRef(null)
 
   const fetchItems = async () => {
     setLoading(true)
@@ -215,6 +216,12 @@ export default function DirectoryTable({ dir }) {
     }
   }
 
+  // Форма стоит над таблицей, а «Изменить» жмут у нижней строки — и правка
+  // открывалась за пределами экрана. Выглядело как «кнопка не работает».
+  useEffect(() => {
+    if (showForm) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [showForm, editingId])
+
   const startEdit = (item) => {
     const next = emptyItem(dir)
     for (const field of dir.fields) {
@@ -282,7 +289,7 @@ export default function DirectoryTable({ dir }) {
       )}
 
      {showForm && (
-        <form onSubmit={handleSubmit} style={{ ...card, marginBottom: '16px' }}>
+        <form ref={formRef} onSubmit={handleSubmit} style={{ ...card, marginBottom: '16px' }}>
           <h4 style={{ color: '#111827', fontSize: '15px', fontWeight: '600', marginBottom: '14px' }}>
            {editingId ? 'Изменить' : `Добавить ${dir.itemName}`}
           </h4>
