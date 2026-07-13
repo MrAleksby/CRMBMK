@@ -378,14 +378,15 @@ export default function DirectoryTable({ dir }) {
                     }}>
                       <div style={{ display: 'inline-flex', gap: '6px' }}>
                         <button onClick={() => toggleActive(item)} style={rowBtn}
-                          title={inactive ? 'Включить' : 'Отключить'}>
+                          className="tip" data-tip={inactive ? 'Включить' : 'Отключить'}>
                           <Icon name={inactive ? 'check' : 'lock'} size={14} />
                         </button>
-                        <button onClick={() => startEdit(item)} style={rowBtn} title="Изменить">
+                        <button onClick={() => startEdit(item)} style={rowBtn}
+                          className="tip" data-tip="Изменить">
                           <Icon name="edit" size={14} />
                         </button>
                         <button onClick={() => handleDelete(item)} style={{ ...rowBtn, color: '#dc2626' }}
-                          title="Удалить">
+                          className="tip" data-tip="Удалить">
                           <Icon name="trash" size={14} />
                         </button>
                       </div>

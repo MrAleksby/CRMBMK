@@ -19,3 +19,37 @@ textarea:focus {
   border-color: #7c3aed !important;
   box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
 }
+
+/* Подсказка у кнопки-иконки: подпись слева от неё, появляется при наведении.
+   Нативный title ждёт секунду и в таблице справочников читается слишком поздно —
+   у замка «Отключить» без подписи вообще не угадать смысл.
+   Слева, а не сверху: контейнер таблицы прокручивается, и плашку над первой
+   строкой он обрезал бы. */
+.tip {
+  position: relative;
+}
+
+.tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #111827;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  z-index: 5;
+}
+
+.tip:hover::after,
+.tip:focus-visible::after {
+  opacity: 1;
+}
