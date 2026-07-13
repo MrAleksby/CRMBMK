@@ -148,6 +148,9 @@ export function monthlyMoney(transactions, charges, range, filters = {}) {
     // Изъятия владельца в неё не входят: школа их не тратила, владелец забрал
     // из уже заработанного. В движение по кассе (cash) — входят: денег стало меньше.
     item.profit = item.charged + item.otherIncome - item.expense - item.salary
+    // Сколько прибыли осталось в деле после того, как владелец забрал своё.
+    // Минус означает: вывели больше, чем заработали за этот месяц.
+    item.retained = item.profit - item.draw
     item.cash = item.income - item.expense - item.salary - item.refund - item.draw
   }
   return list

@@ -211,7 +211,8 @@ export default function Reports() {
     draw: acc.draw + r.draw,
     charged: acc.charged + r.charged,
     profit: acc.profit + r.profit,
-  }), { income: 0, expense: 0, salary: 0, draw: 0, charged: 0, profit: 0 })
+    retained: acc.retained + r.retained,
+  }), { income: 0, expense: 0, salary: 0, draw: 0, charged: 0, profit: 0, retained: 0 })
 
   const debtSum = debtRows.reduce((sum, r) => sum + r.balance, 0)
   const maxCategory = Math.max(...categoryRows.map(c => c.total), 1)
@@ -247,7 +248,7 @@ export default function Reports() {
         <div style={card}>
           <ReportHead
             title="Деньги по месяцам"
-            hint="Прибыль = списано за занятия + доходы вне занятий (турниры, кешбеки) − расходы − ЗП. Не «доходы − расходы»: абонемент оплачивают разом, а зарабатывают его по мере занятий. Изъятия владельца прибыль не уменьшают — это распределение уже заработанного, а не затрата школы. При фильтре по кассе или статье списания не показываются — у них нет ни того, ни другого."
+            hint="Прибыль = списано за занятия + доходы вне занятий (турниры, кешбеки) − расходы − ЗП. Не «доходы − расходы»: абонемент оплачивают разом, а зарабатывают его по мере занятий. Изъятия владельца прибыль не уменьшают — это распределение уже заработанного, а не затрата школы. «Осталось» — прибыль минус изъятия: сколько заработанного осталось в деле. Минус означает, что за месяц вывели больше, чем заработали. При фильтре по кассе или статье списания не показываются — у них нет ни того, ни другого."
             onExport={() => downloadCsv(`деньги ${period}`, [
               { label: 'Месяц', value: r => r.label },
               { label: 'Оплаты', value: r => r.income },
@@ -258,6 +259,7 @@ export default function Reports() {
               { label: 'Доходы вне занятий', value: r => r.otherIncome },
               { label: 'Изъятия владельца', value: r => r.draw },
               { label: 'Прибыль', value: r => r.profit },
+              { label: 'Осталось после изъятий', value: r => r.retained },
             ], moneyRows)}
           >
             <select value={moneyFilters.accountId} style={select}
@@ -283,6 +285,7 @@ export default function Reports() {
                   <th style={th}>ЗП</th>
                   <th style={th}>Изъятия</th>
                   <th style={th}>Прибыль</th>
+                  <th style={th}>Осталось</th>
                   <th style={{ ...th, width: '110px' }} />
                 </tr>
               </thead>
@@ -298,6 +301,10 @@ export default function Reports() {
                     <td style={{ ...td, fontWeight: '700', color: r.profit < 0 ? '#dc2626' : '#059669' }}>
                       {money(r.profit)}
                     </td>
+                    {/* Минус — вывели больше, чем заработали за месяц. */}
+                    <td style={{ ...td, color: r.retained < 0 ? '#dc2626' : '#4b5563' }}>
+                      {money(r.retained)}
+                    </td>
                     <td style={td}><Bar value={r.charged} max={maxCharged} color="#7c3aed" /></td>
                   </tr>
                 ))}
@@ -310,6 +317,9 @@ export default function Reports() {
                   <td style={{ ...td, fontWeight: '700', color: '#b45309' }}>{money(totals.draw)}</td>
                   <td style={{ ...td, fontWeight: '700', color: totals.profit < 0 ? '#dc2626' : '#059669' }}>
                     {money(totals.profit)}
+                  </td>
+                  <td style={{ ...td, fontWeight: '700', color: totals.retained < 0 ? '#dc2626' : '#4b5563' }}>
+                    {money(totals.retained)}
                   </td>
                   <td style={td} />
                 </tr>

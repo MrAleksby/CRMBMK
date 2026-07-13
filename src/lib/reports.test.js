@@ -58,6 +58,15 @@ describe('monthlyMoney', () => {
     expect(jan.profit).toBe(330_000 + 500_000 - 200_000)
   })
 
+  it('«осталось» = прибыль минус изъятия, минус — вывели больше, чем заработали', () => {
+    const withDraw = [...transactions, tx('draw', 500_000, '2026-01-28')]
+    const rows = monthlyMoney(withDraw, charges, RANGE)
+    const jan = rows.find(r => r.key === '2026-01')
+
+    expect(jan.profit).toBe(130_000)
+    expect(jan.retained).toBe(130_000 - 500_000)
+  })
+
   it('оплата ученика в прибыль напрямую не идёт — её приносит занятие', () => {
     const rows = monthlyMoney(transactions, charges, RANGE)
     const jan = rows.find(r => r.key === '2026-01')
