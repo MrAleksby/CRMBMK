@@ -6,7 +6,7 @@ import { withTimeout, describeError } from '../lib/withTimeout'
 import { readCollection, invalidate } from '../lib/store'
 import { MONTHS_SHORT } from '../lib/constants'
 import {
-  KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, KIND_DRAW, kindMeta,
+  KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, KIND_DRAW, kindMeta, YEAR_ALL,
   toJsDate, inPeriod, availableYears, documentNumber, sortTransactions,
   incomeTotal, expenseTotal, salaryTotal, refundTotal, drawTotal,
   companyBalance, periodProfit, accountTotals, categoryTotals,
@@ -137,7 +137,8 @@ export default function Finance() {
   const selection = useSelection(transactions)
 
   const [filterMonth, setFilterMonth] = useState('all')
-  const [filterYear, setFilterYear] = useState(new Date().getFullYear())
+  // Год — строка: рядом с числами живёт YEAR_ALL («все годы»).
+  const [filterYear, setFilterYear] = useState(() => String(new Date().getFullYear()))
   const [filterAccount, setFilterAccount] = useState('all')
   const [filterCategory, setFilterCategory] = useState('all')
   const [amountFrom, setAmountFrom] = useState('')
@@ -347,6 +348,14 @@ export default function Finance() {
   const balance = companyBalance(transactions)
   const profit = periodProfit(periodTx)
 
+  // Подпись периода: «за всё время», «2026» или «июл 2026». Метрики считаются
+  // ровно по нему, поэтому подпись должна совпадать с фильтрами буквально.
+  const periodLabel = filterYear === YEAR_ALL
+    ? 'за всё время'
+    : filterMonth === 'all'
+      ? `${filterYear} год`
+      : `${MONTHS_SHORT[filterMonth]} ${filterYear}`
+
   return (
     <div style={{ maxWidth: '1100px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', gap: '12px', flexWrap: 'wrap' }}>
@@ -391,8 +400,9 @@ export default function Finance() {
           <option value="all">Все месяцы</option>
          {MONTHS_SHORT.map((m, i) => <option key={i} value={i}>{m}</option>)}
         </select>
-        <select style={{ ...inputStyle, width: '95px' }} value={filterYear}
-          onChange={e => { setFilterYear(Number(e.target.value)); setPage(1) }}>
+        <select style={{ ...inputStyle, width: '110px' }} value={filterYear}
+          onChange={e => { setFilterYear(e.target.value); setPage(1) }}>
+          <option value={YEAR_ALL}>Все годы</option>
          {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
         <select style={{ ...inputStyle, width: '150px' }} value={filterAccount}
@@ -414,6 +424,10 @@ export default function Finance() {
       </div>
 
      {/* Метрики */}
+      <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '8px' }}>
+        Показано {periodLabel}. «Баланс компании», «Долги» и «Должны клиентам» —
+        всегда за всё время: долг не «за июль», он просто есть.
+      </p>
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
@@ -455,7 +469,7 @@ export default function Finance() {
 
         <div style={card}>
           <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>
-            По статьям {filterMonth !== 'all' ? `(${MONTHS_SHORT[filterMonth]} ${filterYear})` : 'за всё время'}
+            По статьям ({periodLabel})
           </p>
          {categoriesReport.length === 0 ? (
             <p style={{ color: '#6b7280', fontSize: '13px', margin: 0 }}>Нет операций за период</p>

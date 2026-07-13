@@ -22,7 +22,7 @@ import {
   clientHistory, whyKeepClient, STATUS_DROPPED, lessonsLabel,
 } from '../lib/client'
 import { MONTHS_SHORT } from '../lib/constants'
-import { KIND_INCOME, toJsDate, inPeriod as inMonth, availableYears } from '../lib/finance'
+import { KIND_INCOME, toJsDate, inPeriod as inMonth, availableYears, YEAR_ALL } from '../lib/finance'
 import { readCollection, readClientMoney, invalidate } from '../lib/store'
 import { categoriesForKind } from '../lib/transaction'
 import { clientBalance } from '../lib/balance'
@@ -176,7 +176,9 @@ export default function ClientCard() {
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState(false)
   const [filterMonth, setFilterMonth] = useState('all')
-  const [filterYear, setFilterYear] = useState(new Date().getFullYear())
+  // В карточке по умолчанию — вся история ученика: сюда заходят посмотреть,
+  // сколько он платил и ходил вообще, а не за текущий год.
+  const [filterYear, setFilterYear] = useState(YEAR_ALL)
   const [form, setForm] = useState({ open: false })
 
   // Педагог карточку только смотрит: ни денег, ни правки, ни записи на занятия.
@@ -586,7 +588,11 @@ export default function ClientCard() {
   // Плюс — предоплаченные занятия, минус — неоплаченные проведённые.
   const lessonsInStock = lessonsLeft(subscriptions, id, balance, charges, client)
   const { current: currentSubs, archived: archivedSubs } = splitSubscriptions(subscriptions)
-  const periodLabel = filterMonth !== 'all' ? `${MONTHS_SHORT[filterMonth]} ${filterYear}` : 'за всё время'
+  const periodLabel = filterYear === YEAR_ALL
+    ? 'за всё время'
+    : filterMonth === 'all'
+      ? `${filterYear} год`
+      : `${MONTHS_SHORT[filterMonth]} ${filterYear}`
 
   // Заказчик — тот, кто платит. Показываем его, только если это юрлицо:
   // родитель-плательщик и так виден в «Контактах».
@@ -726,7 +732,9 @@ export default function ClientCard() {
                   <option value="all">Все месяцы</option>
                  {MONTHS_SHORT.map((m, i) => <option key={i} value={i}>{m}</option>)}
                 </select>
-                <select style={{ ...inputStyle, width: '90px' }} value={filterYear} onChange={e => setFilterYear(Number(e.target.value))}>
+                <select style={{ ...inputStyle, width: '110px' }} value={filterYear}
+                  onChange={e => setFilterYear(e.target.value)}>
+                  <option value={YEAR_ALL}>Все годы</option>
                  {years.map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
               </div>

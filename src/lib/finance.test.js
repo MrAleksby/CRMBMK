@@ -97,10 +97,25 @@ describe('inPeriod — фильтр по месяцу и году', () => {
     expect(inPeriod(item, 5, 2026)).toBe(false)
   })
 
-  // «Все месяцы» означает «за всё время», а не «за выбранный год»: так и подписано
-  // в карточке клиента и в финансах. Год при этом не ограничивает.
-  it('«все месяцы» — за всё время, год не ограничивает', () => {
+  // «Все месяцы» — это весь выбранный год, а не «за всё время». Раньше год молча
+  // отменялся, и в финансах при выбранном 2026 в метрики попадал декабрь 2025.
+  it('«все месяцы» — весь выбранный год', () => {
     expect(inPeriod(item, 'all', 2026)).toBe(true)
-    expect(inPeriod(item, 'all', 2025)).toBe(true)
+    expect(inPeriod(item, 'all', 2025)).toBe(false)
+  })
+
+  it('«все годы» снимают ограничение по году', () => {
+    expect(inPeriod(item, 'all', 'all')).toBe(true)
+    expect(inPeriod(item, 6, 'all')).toBe(true)
+    expect(inPeriod(item, 5, 'all')).toBe(false)
+  })
+
+  it('год-строка из <select> понимается как число', () => {
+    expect(inPeriod(item, 'all', '2026')).toBe(true)
+    expect(inPeriod(item, 'all', '2025')).toBe(false)
+  })
+
+  it('запись без даты в период не попадает', () => {
+    expect(inPeriod({}, 'all', 'all')).toBe(false)
   })
 })

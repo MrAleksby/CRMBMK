@@ -72,11 +72,19 @@ export function toJsDate(value) {
   return null
 }
 
+// Период = год + месяц, и оба могут быть «все».
+//
+// Раньше «Все месяцы» означало «за всё время» и молча отменяло выбранный год:
+// в шапке стоял 2026, а метрики считались вместе с декабрём 2025. Теперь год
+// действует всегда, а чтобы увидеть всю историю, год выбирают явно — YEAR_ALL.
+export const YEAR_ALL = 'all'
+
 export function inPeriod(item, month, year) {
-  if (month === 'all') return true
   const date = toJsDate(item.date)
   if (!date) return false
-  return date.getMonth() === Number(month) && date.getFullYear() === year
+  if (year !== YEAR_ALL && date.getFullYear() !== Number(year)) return false
+  if (month === 'all') return true
+  return date.getMonth() === Number(month)
 }
 
 export const sumAmount = (list) => list.reduce((total, item) => total + (item.amount || 0), 0)
