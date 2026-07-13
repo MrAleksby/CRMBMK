@@ -348,7 +348,11 @@ export default function Finance() {
 
   // Сумма по отфильтрованному: менеджер сверяет её с выпиской.
   const rowsTotal = useMemo(
-    () => rows.reduce((sum, t) => sum + (t.kind === KIND_INCOME ? 1 : -1) * (t.amount || 0), 0),
+    // Перевод в итог не идёт: денег у компании не прибавилось и не убавилось.
+    () => rows.reduce((sum, t) => {
+      if (t.kind === KIND_TRANSFER) return sum
+      return sum + (t.kind === KIND_INCOME ? 1 : -1) * (t.amount || 0)
+    }, 0),
     [rows])
 
   if (loading) return <div style={{ color: '#6b7280', padding: '32px' }}>Загрузка...</div>
@@ -584,6 +588,7 @@ export default function Finance() {
                {pageRows.map(item => {
                   const meta = kindMeta(item.kind)
                   const isIncome = item.kind === KIND_INCOME
+                  const isTransfer = item.kind === KIND_TRANSFER
                   const date = toJsDate(item.date)
                   const number = documentNumber(item)
                   const purpose = item.kind === KIND_SALARY ? item.teacherName : item.clientName
@@ -614,8 +619,12 @@ export default function Finance() {
                         )}
                       </td>
 
-                      <td style={{ ...td('right'), fontWeight: '700', color: isIncome ? '#059669' : '#dc2626', whiteSpace: 'nowrap' }}>
-                       {isIncome ? '+' : '−'}{money(item.amount)}
+                      {/* Перевод не плюс и не минус: деньги остались внутри компании. */}
+                      <td style={{
+                        ...td('right'), fontWeight: '700', whiteSpace: 'nowrap',
+                        color: isTransfer ? '#4b5563' : (isIncome ? '#059669' : '#dc2626'),
+                      }}>
+                       {isTransfer ? '' : (isIncome ? '+' : '−')}{money(item.amount)}
                       </td>
 
                       {/* У перевода касс две: показываем маршрут денег. */}
