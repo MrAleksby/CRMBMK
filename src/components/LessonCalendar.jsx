@@ -132,9 +132,11 @@ function LessonPreview({ lesson, clients, teachers, onOpen, onClose, hideMoney =
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           padding: '12px 16px', borderBottom: '1px solid #e5e7eb', background: style.background,
         }}>
-          <span style={{ fontSize: '14px', fontWeight: '700', color: style.color }}>
-            <Icon name={trial ? 'star' : lessonTypeIconName(lesson.type)} size={14}
-              style={{ verticalAlign: '-2px', marginRight: '5px' }} />
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: '5px',
+            fontSize: '14px', fontWeight: '700', color: style.color,
+          }}>
+            <Icon name={trial ? 'star' : lessonTypeIconName(lesson.type)} size={14} />
             {lessonTypeLabel(lesson.type)} · {status.label}
           </span>
           <button onClick={onClose} style={{

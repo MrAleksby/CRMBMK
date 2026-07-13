@@ -13,6 +13,12 @@ const IMPORT = 'import'
 const STAFF = 'staff'
 
 const tab = (isActive) => ({
+  // inline-flex, а не иконка внутри строки: во flex-ряду кнопка сжимается,
+  // и подпись срывается под картинку.
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '6px',
+  flexShrink: 0,
   background: isActive ? '#ede9fe' : 'transparent',
   color: isActive ? '#7c3aed' : '#4b5563',
   border: `1px solid ${isActive ? '#ddd6fe' : '#e5e7eb'}`,
@@ -47,7 +53,7 @@ export default function Settings() {
       <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
        {DIRECTORIES.map(d => (
           <button key={d.key} onClick={() => setActiveKey(d.key)} style={tab(d.key === activeKey)}>
-            <Icon name={d.iconName} size={14} style={{ verticalAlign: '-2px', marginRight: '5px' }} />{d.label}
+            <Icon name={d.iconName} size={14} />{d.label}
           </button>
         ))}
         <button onClick={() => setActiveKey(MIGRATION)} style={tab(activeKey === MIGRATION)}>

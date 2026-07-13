@@ -122,13 +122,16 @@ export default function TransactionForm({
           const active = form.kind === k.value
           return (
             <button key={k.value} type="button" onClick={() => setKind(k.value)} style={{
+              // inline-flex, а не иконка внутри строки: у кнопки узкая колонка, и
+              // подпись срывалась под картинку.
+              display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap',
               background: active ? '#ede9fe' : 'transparent',
               color: active ? '#7c3aed' : '#4b5563',
               border: `1px solid ${active ? '#ddd6fe' : '#e5e7eb'}`,
               padding: '8px 14px', borderRadius: '10px',
               fontSize: '13px', fontWeight: '600', cursor: 'pointer',
             }}>
-              <Icon name={k.iconName} size={13} style={{ verticalAlign: '-2px', marginRight: '4px' }} />{k.label}
+              <Icon name={k.iconName} size={14} />{k.label}
             </button>
           )
         })}

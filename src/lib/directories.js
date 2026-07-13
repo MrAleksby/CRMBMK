@@ -43,10 +43,12 @@ const CATEGORY_SEED = [
 
 // Роль сотрудника. Зарплату получают все, уроки ведут только педагоги.
 // Записи без роли — педагоги: справочник заводился, когда менеджеров в нём не было.
+// iconName и color рисуются в колонке «Роль»: в таблице из десятка строк педагога
+// от менеджера видно раньше, чем прочитано слово.
 export const STAFF_ROLES = [
-  { value: 'teacher', label: 'Педагог' },
-  { value: 'manager', label: 'Менеджер' },
-  { value: 'other', label: 'Другое' },
+  { value: 'teacher', label: 'Педагог', iconName: 'teacher', color: '#7c3aed' },
+  { value: 'manager', label: 'Менеджер', iconName: 'userCheck', color: '#2563eb' },
+  { value: 'other', label: 'Другое', iconName: 'clients', color: '#6b7280' },
 ]
 
 export const isTeacher = (staff) => (staff?.role || 'teacher') === 'teacher'

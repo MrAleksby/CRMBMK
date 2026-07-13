@@ -73,9 +73,17 @@ function formatCell(dir, item, key) {
     return price === null ? '—' : `${price.toLocaleString()} сум / урок`
   }
   const field = dir.fields.find(f => f.key === key)
-  const value = item[key]
+  const value = item[key] === '' || item[key] == null ? field?.fallback : item[key]
   if (value === '' || value == null) return '—'
-  if (field?.type === FIELD_SELECT) return optionLabel(field, value)
+  if (field?.type === FIELD_SELECT) {
+    const option = field.options.find(o => o.value === value)
+    if (!option?.iconName) return optionLabel(field, value)
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+        <Icon name={option.iconName} size={15} style={{ color: option.color }} />{option.label}
+      </span>
+    )
+  }
   if (field?.type === FIELD_AMOUNT) return `${Number(value).toLocaleString()} сум`
   if (field?.type === FIELD_HANDLE) return `@${value}`
   return String(value)

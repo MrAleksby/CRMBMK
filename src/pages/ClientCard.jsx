@@ -113,10 +113,11 @@ function SubscriptionRow({ sub, archived, onEdit, onArchive, onRestore, onDelete
     <div style={{ marginBottom: '10px', opacity: archived ? 0.75 : 1 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '6px', alignItems: 'center' }}>
         <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: '5px', minWidth: 0,
           fontSize: '13px', color: '#111827', fontWeight: '600',
           textDecoration: archived ? 'line-through' : 'none',
         }}>
-          <Icon name="ticket" size={14} style={{ marginRight: '5px', verticalAlign: '-2px', color: '#7c3aed' }} />
+          <Icon name="ticket" size={14} style={{ color: '#7c3aed' }} />
          {subscriptionTitle(sub)}
         </span>
 

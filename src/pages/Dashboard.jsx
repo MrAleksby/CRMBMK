@@ -4,6 +4,7 @@ import { withTimeout, describeError } from '../lib/withTimeout'
 import { readCollection, readClientMoney, invalidate } from '../lib/store'
 import ErrorBanner from '../components/ErrorBanner'
 import Icon from '../components/Icon'
+import Avatar from '../components/Avatar'
 import { KIND_INCOME, incomeTotal, toJsDate } from '../lib/finance'
 import { clientBalances, debtAndPrepaid } from '../lib/balance'
 import { isLeadClient } from '../lib/client'
@@ -47,6 +48,7 @@ export default function Dashboard() {
 
   useEffect(() => { fetchData() }, [])
 
+  const clientsById = useMemo(() => new Map(clients.map(c => [c.id, c])), [clients])
   const balances = useMemo(() => clientBalances(transactions, charges), [transactions, charges])
   const getClientBalance = (clientId) => balances.get(clientId) || 0
 
@@ -119,10 +121,7 @@ export default function Dashboard() {
                   borderBottom: i < recentPayments.length - 1 ? '1px solid #e5e7eb' : 'none'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{
-                      width: '36px', height: '36px', borderRadius: '50%', background: '#dcfce7',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px'
-                    }}></div>
+                    <Avatar client={clientsById.get(p.clientId)} size={36} />
                     <div>
                       <p style={{ fontSize: '14px', fontWeight: '600', color: '#111827', margin: 0 }}>
                        {p.clientName || p.payerName || '—'}

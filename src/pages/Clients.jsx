@@ -80,12 +80,13 @@ import { readCollection, readClientMoney, invalidate } from '../lib/store'
 import ClientForm from '../components/ClientForm'
 import ErrorBanner from '../components/ErrorBanner'
 import Icon from '../components/Icon'
+import Avatar from '../components/Avatar'
 import { lessonsLeft } from '../lib/subscription'
 import { clientBalances } from '../lib/balance'
 import { useSelection } from '../lib/selection'
 import ActionToolbar from '../components/ActionToolbar'
 import {
-  getAge, ageLabel, contactRows, contactTitle, statusInfo, genderInfo, searchText, sortClients,
+  getAge, ageLabel, contactRows, contactTitle, statusInfo, searchText, sortClients,
   CLIENT_STATUSES, instagramUrl, telegramUrl, phoneUrl,
   clientHistory, whyKeepClient, lessonsLabel,
 } from '../lib/client'
@@ -136,24 +137,6 @@ function birthLine(client) {
   if (age === null && !date) return ''
   if (age === null) return date
   return date ? `${ageLabel(age)} (${date})` : ageLabel(age)
-}
-
-// Мальчик и девочка различаются и рисунком, и цветом кружка: в списке из
-// пятидесяти строк это читается быстрее, чем подпись.
-function Avatar({ client }) {
-  const gender = genderInfo(client)
-  const female = gender?.value === 'female'
-  const color = !gender ? '#6b7280' : (female ? '#db2777' : '#2563eb')
-  const background = !gender ? '#f3f4f6' : (female ? '#fce7f3' : '#dbeafe')
-
-  return (
-    <div style={{
-      width: '30px', height: '30px', borderRadius: '50%', background,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', color,
-    }}>
-      <Icon name={female ? 'girl' : 'boy'} size={17} />
-    </div>
-  )
 }
 
 export default function Clients() {
