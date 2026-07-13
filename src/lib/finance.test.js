@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   companyBalance, accountTotals, incomeTotal, expenseTotal, salaryTotal, refundTotal,
-  periodCashFlow, realizedProfit, otherIncomeTotal, toJsDate, inPeriod,
+  drawTotal, periodCashFlow, realizedProfit, otherIncomeTotal, toJsDate, inPeriod,
+  KIND_DRAW, KIND_TRANSFER,
 } from './finance'
 
 // Главный инвариант всей системы: сумма остатков по кассам = баланс компании.
@@ -148,5 +149,67 @@ describe('inPeriod — фильтр по месяцу и году', () => {
 
   it('запись без даты в период не попадает', () => {
     expect(inPeriod({}, 'all', 'all')).toBe(false)
+  })
+})
+
+// Изъятие владельца: деньги ушли из кассы, но школа их не тратила — она их заработала,
+// а владелец забрал. Поэтому касса уменьшается, а прибыль нет.
+describe('изъятие владельца', () => {
+  const list = [
+    tx('income', 1_000_000),
+    tx('expense', 200_000),
+    tx('salary', 300_000),
+    tx(KIND_DRAW, 400_000),
+  ]
+  const charges = [{ clientId: 'a', amount: 900_000 }]
+
+  it('касса уменьшается на изъятие', () => {
+    expect(companyBalance(list)).toBe(1_000_000 - 200_000 - 300_000 - 400_000)
+  })
+
+  it('прибыль изъятием не уменьшается', () => {
+    const withoutDraw = list.filter(t => t.kind !== KIND_DRAW)
+    expect(realizedProfit(list, charges)).toBe(realizedProfit(withoutDraw, charges))
+  })
+
+  it('изъятие не считается зарплатой', () => {
+    expect(salaryTotal(list)).toBe(300_000)
+    expect(drawTotal(list)).toBe(400_000)
+  })
+})
+
+// Перевод между кассами: деньги остались внутри компании, сменился только карман.
+// Ни доход, ни расход, ни прибыль, ни баланс — только остатки двух касс.
+describe('перевод между кассами', () => {
+  const accounts = [{ id: 'rs', name: 'Расчётный счёт' }, { id: 'card', name: 'Карта' }]
+  const transfer = [{
+    kind: KIND_TRANSFER, amount: 1_000_000, accountId: 'rs', accountToId: 'card',
+    date: new Date('2026-05-04'),
+  }]
+
+  it('не доход и не расход', () => {
+    expect(incomeTotal(transfer)).toBe(0)
+    expect(expenseTotal(transfer)).toBe(0)
+  })
+
+  it('баланс компании не меняет: деньги остались внутри', () => {
+    expect(companyBalance(transfer)).toBe(0)
+  })
+
+  it('двигает обе кассы: из одной ушло, в другую пришло', () => {
+    const totals = accountTotals(transfer, accounts)
+    expect(totals.find(a => a.id === 'rs').total).toBe(-1_000_000)
+    expect(totals.find(a => a.id === 'card').total).toBe(1_000_000)
+  })
+
+  it('ИНВАРИАНТ держится и с переводом: сумма касс = баланс компании', () => {
+    const list = [...transfer, tx('income', 500_000, 'card'), tx('expense', 200_000, 'rs')]
+    const sum = accountTotals(list, accounts).reduce((total, a) => total + a.total, 0)
+    expect(sum).toBe(companyBalance(list))
+  })
+
+  it('в прибыль не входит', () => {
+    const charges = [{ clientId: 'a', amount: 300_000 }]
+    expect(realizedProfit(transfer, charges)).toBe(300_000)
   })
 })
