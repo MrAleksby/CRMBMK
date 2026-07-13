@@ -6,9 +6,10 @@
 // Модуль чистый (Firestore не знает) — как и остальная считающая логика, чтобы
 // его можно было проверить тестами.
 
-import { todayISO, LESSON_STATUSES } from './group.js'
-import { lessonsLeft, activeSubscription, clientSubscriptions } from './subscription.js'
+import { todayISO, toISO, LESSON_STATUSES } from './group.js'
+import { lessonsLeft, clientSubscriptions } from './subscription.js'
 import { isLeadClient } from './client.js'
+import { KIND_INCOME, toJsDate } from './finance.js'
 
 // Занятия выбранного дня, по времени начала. Отменённые не показываем:
 // делать по ним сегодня нечего.
@@ -31,13 +32,10 @@ export function debtors(clients, balances, limit = 6) {
     .slice(0, limit)
 }
 
-// Абонемент «кончается» по двум разным причинам, и путать их нельзя:
-// деньги на исходе (остаток в уроках мал) либо истекает срок.
-// Обе — повод позвонить родителю, поэтому список один, но с пометкой причины.
-export function endingSubscriptions(clients, subscriptions, balances, charges, {
+// Кто заплатил вперёд. Рядом с суммой — на сколько занятий её хватит: остаток
+// в уроках выводится из денег по цене занятия, счётчика уроков в системе нет.
+export function prepaidClients(clients, subscriptions, balances, charges, {
   today = todayISO(),
-  lessonsThreshold = 2,
-  daysThreshold = 7,
   limit = 6,
 } = {}) {
   const rows = []
@@ -45,33 +43,40 @@ export function endingSubscriptions(clients, subscriptions, balances, charges, {
   for (const client of clients) {
     if (isLeadClient(client)) continue
 
-    const subs = clientSubscriptions(subscriptions, client.id)
-    const active = activeSubscription(subs, client.id, today)
-    if (!active) continue
-
     const balance = balances.get(client.id) || 0
-    // Долг — это отдельная карточка «Должники»; здесь только те, кто ещё в плюсе.
-    if (balance < 0) continue
+    if (balance <= 0) continue
 
+    const subs = clientSubscriptions(subscriptions, client.id)
     const clientCharges = charges.filter(ch => ch.clientId === client.id)
     const left = lessonsLeft(subs, client.id, balance, clientCharges, client, today)
-    const days = daysUntil(active.endDate, today)
 
-    const lowLessons = left <= lessonsThreshold
-    const soonExpires = days !== null && days <= daysThreshold
-
-    if (!lowLessons && !soonExpires) continue
-
-    rows.push({ client, subscription: active, lessonsLeft: left, daysLeft: days, lowLessons, soonExpires })
+    rows.push({ client, balance, lessonsLeft: left })
   }
 
-  // Сначала у кого меньше уроков, при равенстве — у кого раньше истекает срок.
-  rows.sort((a, b) =>
-    a.lessonsLeft - b.lessonsLeft ||
-    (a.daysLeft ?? Infinity) - (b.daysLeft ?? Infinity))
-
-  return rows.slice(0, limit)
+  return rows.sort((a, b) => b.balance - a.balance).slice(0, limit)
 }
+
+// Поступления в кассу за период. Только доходы: расходы и зарплаты — не то,
+// что менеджер держит в голове по ходу дня.
+export function incomeBetween(transactions, fromISO, toISO) {
+  let total = 0
+  for (const t of transactions) {
+    if (t.kind !== KIND_INCOME) continue
+    const date = isoOf(t.date)
+    if (!date || date < fromISO || date > toISO) continue
+    total += Number(t.amount) || 0
+  }
+  return total
+}
+
+// Дата операции хранится и строкой, и Timestamp — приводим к 'YYYY-MM-DD',
+// иначе сравнение периодов молча не срабатывает (так уже ловили баг в отчётах).
+function isoOf(value) {
+  const date = toJsDate(value)
+  return date ? toISO(date) : null
+}
+
+export const monthStartISO = (today = todayISO()) => `${today.slice(0, 7)}-01`
 
 // Полных дней от сегодня до даты 'YYYY-MM-DD'. Без срока — null: бессрочный
 // абонемент не «истекает», и подгонять его под ноль нельзя.

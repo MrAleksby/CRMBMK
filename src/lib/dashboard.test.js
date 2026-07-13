@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
-  lessonsOfDay, debtors, endingSubscriptions, daysUntil, daysUntilBirthday, upcomingBirthdays,
+  lessonsOfDay, debtors, prepaidClients, incomeBetween, monthStartISO,
+  daysUntil, daysUntilBirthday, upcomingBirthdays,
 } from './dashboard.js'
 
 const TODAY = '2026-07-13'
@@ -40,58 +41,69 @@ describe('debtors', () => {
   })
 })
 
-describe('endingSubscriptions', () => {
+describe('prepaidClients', () => {
   const pack = (clientId, extra = {}) => ({
     id: `s-${clientId}`, clientId, name: 'Пакет 8',
     lessonsTotal: 8, price: 800000, startDate: '2026-06-01', endDate: '2026-09-01',
     status: 'active', ...extra,
   })
 
-  it('ловит ученика, у кого предоплаты осталось на два занятия', () => {
-    const clients = [client('a')]
-    const subs = [pack('a')] // цена занятия 100 000
-    const balances = new Map([['a', 200000]]) // ровно 2 урока
+  it('берёт только тех, кто заплатил вперёд, крупная предоплата первой', () => {
+    const clients = [client('a'), client('b'), client('c')]
+    const balances = new Map([['a', 200000], ['b', -50000], ['c', 900000]])
 
-    const rows = endingSubscriptions(clients, subs, balances, [], { today: TODAY })
-    expect(rows).toHaveLength(1)
+    const rows = prepaidClients(clients, [pack('a'), pack('c')], balances, [], { today: TODAY })
+    expect(rows.map(r => r.client.id)).toEqual(['c', 'a'])
+  })
+
+  it('считает, на сколько занятий хватит денег по цене абонемента', () => {
+    const balances = new Map([['a', 250000]]) // цена занятия 100 000 → 2 урока
+    const rows = prepaidClients([client('a')], [pack('a')], balances, [], { today: TODAY })
     expect(rows[0].lessonsLeft).toBe(2)
-    expect(rows[0].lowLessons).toBe(true)
-    expect(rows[0].soonExpires).toBe(false)
   })
 
-  it('не трогает того, у кого уроков ещё много', () => {
-    const balances = new Map([['a', 900000]]) // 9 уроков
-    expect(endingSubscriptions([client('a')], [pack('a')], balances, [], { today: TODAY })).toEqual([])
+  it('нулевой баланс — не предоплата', () => {
+    const balances = new Map([['a', 0]])
+    expect(prepaidClients([client('a')], [pack('a')], balances, [], { today: TODAY })).toEqual([])
   })
 
-  it('ловит истекающий срок, даже когда уроков хватает', () => {
-    const subs = [pack('a', { endDate: '2026-07-16' })]
-    const balances = new Map([['a', 900000]])
+  it('лид в список не попадает', () => {
+    const clients = [client('lead', { status: 'lead' })]
+    const balances = new Map([['lead', 300000]])
+    expect(prepaidClients(clients, [], balances, [], { today: TODAY })).toEqual([])
+  })
+})
 
-    const rows = endingSubscriptions([client('a')], subs, balances, [], { today: TODAY })
-    expect(rows).toHaveLength(1)
-    expect(rows[0].soonExpires).toBe(true)
-    expect(rows[0].daysLeft).toBe(3)
+describe('incomeBetween', () => {
+  const tx = [
+    { id: 't1', kind: 'income', amount: 100000, date: '2026-07-13' },
+    { id: 't2', kind: 'income', amount: 200000, date: '2026-07-01' },
+    { id: 't3', kind: 'income', amount: 300000, date: '2026-06-30' },
+    { id: 't4', kind: 'expense', amount: 500000, date: '2026-07-13' },
+    { id: 't5', kind: 'salary', amount: 400000, date: '2026-07-13' },
+  ]
+
+  it('за сегодня — только доходы этого дня', () => {
+    expect(incomeBetween(tx, TODAY, TODAY)).toBe(100000)
   })
 
-  it('должник сюда не попадает — он в карточке долгов', () => {
-    const balances = new Map([['a', -100000]])
-    expect(endingSubscriptions([client('a')], [pack('a')], balances, [], { today: TODAY })).toEqual([])
+  it('за месяц — с первого числа по сегодня', () => {
+    expect(incomeBetween(tx, monthStartISO(TODAY), TODAY)).toBe(300000)
   })
 
-  it('без действующего абонемента строки нет', () => {
-    const subs = [pack('a', { endDate: '2026-07-01' })] // срок вышел
-    const balances = new Map([['a', 200000]])
-    expect(endingSubscriptions([client('a')], subs, balances, [], { today: TODAY })).toEqual([])
+  it('расходы и зарплаты в поступления не идут', () => {
+    expect(incomeBetween(tx, TODAY, TODAY)).not.toContain(500000)
   })
 
-  it('первым идёт тот, у кого меньше уроков', () => {
-    const clients = [client('a'), client('b')]
-    const subs = [pack('a'), pack('b')]
-    const balances = new Map([['a', 200000], ['b', 0]])
+  it('дату-Timestamp понимает так же, как строку', () => {
+    const stamped = [{ id: 't6', kind: 'income', amount: 50000, date: new Date('2026-07-13T09:00:00') }]
+    expect(incomeBetween(stamped, TODAY, TODAY)).toBe(50000)
+  })
+})
 
-    expect(endingSubscriptions(clients, subs, balances, [], { today: TODAY })
-      .map(r => r.client.id)).toEqual(['b', 'a'])
+describe('monthStartISO', () => {
+  it('первое число текущего месяца', () => {
+    expect(monthStartISO(TODAY)).toBe('2026-07-01')
   })
 })
 

@@ -7,12 +7,12 @@ import ErrorBanner from '../components/ErrorBanner'
 import Icon from '../components/Icon'
 import Avatar from '../components/Avatar'
 import { clientBalances, debtAndPrepaid } from '../lib/balance'
-import { isLeadClient, ageLabel, lessonsLabel, plural } from '../lib/client'
+import { ageLabel, lessonsLabel, plural } from '../lib/client'
 import { lessonStudentNames, lessonTypeLabel, isTrial } from '../lib/lesson'
 import { todayISO } from '../lib/group'
 import {
   lessonsOfDay, lessonStatusInfo, debtors as pickDebtors,
-  endingSubscriptions, upcomingBirthdays,
+  prepaidClients, upcomingBirthdays, incomeBetween, monthStartISO,
 } from '../lib/dashboard'
 
 const card = {
@@ -84,16 +84,16 @@ export default function Dashboard() {
 
   const balances = useMemo(() => clientBalances(transactions, charges), [transactions, charges])
 
-  // Карточки лидов лежат в той же коллекции, но учениками ещё не стали —
-  // в списке «Клиенты» их нет, и в счётчике быть не должно.
-  const students = useMemo(() => clients.filter(c => !isLeadClient(c)), [clients])
-
   const todayLessons = useMemo(() => lessonsOfDay(lessons, today), [lessons, today])
   const debtorRows = useMemo(() => pickDebtors(clients, balances), [clients, balances])
-  const endingRows = useMemo(
-    () => endingSubscriptions(clients, subscriptions, balances, charges, { today }),
+  const prepaidRows = useMemo(
+    () => prepaidClients(clients, subscriptions, balances, charges, { today }),
     [clients, subscriptions, balances, charges, today])
   const birthdayRows = useMemo(() => upcomingBirthdays(clients, { today }), [clients, today])
+
+  const incomeToday = useMemo(() => incomeBetween(transactions, today, today), [transactions, today])
+  const incomeMonth = useMemo(
+    () => incomeBetween(transactions, monthStartISO(today), today), [transactions, today])
 
   const { debt: totalDebt, prepaid: totalPrepaid } = debtAndPrepaid(balances)
   const teacherName = (id) => teachers.find(t => t.id === id)?.name || ''
@@ -124,8 +124,16 @@ export default function Dashboard() {
           <p style={{ fontSize: '22px', fontWeight: '700', color: '#7c3aed', margin: 0 }}>{todayLessons.length}</p>
         </div>
         <div style={card}>
-          <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>Учеников</p>
-          <p style={{ fontSize: '22px', fontWeight: '700', color: '#111827', margin: 0 }}>{students.length}</p>
+          <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>Поступило сегодня</p>
+          <p style={{ fontSize: '16px', fontWeight: '700', color: '#059669', margin: 0 }}>
+            {incomeToday.toLocaleString()} сум
+          </p>
+        </div>
+        <div style={card}>
+          <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>Поступило за месяц</p>
+          <p style={{ fontSize: '16px', fontWeight: '700', color: '#059669', margin: 0 }}>
+            {incomeMonth.toLocaleString()} сум
+          </p>
         </div>
         <div style={{
           ...card,
@@ -137,12 +145,6 @@ export default function Dashboard() {
           </p>
           <p style={{ fontSize: '16px', fontWeight: '700', color: totalDebt > 0 ? '#dc2626' : '#6b7280', margin: 0 }}>
             {totalDebt.toLocaleString()} сум
-          </p>
-        </div>
-        <div style={card}>
-          <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>Предоплаты</p>
-          <p style={{ fontSize: '16px', fontWeight: '700', color: '#059669', margin: 0 }}>
-            {totalPrepaid.toLocaleString()} сум
           </p>
         </div>
       </div>
@@ -211,30 +213,30 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Кончающиеся абонементы */}
+        {/* Предоплаты */}
         <div style={card}>
           <div style={cardTitle}>
-            <Icon name="ticket" size={16} style={{ color: '#b45309' }} />Абонементы на исходе
+            <Icon name="money" size={16} style={{ color: '#059669' }} />Предоплаты
+            <span style={{ marginLeft: 'auto', fontSize: '12px', fontWeight: '600', color: '#059669' }}>
+              {totalPrepaid.toLocaleString()}
+            </span>
           </div>
-          {endingRows.length === 0 ? (
-            <p style={empty}>Все в порядке</p>
-          ) : endingRows.map(({ client, lessonsLeft, daysLeft, soonExpires }, i) => (
-            <div key={client.id} style={row(i === endingRows.length - 1)}>
+          {prepaidRows.length === 0 ? (
+            <p style={empty}>Предоплат нет</p>
+          ) : prepaidRows.map(({ client, balance, lessonsLeft }, i) => (
+            <div key={client.id} style={row(i === prepaidRows.length - 1)}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                 <Avatar client={client} size={26} />
                 <div style={{ minWidth: 0 }}>
                   <Link to={`/clients/${client.id}`} style={nameLink}>{client.childName}</Link>
-                  {/* Причина важна: кончились деньги или кончается срок — звонят по-разному. */}
+                  {/* Уроки выводятся из денег: цена занятия своя у каждого. */}
                   <p style={{ fontSize: '11px', color: '#6b7280', margin: 0 }}>
-                    {soonExpires ? `срок ${whenLabel(daysLeft)}` : `осталось ${lessonsLabel(lessonsLeft)}`}
+                    хватит на {lessonsLabel(lessonsLeft)}
                   </p>
                 </div>
               </div>
-              <span style={{
-                fontSize: '13px', fontWeight: '700', whiteSpace: 'nowrap',
-                color: lessonsLeft === 0 ? '#dc2626' : '#b45309',
-              }}>
-                {lessonsLeft}
+              <span style={{ fontSize: '13px', fontWeight: '700', color: '#059669', whiteSpace: 'nowrap' }}>
+                {balance.toLocaleString()}
               </span>
             </div>
           ))}
