@@ -39,6 +39,14 @@ const ghostBtn = {
   padding: '5px 10px', borderRadius: '8px', fontSize: '12px', cursor: 'pointer',
 }
 
+// Действия в строке — иконками, как в блоке абонементов карточки клиента.
+// Со словами три кнопки не влезали в ширину страницы, и таблицу приходилось
+// таскать вбок ради «Удалить». Подпись живёт в title.
+const rowBtn = {
+  ...ghostBtn, padding: '5px', borderRadius: '8px', lineHeight: 0,
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+}
+
 // Приводит значение поля из формы к тому, что уходит в Firestore.
 // Возвращает { value } либо { error }.
 function parseField(field, raw) {
@@ -336,6 +344,9 @@ export default function DirectoryTable({ dir }) {
                   <th key={key} style={{
                     textAlign: 'left', padding: '9px 12px', color: '#6b7280',
                     fontSize: '11px', fontWeight: '600', borderBottom: '1px solid #e5e7eb',
+                    // Без nowrap «Ставка за урок (сум)» ломается на четыре строки
+                    // и раздувает шапку выше самих данных.
+                    whiteSpace: 'nowrap',
                   }}>{columnLabel(key)}</th>
                 ))}
                 <th style={{ borderBottom: '1px solid #e5e7eb' }} />
@@ -351,7 +362,9 @@ export default function DirectoryTable({ dir }) {
                         padding: '9px 12px', color: key === 'name' ? '#111827' : '#4b5563',
                         fontWeight: key === 'name' ? '600' : '400',
                         borderBottom: i < items.length - 1 ? '1px solid #f3f4f6' : 'none',
-                        whiteSpace: 'nowrap',
+                        // Длинное название пакета переносим — иначе таблица распирает
+                        // страницу и кнопки уезжают за край. Числа и телефоны — целиком.
+                        whiteSpace: key === 'name' ? 'normal' : 'nowrap',
                       }}>
                        {formatCell(dir, item, key)}
                        {key === 'name' && inactive && (
@@ -360,15 +373,21 @@ export default function DirectoryTable({ dir }) {
                       </td>
                     ))}
                     <td style={{
-                      padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap',
+                      padding: '9px 12px', textAlign: 'right', whiteSpace: 'nowrap', width: '1%',
                       borderBottom: i < items.length - 1 ? '1px solid #f3f4f6' : 'none',
                     }}>
-                      <div style={{ display: 'inline-flex', gap: '8px' }}>
-                        <button onClick={() => toggleActive(item)} style={ghostBtn}>
-                         {inactive ? 'Включить' : 'Отключить'}
+                      <div style={{ display: 'inline-flex', gap: '6px' }}>
+                        <button onClick={() => toggleActive(item)} style={rowBtn}
+                          title={inactive ? 'Включить' : 'Отключить'}>
+                          <Icon name={inactive ? 'check' : 'lock'} size={14} />
                         </button>
-                        <button onClick={() => startEdit(item)} style={ghostBtn}>Изменить</button>
-                        <button onClick={() => handleDelete(item)} style={ghostBtn}>Удалить</button>
+                        <button onClick={() => startEdit(item)} style={rowBtn} title="Изменить">
+                          <Icon name="edit" size={14} />
+                        </button>
+                        <button onClick={() => handleDelete(item)} style={{ ...rowBtn, color: '#dc2626' }}
+                          title="Удалить">
+                          <Icon name="trash" size={14} />
+                        </button>
                       </div>
                     </td>
                   </tr>
