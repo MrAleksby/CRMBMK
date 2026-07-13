@@ -413,7 +413,7 @@ export default function Finance() {
         <select style={{ ...inputStyle, width: '170px' }} value={filterCategory}
           onChange={e => { setFilterCategory(e.target.value); setPage(1) }}>
           <option value="all">Все статьи</option>
-         {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          <CategoryOptions categories={categories} />
         </select>
         <input type="number" inputMode="numeric" placeholder="Сумма от" style={{ ...inputStyle, width: '110px' }}
           value={amountFrom} onChange={e => { setAmountFrom(e.target.value); setPage(1) }} />

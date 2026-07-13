@@ -11,7 +11,9 @@ import { LEAD_STAGES } from '../lib/lead'
 import { SOURCES } from '../lib/client'
 import { LESSON_TYPES } from '../lib/lesson'
 import { lessonsLeft } from '../lib/subscription'
+import CategoryOptions from '../components/CategoryOptions'
 import { statusInfo } from '../lib/client'
+import { sortItems, getDirectory } from '../lib/directories'
 import { TX_KINDS } from '../lib/finance'
 import { downloadCsv } from '../lib/export'
 import {
@@ -148,8 +150,11 @@ export default function Reports() {
           readCollection('categories'),
         ])
         setTransactions(tx)
-        setAccounts(acc)
-        setCategories(cat)
+        // Порядок как в справочнике: доходы → расходы → ЗП → возвраты → изъятия,
+        // внутри вида — заданный вручную. Firestore отдаёт документы как попало,
+        // и в выпадающем списке статьи шли вперемешку.
+        setAccounts(sortItems(getDirectory('accounts'), acc))
+        setCategories(sortItems(getDirectory('categories'), cat))
       }
     } catch (e) {
       console.error(e)
@@ -262,7 +267,7 @@ export default function Reports() {
             <select value={moneyFilters.categoryId} style={select}
               onChange={e => setMoneyFilters(f => ({ ...f, categoryId: e.target.value }))}>
               <option value="">Все статьи</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <CategoryOptions categories={categories} />
             </select>
           </ReportHead>
 
