@@ -2,7 +2,7 @@
 // Вынесено из компонента, чтобы денежную логику можно было прогнать без React.
 
 import { toAmount } from './amount'
-import { KIND_INCOME, KIND_SALARY, KIND_REFUND } from './finance'
+import { KIND_INCOME, KIND_SALARY, KIND_REFUND, KIND_TRANSFER } from './finance'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -11,6 +11,8 @@ export const emptyTransactionForm = (kind = KIND_INCOME) => ({
   date: today(),
   amount: '',
   accountId: '',
+  // Касса-получатель: только у перевода между кассами.
+  accountToId: '',
   categoryId: '',
   clientId: '',
   payerName: '',
@@ -33,6 +35,7 @@ export function transactionToForm(transaction) {
     date: iso,
     amount: String(transaction.amount ?? ''),
     accountId: transaction.accountId || '',
+    accountToId: transaction.accountToId || '',
     categoryId: transaction.categoryId || '',
     clientId: transaction.clientId || '',
     payerName: transaction.payerName || '',
@@ -64,7 +67,16 @@ export function validateTransactionForm(form) {
   if (!form.date || Number.isNaN(new Date(form.date).getTime())) {
     return 'Укажите дату операции'
   }
-  if (!form.accountId) return 'Выберите кассу'
+  if (!form.accountId) return form.kind === KIND_TRANSFER ? 'Выберите кассу-источник' : 'Выберите кассу'
+
+  // У перевода статьи нет: деньги не заработаны и не потрачены, они сменили карман.
+  // Зато нужна вторая касса, и она обязана отличаться от первой.
+  if (form.kind === KIND_TRANSFER) {
+    if (!form.accountToId) return 'Выберите кассу, куда переводите'
+    if (form.accountToId === form.accountId) return 'Кассы должны быть разными'
+    return null
+  }
+
   if (!form.categoryId) return 'Выберите статью'
   // Педагог у выплаты ЗП необязателен: процент менеджера и аутсорс к нему не привязаны.
   // В истории AlfaCRM таких выплат 65 из 223.
@@ -89,13 +101,15 @@ export function buildTransaction(form, { clients = [], teachers = [] } = {}) {
   // Возврат — всегда конкретному ребёнку, это проверяет валидация.
   const hasClient = (form.kind === KIND_INCOME || form.kind === KIND_REFUND) && !!form.clientId
   const isSalary = form.kind === KIND_SALARY
+  const isTransfer = form.kind === KIND_TRANSFER
 
   return {
     kind: form.kind,
     amount: toAmount(form.amount),
     date: dateAtNoon(form.date),
     accountId: form.accountId,
-    categoryId: form.categoryId,
+    accountToId: isTransfer ? form.accountToId : '',
+    categoryId: isTransfer ? '' : form.categoryId,
     comment: form.comment?.trim() || '',
     clientId: hasClient ? form.clientId : '',
     clientName: hasClient ? (client?.childName || '') : '',

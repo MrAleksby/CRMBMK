@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { TX_KINDS, KIND_INCOME, KIND_SALARY, KIND_REFUND } from '../lib/finance'
+import { TX_KINDS, KIND_INCOME, KIND_SALARY, KIND_REFUND, KIND_TRANSFER } from '../lib/finance'
 import { emptyTransactionForm, categoriesForKind, validateTransactionForm, suggestPayer } from '../lib/transaction'
 import { staffRoleLabel, perLessonPrice } from '../lib/directories'
 import Icon from './Icon'
@@ -71,6 +71,7 @@ export default function TransactionForm({
 
   const activeAccounts = accounts.filter(a => a.active !== false)
   const kindCategories = categoriesForKind(categories, form.kind)
+  const isTransfer = form.kind === KIND_TRANSFER
   const activePackages = packages.filter(p => p.active !== false)
   const chosenPackage = packages.find(p => p.id === form.subscriptionPackageId)
   const perLesson = chosenPackage ? perLessonPrice(chosenPackage) : null
@@ -150,20 +151,33 @@ export default function TransactionForm({
         </div>
 
         <div>
-          <label style={labelStyle}>Касса *</label>
+          <label style={labelStyle}>{isTransfer ? 'Откуда *' : 'Касса *'}</label>
           <select required style={inputStyle} value={form.accountId} onChange={set('accountId')}>
             <option value="">Выберите…</option>
            {activeAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
         </div>
 
-        <div>
-          <label style={labelStyle}>Статья *</label>
-          <select required style={inputStyle} value={form.categoryId} onChange={set('categoryId')}>
-            <option value="">Выберите…</option>
-           {kindCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </div>
+       {/* У перевода вместо статьи — вторая касса: деньги не заработаны и не
+           потрачены, они просто сменили карман. */}
+       {isTransfer ? (
+          <div>
+            <label style={labelStyle}>Куда *</label>
+            <select required style={inputStyle} value={form.accountToId} onChange={set('accountToId')}>
+              <option value="">Выберите…</option>
+             {activeAccounts.filter(a => a.id !== form.accountId)
+                .map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </div>
+        ) : (
+          <div>
+            <label style={labelStyle}>Статья *</label>
+            <select required style={inputStyle} value={form.categoryId} onChange={set('categoryId')}>
+              <option value="">Выберите…</option>
+             {kindCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+        )}
 
        {(form.kind === KIND_INCOME || form.kind === KIND_REFUND) && (
           <>
@@ -257,7 +271,8 @@ export default function TransactionForm({
         </p>
       )}
 
-     {kindCategories.length === 0 && (
+     {/* У перевода статей нет по определению — предупреждать не о чем. */}
+     {!isTransfer && kindCategories.length === 0 && (
         <p style={{ fontSize: '12px', color: '#b91c1c', marginTop: '10px' }}>
            Для этого типа операции нет статей. Заведите их в Настройках.
         </p>

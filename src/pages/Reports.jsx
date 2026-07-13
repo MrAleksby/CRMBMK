@@ -402,12 +402,13 @@ export default function Reports() {
                   <th style={thLeft}>Вид</th>
                   <th style={th}>Операций</th>
                   <th style={th}>Сумма</th>
+                  <th style={th}>Без ученика</th>
                   <th style={{ ...th, width: '110px' }} />
                 </tr>
               </thead>
               <tbody>
                 {categoryRows.length === 0 && (
-                  <tr><td style={tdLeft} colSpan={5}>Операций за период нет</td></tr>
+                  <tr><td style={tdLeft} colSpan={6}>Операций за период нет</td></tr>
                 )}
                 {categoryRows.map(c => {
                   const meta = TX_KINDS.find(k => k.value === c.kind)
@@ -417,6 +418,11 @@ export default function Reports() {
                       <td style={{ ...tdLeft, color: meta?.color || '#6b7280' }}>{meta?.label || c.kind}</td>
                       <td style={td}>{c.count}</td>
                       <td style={{ ...td, fontWeight: '600', color: meta?.color || '#111827' }}>{money(c.total)}</td>
+                      {/* Оплата ребёнка без привязки к нему: и баланс ученика неверен,
+                          и в прибыли она может задвоиться с начислением за занятие. */}
+                      <td style={{ ...td, color: c.noClient ? '#b45309' : '#9ca3af' }}>
+                        {c.noClient ? money(c.noClient) : '—'}
+                      </td>
                       <td style={td}><Bar value={c.total} max={maxCategory} color={meta?.color || '#7c3aed'} /></td>
                     </tr>
                   )

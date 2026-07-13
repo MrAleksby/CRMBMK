@@ -116,11 +116,17 @@ service cloud.firestore {
       allow create, update: if (isAdmin() || (canManage() && clientMoney(request.resource.data.kind)))
         && request.resource.data.amount is number
         && request.resource.data.amount >= 0
-        && request.resource.data.kind in ['income', 'expense', 'salary', 'refund', 'draw']
+        && request.resource.data.kind in ['income', 'expense', 'salary', 'refund', 'draw', 'transfer']
         && request.resource.data.accountId is string
         && request.resource.data.accountId.size() > 0
         && request.resource.data.categoryId is string
-        && request.resource.data.categoryId.size() > 0
+        // У перевода между кассами статьи нет — деньги не заработаны и не потрачены.
+        // Зато обязательна вторая касса, и она обязана отличаться от первой.
+        && (request.resource.data.kind == 'transfer'
+              ? (request.resource.data.accountToId is string
+                 && request.resource.data.accountToId.size() > 0
+                 && request.resource.data.accountToId != request.resource.data.accountId)
+              : request.resource.data.categoryId.size() > 0)
         && request.resource.data.date is timestamp;
     }
 

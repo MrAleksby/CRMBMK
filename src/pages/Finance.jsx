@@ -6,7 +6,8 @@ import { withTimeout, describeError } from '../lib/withTimeout'
 import { readCollection, invalidate } from '../lib/store'
 import { MONTHS_SHORT } from '../lib/constants'
 import {
-  KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, KIND_DRAW, kindMeta, YEAR_ALL,
+  KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, KIND_DRAW, KIND_TRANSFER,
+  kindMeta, YEAR_ALL,
   toJsDate, inPeriod, availableYears, documentNumber, sortTransactions,
   incomeTotal, expenseTotal, salaryTotal, refundTotal, drawTotal, sumAmount,
   companyBalance, realizedProfit, accountTotals, categoryTotals,
@@ -16,6 +17,7 @@ import { formToSubscriptionDoc, endDateFromWeeks } from '../lib/subscription'
 import { clientBalances, debtAndPrepaid } from '../lib/balance'
 import { sortItems, getDirectory } from '../lib/directories'
 import { useSelection } from '../lib/selection'
+import CategoryOptions from '../components/CategoryOptions'
 import TransactionForm from '../components/TransactionForm'
 import ActionToolbar from '../components/ActionToolbar'
 import ErrorBanner from '../components/ErrorBanner'
@@ -43,6 +45,7 @@ const TABS = [
  { value: KIND_SALARY, label: 'Выплаты ЗП' },
  { value: KIND_REFUND, label: 'Возвраты' },
  { value: KIND_DRAW, label: 'Изъятия' },
+ { value: KIND_TRANSFER, label: 'Переводы' },
 ]
 
 // Колонки таблицы — как в AlfaCRM. Каждая сортируется.
@@ -615,8 +618,16 @@ export default function Finance() {
                        {isIncome ? '+' : '−'}{money(item.amount)}
                       </td>
 
-                      <td style={{ ...td(), color: '#4b5563' }}>{accountName[item.accountId] || '—'}</td>
-                      <td style={{ ...td(), color: '#4b5563' }}>{categoryName[item.categoryId] || '—'}</td>
+                      {/* У перевода касс две: показываем маршрут денег. */}
+                      <td style={{ ...td(), color: '#4b5563' }}>
+                       {accountName[item.accountId] || '—'}
+                       {item.kind === KIND_TRANSFER && (
+                          <span style={{ color: '#9ca3af' }}> → {accountName[item.accountToId] || '—'}</span>
+                        )}
+                      </td>
+                      <td style={{ ...td(), color: '#4b5563' }}>
+                       {item.kind === KIND_TRANSFER ? '—' : (categoryName[item.categoryId] || '—')}
+                      </td>
 
                       <td style={td()}>
                        {purpose

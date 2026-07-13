@@ -26,6 +26,15 @@ export const KIND_REFUND = 'refund'
 // уходила в минус на 22 млн — школа выглядела убыточной, хотя зарабатывала.
 export const KIND_DRAW = 'draw'
 
+// Перевод между своими кассами: с расчётного счёта на карту, с карты в наличные.
+// Денег у компании не прибавилось и не убавилось — они просто в другом кармане.
+// Поэтому перевод не доход и не расход: он не входит ни в прибыль, ни в баланс
+// компании, но двигает остатки двух касс сразу (accountId → accountToId).
+//
+// Раньше перевод заводили парой «расход + доход», и обе стороны попадали в отчёт:
+// доходы и расходы были завышены на 8 млн, которых школа не зарабатывала.
+export const KIND_TRANSFER = 'transfer'
+
 // Деньги ученика: оплаты и возвраты. Только они входят в баланс (см. balance.js),
 // поэтому всем страницам, кроме «Финансов», больше ничего и не нужно.
 //
@@ -37,12 +46,15 @@ export const clientMoneyQuery = (db) =>
   query(collection(db, 'transactions'), where('kind', 'in', CLIENT_MONEY_KINDS))
 
 // Знак операции в кассе. Начисления (charges) здесь не участвуют.
+// Знак в балансе компании. У перевода он нулевой: деньги остались внутри,
+// сменилась только касса.
 const SIGN = {
   [KIND_INCOME]: 1,
   [KIND_EXPENSE]: -1,
   [KIND_SALARY]: -1,
   [KIND_REFUND]: -1,
   [KIND_DRAW]: -1,
+  [KIND_TRANSFER]: 0,
 }
 
 export const TX_KINDS = [
@@ -51,6 +63,7 @@ export const TX_KINDS = [
   { value: KIND_SALARY, label: 'Выплата ЗП', iconName: 'teacher', color: '#dc2626' },
   { value: KIND_REFUND, label: 'Возврат клиенту', iconName: 'undo', color: '#dc2626' },
   { value: KIND_DRAW, label: 'Изъятие', iconName: 'logout', color: '#b45309' },
+  { value: KIND_TRANSFER, label: 'Перевод между кассами', iconName: 'arrowRight', color: '#4b5563' },
 ]
 
 export const kindMeta = (kind) => TX_KINDS.find(k => k.value === kind) ?? TX_KINDS[0]
@@ -134,9 +147,19 @@ export const realizedProfit = (transactions, charges) =>
 // Остаток по каждой кассе за всё время. Порядок — как в справочнике.
 export function accountTotals(transactions, accounts) {
   const totals = new Map()
+  const add = (accountId, amount) =>
+    totals.set(accountId, (totals.get(accountId) || 0) + amount)
+
   for (const t of transactions) {
-    const sign = SIGN[t.kind] ?? 0
-    totals.set(t.accountId, (totals.get(t.accountId) || 0) + sign * (t.amount || 0))
+    const amount = t.amount || 0
+    // Перевод двигает две кассы разом: из одной ушло, в другую пришло.
+    // В сумме по всем кассам он даёт ноль — как и должен.
+    if (t.kind === KIND_TRANSFER) {
+      add(t.accountId, -amount)
+      add(t.accountToId, amount)
+      continue
+    }
+    add(t.accountId, (SIGN[t.kind] ?? 0) * amount)
   }
   return accounts.map(account => ({
     ...account,

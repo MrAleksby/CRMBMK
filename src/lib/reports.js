@@ -10,7 +10,9 @@
 // в AlfaCRM у каждого отчёта была своя панель фильтров, и без произвольного
 // периода не посмотреть ни квартал, ни неделю.
 
-import { KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, KIND_DRAW, toJsDate } from './finance'
+import {
+  KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, KIND_DRAW, KIND_TRANSFER, toJsDate,
+} from './finance'
 import { isLeadClient } from './client'
 import { isConverted } from './lead'
 
@@ -393,13 +395,26 @@ export function accountsReport(transactions, accounts, range) {
   }
 
   return accounts.map(account => {
-    const mine = transactions.filter(t => t.accountId === account.id)
-    const inPeriod = mine.filter(t => inRange(t.date, range))
+    // Перевод касается двух касс: из одной ушёл, в другую пришёл. Поэтому кассе
+    // принадлежат и операции, где она источник, и те, где она получатель.
+    const out = transactions.filter(t => t.accountId === account.id)
+    const incoming = transactions.filter(t =>
+      t.kind === KIND_TRANSFER && t.accountToId === account.id)
 
-    const income = inPeriod.filter(t => t.kind === KIND_INCOME)
+    const periodOut = out.filter(t => inRange(t.date, range))
+    const periodIn = incoming.filter(t => inRange(t.date, range))
+
+    const income = periodOut.filter(t => t.kind === KIND_INCOME)
       .reduce((s, t) => s + (t.amount || 0), 0)
-    const outcome = inPeriod.filter(t => t.kind !== KIND_INCOME)
+      + periodIn.reduce((s, t) => s + (t.amount || 0), 0)
+
+    const outcome = periodOut.filter(t => t.kind !== KIND_INCOME)
       .reduce((s, t) => s + (t.amount || 0), 0)
+
+    const spent = out.reduce((s, t) => t.kind === KIND_TRANSFER
+      ? s - (t.amount || 0)
+      : s + (sign[t.kind] ?? 0) * (t.amount || 0), 0)
+    const received = incoming.reduce((s, t) => s + (t.amount || 0), 0)
 
     return {
       id: account.id,
@@ -407,7 +422,7 @@ export function accountsReport(transactions, accounts, range) {
       income,
       outcome,
       // Остаток — по всей истории кассы, иначе он не сойдётся с «Финансами».
-      total: mine.reduce((s, t) => s + (sign[t.kind] ?? 0) * (t.amount || 0), 0),
+      total: spent + received,
     }
   }).sort((a, b) => b.total - a.total)
 }
@@ -421,12 +436,20 @@ export function categoriesReport(transactions, categories, range, filters = {}) 
       && inRange(t.date, range)
       && (!kind || t.kind === kind))
 
+    // Доход без ученика — либо деньги компании (турнир, кешбек), либо забытая
+    // привязка: оплата ребёнка, за которой уже стоит начисление за занятие.
+    // Второе портит и баланс ученика, и прибыль, поэтому такие суммы видны отдельно.
+    const noClient = mine
+      .filter(t => t.kind === KIND_INCOME && !t.clientId)
+      .reduce((s, t) => s + (t.amount || 0), 0)
+
     return {
       id: category.id,
       name: category.name,
       kind: category.kind,
       count: mine.length,
       total: mine.reduce((s, t) => s + (t.amount || 0), 0),
+      noClient,
     }
   })
     .filter(row => row.count > 0)
