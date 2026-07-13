@@ -11,15 +11,23 @@
 
 import { KIND_SALARY, KIND_DRAW, toJsDate } from './finance'
 
-// Кандидат — выплата ЗП с непустым комментарием. Уже переразмеченные (kind 'draw')
-// сюда не попадают: панель показывает только то, что ещё предстоит решить.
-export const isDrawCandidate = (t) =>
-  t.kind === KIND_SALARY && Boolean(String(t.comment || '').trim())
+// Кандидат — любая выплата ЗП: изъятием оказалась и часть выплат без комментария,
+// которые владелец брал себе. Уже переразмеченные (kind 'draw') сюда не попадают —
+// панель показывает только то, что ещё предстоит решить.
+export const isDrawCandidate = (t) => t.kind === KIND_SALARY
 
-export function drawCandidates(transactions, { teacherId = '' } = {}) {
+export const hasComment = (t) => Boolean(String(t.comment || '').trim())
+
+// teacherId: '' — все, 'none' — выплаты без получателя (процент менеджера, аутсорс),
+// иначе — конкретный сотрудник.
+// comment: 'any' — все, 'with' — только с комментарием, 'without' — только без него.
+export function drawCandidates(transactions, { teacherId = '', comment = 'any' } = {}) {
   return transactions
     .filter(isDrawCandidate)
-    .filter(t => !teacherId || t.teacherId === teacherId)
+    .filter(t => !teacherId
+      || (teacherId === 'none' ? !t.teacherId : t.teacherId === teacherId))
+    .filter(t => comment === 'any'
+      || (comment === 'with' ? hasComment(t) : !hasComment(t)))
     .sort((a, b) => (toJsDate(b.date)?.getTime() || 0) - (toJsDate(a.date)?.getTime() || 0))
 }
 

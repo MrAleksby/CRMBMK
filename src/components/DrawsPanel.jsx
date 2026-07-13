@@ -18,6 +18,11 @@ const card = {
 
 const money = (value) => `${(value || 0).toLocaleString()} сум`
 
+const selectStyle = {
+  border: '1px solid #e5e7eb', borderRadius: '8px', padding: '7px 10px',
+  fontSize: '13px', color: '#111827', background: '#fff',
+}
+
 // Переразметка старых «зарплат себе» в изъятия. Работает один раз и вручную:
 // система не угадывает по комментарию, кто именно забрал деньги, — отмечает владелец.
 export default function DrawsPanel() {
@@ -27,6 +32,10 @@ export default function DrawsPanel() {
   const [checked, setChecked] = useState(() => new Set())
   // Статью выбирают явно: молчаливый дефолт свалил бы все траты в одну кучу.
   const [category, setCategory] = useState('')
+  // Изъятия прячутся и среди выплат без комментария — их тоже надо перебрать,
+  // поэтому фильтры, а не жёсткое правило «только с комментарием».
+  const [filterTeacher, setFilterTeacher] = useState('')
+  const [filterComment, setFilterComment] = useState('any')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -54,9 +63,13 @@ export default function DrawsPanel() {
 
   useEffect(() => { fetchAll() }, [])
 
-  const candidates = useMemo(() => drawCandidates(transactions), [transactions])
+  const candidates = useMemo(
+    () => drawCandidates(transactions, { teacherId: filterTeacher, comment: filterComment }),
+    [transactions, filterTeacher, filterComment])
   const selected = useMemo(
     () => candidates.filter(t => checked.has(t.id)), [candidates, checked])
+
+  const candidatesSum = useMemo(() => drawSum(candidates), [candidates])
 
   const drawCategories = useMemo(() => categories.filter(c => c.kind === 'draw'), [categories])
 
@@ -120,13 +133,35 @@ export default function DrawsPanel() {
       }}>
         <Icon name="logout" size={16} style={{ color: '#b45309' }} />Изъятия владельца
       </h3>
-      <p style={{ fontSize: '12px', color: '#6b7280', margin: '6px 0 16px', lineHeight: 1.5 }}>
-        Личные траты владельца раньше проводили как «Выплату ЗП» с комментарием — и они
-        занижали прибыль, будто школа их потратила. Отметьте выплаты одного вида, выберите
-        статью (продукты, такси, подарки…) и переведите; затем следующие. Из зарплат они
-        уйдут, но в кассе останутся — деньги ведь потрачены. Дальше такие операции сразу
-        заводите видом «Изъятие».
+      <p style={{ fontSize: '12px', color: '#6b7280', margin: '6px 0 12px', lineHeight: 1.5 }}>
+        Личные траты владельца раньше проводили как выплату ЗП — и они занижали прибыль,
+        будто школа их потратила. Отберите фильтрами (получатель, есть ли комментарий),
+        отметьте выплаты одного вида, выберите статью и переведите; затем следующие.
+        Из зарплат они уйдут, но в кассе останутся — деньги ведь потрачены. Дальше такие
+        операции сразу заводите видом «Изъятие».
       </p>
+
+      {/* Фильтры. Без них выплаты без комментария невозможно отделить от зарплат
+          педагогам: в списке 200+ строк, и глазами их не перебрать. */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+        <select value={filterTeacher} style={selectStyle}
+          onChange={e => { setFilterTeacher(e.target.value); setChecked(new Set()) }}>
+          <option value="">Все получатели</option>
+          <option value="none">Без получателя</option>
+          {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+
+        <select value={filterComment} style={selectStyle}
+          onChange={e => { setFilterComment(e.target.value); setChecked(new Set()) }}>
+          <option value="any">Комментарий: любой</option>
+          <option value="with">Только с комментарием</option>
+          <option value="without">Только без комментария</option>
+        </select>
+
+        <span style={{ fontSize: '12px', color: '#6b7280', alignSelf: 'center' }}>
+          Найдено {candidates.length} на {money(candidatesSum)}
+        </span>
+      </div>
 
       <ErrorBanner message={error} onRetry={fetchAll} />
 
@@ -139,7 +174,7 @@ export default function DrawsPanel() {
 
       {candidates.length === 0 ? (
         <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
-          Выплат ЗП с комментарием не осталось — переразмечать нечего.
+          Выплат ЗП под эти фильтры нет — переразмечать нечего.
         </p>
       ) : (
         <>

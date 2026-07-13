@@ -7,10 +7,10 @@ import {
 const tx = (extra) => ({ id: 'x', amount: 100000, date: '2026-07-01', accountId: 'cash', ...extra })
 
 describe('drawCandidates', () => {
-  it('зарплата с комментарием — кандидат, без комментария — нет', () => {
+  // Изъятия нашлись и среди выплат без комментария — владелец брал себе и молча.
+  it('кандидат — любая выплата ЗП, с комментарием и без', () => {
     expect(isDrawCandidate(tx({ kind: 'salary', comment: 'Продукты' }))).toBe(true)
-    expect(isDrawCandidate(tx({ kind: 'salary', comment: '' }))).toBe(false)
-    expect(isDrawCandidate(tx({ kind: 'salary', comment: '   ' }))).toBe(false)
+    expect(isDrawCandidate(tx({ kind: 'salary', comment: '' }))).toBe(true)
   })
 
   it('расходы и доходы не предлагаются', () => {
@@ -29,6 +29,26 @@ describe('drawCandidates', () => {
     ]
     expect(drawCandidates(list, { teacherId: 'owner' }).map(t => t.id)).toEqual(['a'])
     expect(drawCandidates(list).map(t => t.id).sort()).toEqual(['a', 'b'])
+  })
+
+  it('«без получателя» — это процент менеджера и аутсорс, у них teacherId пуст', () => {
+    const list = [
+      tx({ id: 'a', kind: 'salary', teacherId: 'owner' }),
+      tx({ id: 'b', kind: 'salary', teacherId: '' }),
+    ]
+    expect(drawCandidates(list, { teacherId: 'none' }).map(t => t.id)).toEqual(['b'])
+  })
+
+  it('фильтр по наличию комментария', () => {
+    const list = [
+      tx({ id: 'with', kind: 'salary', comment: 'Продукты' }),
+      tx({ id: 'blank', kind: 'salary', comment: '   ' }),
+      tx({ id: 'none', kind: 'salary' }),
+    ]
+    expect(drawCandidates(list, { comment: 'with' }).map(t => t.id)).toEqual(['with'])
+    // Пробелы — это не комментарий.
+    expect(drawCandidates(list, { comment: 'without' }).map(t => t.id).sort())
+      .toEqual(['blank', 'none'])
   })
 
   it('свежие сверху', () => {
