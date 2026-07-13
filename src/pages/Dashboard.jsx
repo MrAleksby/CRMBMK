@@ -193,26 +193,6 @@ export default function Dashboard() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-        {/* Должники */}
-        <div style={card}>
-          <div style={cardTitle}>
-            <Icon name="alert" size={16} style={{ color: '#dc2626' }} />Должники
-          </div>
-          {debtorRows.length === 0 ? (
-            <p style={empty}>Долгов нет</p>
-          ) : debtorRows.map(({ client, balance }, i) => (
-            <div key={client.id} style={row(i === debtorRows.length - 1)}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                <Avatar client={client} size={26} />
-                <Link to={`/clients/${client.id}`} style={nameLink}>{client.childName}</Link>
-              </div>
-              <span style={{ fontSize: '13px', fontWeight: '700', color: '#dc2626', whiteSpace: 'nowrap' }}>
-                {balance.toLocaleString()}
-              </span>
-            </div>
-          ))}
-        </div>
-
         {/* Предоплаты */}
         <div style={card}>
           <div style={cardTitle}>
@@ -236,6 +216,26 @@ export default function Dashboard() {
                 </div>
               </div>
               <span style={{ fontSize: '13px', fontWeight: '700', color: '#059669', whiteSpace: 'nowrap' }}>
+                {balance.toLocaleString()}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Должники */}
+        <div style={card}>
+          <div style={cardTitle}>
+            <Icon name="alert" size={16} style={{ color: '#dc2626' }} />Должники
+          </div>
+          {debtorRows.length === 0 ? (
+            <p style={empty}>Долгов нет</p>
+          ) : debtorRows.map(({ client, balance }, i) => (
+            <div key={client.id} style={row(i === debtorRows.length - 1)}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                <Avatar client={client} size={26} />
+                <Link to={`/clients/${client.id}`} style={nameLink}>{client.childName}</Link>
+              </div>
+              <span style={{ fontSize: '13px', fontWeight: '700', color: '#dc2626', whiteSpace: 'nowrap' }}>
                 {balance.toLocaleString()}
               </span>
             </div>
