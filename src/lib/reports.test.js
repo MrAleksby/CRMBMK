@@ -47,6 +47,26 @@ describe('monthlyMoney', () => {
     expect(jan.profit).not.toBe(jan.income - jan.expense)
   })
 
+  // Турниры и кешбеки денег приносят, а начислений не имеют: считать прибыль
+  // только по занятиям — значит потерять их (на июль 2026 это 32,5 млн).
+  it('доход без ученика входит в прибыль напрямую', () => {
+    const withTournament = [...transactions, tx('income', 500_000, '2026-01-25')]
+    const rows = monthlyMoney(withTournament, charges, RANGE)
+    const jan = rows.find(r => r.key === '2026-01')
+
+    expect(jan.otherIncome).toBe(500_000)
+    expect(jan.profit).toBe(330_000 + 500_000 - 200_000)
+  })
+
+  it('оплата ученика в прибыль напрямую не идёт — её приносит занятие', () => {
+    const rows = monthlyMoney(transactions, charges, RANGE)
+    const jan = rows.find(r => r.key === '2026-01')
+
+    expect(jan.income).toBe(1_000_000)   // предоплата за абонемент
+    expect(jan.otherIncome).toBe(0)
+    expect(jan.profit).toBe(130_000)     // только проведённое занятие
+  })
+
   it('фильтр по кассе не тянет чужие операции', () => {
     const list = [tx('income', 100, '2026-03-01', { accountId: 'cash' }), tx('income', 900, '2026-03-01', { accountId: 'card' })]
     const rows = monthlyMoney(list, [], RANGE, { accountId: 'card' })

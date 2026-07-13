@@ -103,13 +103,33 @@ export const drawTotal = (transactions) => sumAmount(ofKind(transactions, KIND_D
 export const companyBalance = (transactions) =>
   transactions.reduce((total, t) => total + (SIGN[t.kind] ?? 0) * (t.amount || 0), 0)
 
-// Прибыль за период — по фактическим деньгам, прошедшим через кассу.
-// Проведённое, но не оплаченное занятие сюда не попадает: это долг, а не доход.
-//
-// Изъятия владельца прибыль НЕ уменьшают: они не затрата, а распределение уже
-// заработанного. Поэтому прибыль = баланс кассы + то, что владелец из неё забрал.
-export const periodProfit = (transactions) =>
+// Движение денег за период: сколько пришло минус сколько ушло, без учёта изъятий.
+// Это не прибыль, а денежный поток — оплата абонемента приходит разом, а
+// зарабатывается по мере занятий.
+export const periodCashFlow = (transactions) =>
   companyBalance(transactions) + drawTotal(transactions)
+
+// Доход, не привязанный к ученику: турнир, кешбек банка, доп. услуга без ребёнка.
+// За ним не стоит начисления, поэтому в прибыли он учитывается напрямую —
+// иначе эти деньги (32,5 млн на июль 2026) выпадают из отчёта вовсе.
+export const otherIncomeTotal = (transactions) =>
+  sumAmount(ofKind(transactions, KIND_INCOME).filter(t => !t.clientId))
+
+// Прибыль = что школа реально заработала.
+//
+//   начислено за занятия  (charges — фактически оказанные услуги)
+// + доходы вне занятий    (турниры, кешбеки — денег стоят, начислений не имеют)
+// − расходы школы
+// − зарплаты
+//
+// Оплаты учеников сюда не входят напрямую: деньги за абонемент приходят разом,
+// а зарабатываются по мере занятий — их приносит `charges`. Изъятия владельца
+// не вычитаются: это распределение прибыли, а не затрата.
+export const realizedProfit = (transactions, charges) =>
+  sumAmount(charges)
+  + otherIncomeTotal(transactions)
+  - expenseTotal(transactions)
+  - salaryTotal(transactions)
 
 // Остаток по каждой кассе за всё время. Порядок — как в справочнике.
 export function accountTotals(transactions, accounts) {

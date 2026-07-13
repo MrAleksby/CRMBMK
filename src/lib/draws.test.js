@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { isDrawCandidate, drawCandidates, toDrawDoc, drawSum } from './draws.js'
 import {
-  KIND_DRAW, companyBalance, periodProfit, salaryTotal, drawTotal, accountTotals,
+  KIND_DRAW, companyBalance, periodCashFlow, salaryTotal, drawTotal, accountTotals,
 } from './finance.js'
 
 const tx = (extra) => ({ id: 'x', amount: 100000, date: '2026-07-01', accountId: 'cash', ...extra })
@@ -87,8 +87,8 @@ describe('изъятие в денежной модели', () => {
     expect(companyBalance(list)).toBe(1000000 - 200000 - 300000 - 400000)
   })
 
-  it('прибыль изъятием не уменьшается', () => {
-    expect(periodProfit(list)).toBe(1000000 - 200000 - 300000)
+  it('денежный поток до изъятий их не вычитает', () => {
+    expect(periodCashFlow(list)).toBe(1000000 - 200000 - 300000)
   })
 
   it('изъятие не считается зарплатой', () => {
@@ -102,11 +102,11 @@ describe('изъятие в денежной модели', () => {
     expect(totals).toBe(companyBalance(list))
   })
 
-  it('перевод зарплаты в изъятие поднимает прибыль ровно на сумму операции', () => {
+  it('перевод зарплаты в изъятие поднимает результат ровно на сумму операции', () => {
     const before = [tx({ id: 'i', kind: 'income', amount: 1000000 }), tx({ id: 's', kind: 'salary', amount: 400000, comment: 'Продукты' })]
     const after = before.map(t => t.id === 's' ? { ...t, ...toDrawDoc('cat-draw') } : t)
 
-    expect(periodProfit(after) - periodProfit(before)).toBe(400000)
+    expect(periodCashFlow(after) - periodCashFlow(before)).toBe(400000)
     // А денег в кассе столько же: они как ушли, так и ушли.
     expect(companyBalance(after)).toBe(companyBalance(before))
   })

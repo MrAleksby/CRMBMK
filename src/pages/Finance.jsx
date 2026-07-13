@@ -8,8 +8,8 @@ import { MONTHS_SHORT } from '../lib/constants'
 import {
   KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, KIND_DRAW, kindMeta, YEAR_ALL,
   toJsDate, inPeriod, availableYears, documentNumber, sortTransactions,
-  incomeTotal, expenseTotal, salaryTotal, refundTotal, drawTotal,
-  companyBalance, periodProfit, accountTotals, categoryTotals,
+  incomeTotal, expenseTotal, salaryTotal, refundTotal, drawTotal, sumAmount,
+  companyBalance, realizedProfit, accountTotals, categoryTotals,
 } from '../lib/finance'
 import { buildTransaction, transactionToForm } from '../lib/transaction'
 import { formToSubscriptionDoc, endDateFromWeeks } from '../lib/subscription'
@@ -290,7 +290,12 @@ export default function Finance() {
     () => transactions.filter(t => inPeriod(t, filterMonth, filterYear)),
     [transactions, filterMonth, filterYear])
 
-  // Начисления нужны только для долгов учеников: в кассовые метрики они не идут.
+  // Начисления за занятия того же периода — из них считается прибыль.
+  const periodCharges = useMemo(
+    () => charges.filter(c => inPeriod(c, filterMonth, filterYear)),
+    [charges, filterMonth, filterYear])
+
+  // Балансы — по всей истории: долг не «за июль», он просто есть.
   const balances = useMemo(() => clientBalances(transactions, charges), [transactions, charges])
   const { debt, prepaid } = useMemo(() => debtAndPrepaid(balances), [balances])
 
@@ -346,7 +351,9 @@ export default function Finance() {
   if (loading) return <div style={{ color: '#6b7280', padding: '32px' }}>Загрузка...</div>
 
   const balance = companyBalance(transactions)
-  const profit = periodProfit(periodTx)
+  // Прибыль — по оказанным услугам, а не по деньгам в кассе: абонемент платят
+  // разом, а зарабатывают его по мере занятий. Та же формула, что в «Отчётах».
+  const profit = realizedProfit(periodTx, periodCharges)
 
   // Подпись периода: «за всё время», «2026» или «июл 2026». Метрики считаются
   // ровно по нему, поэтому подпись должна совпадать с фильтрами буквально.
@@ -434,6 +441,9 @@ export default function Finance() {
         gap: '12px', marginBottom: '24px',
       }}>
         <Metric label="Доходы" value={money(incomeTotal(periodTx))} color="#059669" />
+        {/* Списано — то, что школа отработала. Прибыль считается от него, а не от
+            поступлений: абонемент платят разом, а зарабатывают по мере занятий. */}
+        <Metric label="Списано (занятия)" value={money(sumAmount(periodCharges))} color="#7c3aed" />
         <Metric label="Расходы компании" value={money(expenseTotal(periodTx))} color="#dc2626" />
         <Metric label="Выплаты ЗП" value={money(salaryTotal(periodTx))} color="#dc2626" />
         <Metric label="Возвраты клиентам" value={money(refundTotal(periodTx))} color="#dc2626" />

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   companyBalance, accountTotals, incomeTotal, expenseTotal, salaryTotal, refundTotal,
-  periodProfit, toJsDate, inPeriod,
+  periodCashFlow, realizedProfit, otherIncomeTotal, toJsDate, inPeriod,
 } from './finance'
 
 // Главный инвариант всей системы: сумма остатков по кассам = баланс компании.
@@ -56,8 +56,39 @@ describe('итоги по видам операций', () => {
     expect(refundTotal(list)).toBe(10)
   })
 
-  it('прибыль за период = баланс операций периода', () => {
-    expect(periodProfit(list)).toBe(90)
+  it('денежный поток = баланс операций периода', () => {
+    expect(periodCashFlow(list)).toBe(90)
+  })
+})
+
+describe('realizedProfit — прибыль считается по работе, а не по деньгам', () => {
+  // Оплата ученика денег в прибыль не приносит: её приносит проведённое занятие.
+  // Иначе месяц с крупной предоплатой показал бы прибыль, которой не заработали.
+  const transactions = [
+    { kind: 'income', amount: 1_000_000, clientId: 'a' },   // абонемент на будущее
+    { kind: 'income', amount: 300_000 },                     // турнир — ученика нет
+    { kind: 'expense', amount: 200_000 },
+    { kind: 'salary', amount: 100_000 },
+    { kind: 'draw', amount: 500_000 },
+  ]
+  const charges = [{ clientId: 'a', amount: 400_000 }]
+
+  it('доход без ученика — это доход компании', () => {
+    expect(otherIncomeTotal(transactions)).toBe(300_000)
+  })
+
+  it('прибыль = списано + доходы вне занятий − расходы − ЗП', () => {
+    expect(realizedProfit(transactions, charges))
+      .toBe(400_000 + 300_000 - 200_000 - 100_000)
+  })
+
+  it('изъятие владельца прибыль не уменьшает', () => {
+    const withoutDraw = transactions.filter(t => t.kind !== 'draw')
+    expect(realizedProfit(transactions, charges)).toBe(realizedProfit(withoutDraw, charges))
+  })
+
+  it('оплата ученика сама по себе прибыли не даёт — только проведённое занятие', () => {
+    expect(realizedProfit(transactions, [])).toBe(300_000 - 200_000 - 100_000)
   })
 })
 

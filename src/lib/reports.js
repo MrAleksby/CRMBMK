@@ -103,7 +103,8 @@ export function monthlyMoney(transactions, charges, range, filters = {}) {
     if (!rows.has(key)) {
       rows.set(key, {
         key, label: monthLabel(key),
-        income: 0, expense: 0, salary: 0, refund: 0, draw: 0, charged: 0, lessons: 0,
+        income: 0, otherIncome: 0, expense: 0, salary: 0, refund: 0, draw: 0,
+        charged: 0, lessons: 0,
       })
     }
     return rows.get(key)
@@ -117,7 +118,12 @@ export function monthlyMoney(transactions, charges, range, filters = {}) {
 
     const target = row(monthKey(dayOf(t.date)))
     const amount = t.amount || 0
-    if (t.kind === KIND_INCOME) target.income += amount
+    if (t.kind === KIND_INCOME) {
+      target.income += amount
+      // Доход без ученика (турнир, кешбек) начислений не имеет — в прибыль
+      // он попадает напрямую, иначе выпал бы из отчёта совсем.
+      if (!t.clientId) target.otherIncome += amount
+    }
     else if (t.kind === KIND_EXPENSE) target.expense += amount
     else if (t.kind === KIND_SALARY) target.salary += amount
     else if (t.kind === KIND_REFUND) target.refund += amount
@@ -138,9 +144,10 @@ export function monthlyMoney(transactions, charges, range, filters = {}) {
 
   const list = [...rows.values()].sort((a, b) => a.key.localeCompare(b.key))
   for (const item of list) {
-    // Изъятия владельца в прибыль не входят: школа их не тратила, владелец забрал
+    // Прибыль = оказанные услуги (charged) + доходы вне занятий − расходы − ЗП.
+    // Изъятия владельца в неё не входят: школа их не тратила, владелец забрал
     // из уже заработанного. В движение по кассе (cash) — входят: денег стало меньше.
-    item.profit = item.charged - item.expense - item.salary
+    item.profit = item.charged + item.otherIncome - item.expense - item.salary
     item.cash = item.income - item.expense - item.salary - item.refund - item.draw
   }
   return list
