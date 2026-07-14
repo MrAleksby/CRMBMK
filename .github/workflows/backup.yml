@@ -1,0 +1,55 @@
+name: Резервная копия Firestore
+
+# Копия снимается в облаке GitHub, а не на ноутбуке владельца: ноутбук может
+# смениться или сломаться, а бэкапы должны продолжаться.
+#
+# Дамп уходит в ОТДЕЛЬНЫЙ ПРИВАТНЫЙ репозиторий: в базе ФИО детей и телефоны
+# родителей, а этот репозиторий публичный.
+#
+# Нужные секреты (Settings → Secrets and variables → Actions):
+#   FIREBASE_SERVICE_ACCOUNT — содержимое ключа сервис-аккаунта (JSON целиком)
+#   BACKUP_REPO              — приватный репозиторий для копий, вида MrAleksby/CRMBMK-backups
+#   BACKUP_TOKEN             — personal access token с правом записи в этот репозиторий
+
+on:
+  schedule:
+    # 02:00 по Ташкенту (UTC+5) — ночью, когда в CRM никто не работает.
+    - cron: '0 21 * * *'
+  workflow_dispatch:        # и по кнопке, когда нужно снять копию вручную
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Код CRM
+        uses: actions/checkout@v4
+
+      - name: Репозиторий копий
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.BACKUP_REPO }}
+          token: ${{ secrets.BACKUP_TOKEN }}
+          path: backup-repo
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Зависимости
+        run: npm ci
+
+      - name: Снять копию
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          BACKUP_DIR: backup-repo/backups
+        run: node scripts/backup.mjs
+
+      - name: Сохранить в репозиторий копий
+        working-directory: backup-repo
+        run: |
+          git config user.name "FinGam backup"
+          git config user.email "noreply@github.com"
+          git add backups
+          # Если за сутки в базе ничего не изменилось, коммитить нечего — это не ошибка.
+          git diff --staged --quiet || git commit -m "Копия базы за $(date -u +%Y-%m-%d)"
+          git push
