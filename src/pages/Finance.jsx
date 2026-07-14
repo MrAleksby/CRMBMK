@@ -16,6 +16,7 @@ import { buildTransaction, transactionToForm } from '../lib/transaction'
 import { formToSubscriptionDoc, endDateFromWeeks } from '../lib/subscription'
 import { clientBalances, debtAndPrepaid } from '../lib/balance'
 import { sortItems, getDirectory } from '../lib/directories'
+import { downloadCsv } from '../lib/export'
 import { useSelection } from '../lib/selection'
 import CategoryOptions from '../components/CategoryOptions'
 import TransactionForm from '../components/TransactionForm'
@@ -370,6 +371,21 @@ export default function Finance() {
       ? `${filterYear} год`
       : `${MONTHS_SHORT[filterMonth]} ${filterYear}`
 
+  const exportRows = () => downloadCsv(`финансы ${periodLabel}`, [
+    { label: 'Дата', value: t => toJsDate(t.date)?.toLocaleDateString('ru') || '' },
+    { label: 'Документ', value: t => documentNumber(t) },
+    { label: 'Тип операции', value: t => kindMeta(t.kind).label },
+    // Знак ставим явно: в выгрузке иначе не отличить приход от расхода.
+    { label: 'Сумма', value: t => (t.kind === KIND_INCOME ? 1 : t.kind === KIND_TRANSFER ? 0 : -1) * (t.amount || 0) },
+    { label: 'Касса', value: t => accountName[t.accountId] || '' },
+    { label: 'Касса-получатель', value: t => (t.kind === KIND_TRANSFER ? accountName[t.accountToId] || '' : '') },
+    { label: 'Статья', value: t => categoryName[t.categoryId] || '' },
+    { label: 'Ученик', value: t => t.clientName || '' },
+    { label: 'Педагог', value: t => t.teacherName || '' },
+    { label: 'Плательщик', value: t => t.payerName || '' },
+    { label: 'Комментарий', value: t => t.comment || '' },
+  ], rows)
+
   return (
     <div style={{ maxWidth: '1100px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', gap: '12px', flexWrap: 'wrap' }}>
@@ -549,13 +565,26 @@ export default function Finance() {
               </>
             )}
           </span>
-          <label style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            Строк на странице
-            <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }}
-              style={{ ...inputStyle, padding: '4px 8px', fontSize: '13px' }}>
-             {PAGE_SIZES.map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </label>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Выгружаем то, что на экране: с фильтрами и сортировкой, но без пагинации —
+                нужны все найденные строки, а не текущая страница. */}
+            <button onClick={exportRows} disabled={!rows.length} style={{
+              display: 'inline-flex', alignItems: 'center', gap: '5px',
+              background: 'transparent', border: '1px solid #e5e7eb', borderRadius: '8px',
+              padding: '6px 10px', color: '#4b5563', fontSize: '12px',
+              cursor: rows.length ? 'pointer' : 'default', opacity: rows.length ? 1 : 0.5,
+            }}>
+              <Icon name="download" size={14} />Экспорт
+            </button>
+
+            <label style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              Строк на странице
+              <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }}
+                style={{ ...inputStyle, padding: '4px 8px', fontSize: '13px' }}>
+               {PAGE_SIZES.map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </label>
+          </div>
         </div>
 
        {rows.length === 0 ? (

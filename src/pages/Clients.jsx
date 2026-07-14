@@ -85,10 +85,11 @@ import { lessonsLeft } from '../lib/subscription'
 import { clientBalances } from '../lib/balance'
 import { useSelection } from '../lib/selection'
 import { useIsMobile } from '../lib/useIsMobile'
+import { downloadCsv } from '../lib/export'
 import ActionToolbar from '../components/ActionToolbar'
 import {
   getAge, ageLabel, contactRows, contactTitle, statusInfo, searchText, sortClients,
-  CLIENT_STATUSES, instagramUrl, telegramUrl, phoneUrl,
+  CLIENT_STATUSES, instagramUrl, telegramUrl, phoneUrl, genderInfo, sourceInfo, parentPhones,
   clientHistory, whyKeepClient, lessonsLabel,
 } from '../lib/client'
 
@@ -302,6 +303,38 @@ export default function Clients() {
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, pageCount)
   const visible = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
+  // Полная карточка ученика в одну строку: то, ради чего выгрузку и просят —
+  // отдать данные бухгалтеру, посчитать своё в таблице, сохранить вне CRM.
+  const parentCell = (parent, key) => {
+    if (!parent) return ''
+    if (key === 'phones') return parentPhones(parent).join(', ')
+    return parent[key] || ''
+  }
+
+  const exportRows = () => downloadCsv('ученики', [
+    { label: 'ФИО ребёнка', value: c => c.childName || '' },
+    { label: 'Дата рождения', value: c => c.birthDate || '' },
+    { label: 'Возраст', value: c => getAge(c) ?? '' },
+    { label: 'Пол', value: c => genderInfo(c)?.label || '' },
+    { label: 'Статус', value: c => statusInfo(c).label },
+    { label: 'Баланс', value: c => getBalance(c.id) },
+    {
+      label: 'Остаток уроков',
+      value: c => lessonsLeft(subscriptions, c.id, getBalance(c.id), chargesBy.get(c.id) || [], c),
+    },
+    { label: 'Цена занятия', value: c => c.lessonPrice ?? '' },
+    { label: 'Мама', value: c => parentCell(c.mother, 'name') },
+    { label: 'Телефоны мамы', value: c => parentCell(c.mother, 'phones') },
+    { label: 'Папа', value: c => parentCell(c.father, 'name') },
+    { label: 'Телефоны папы', value: c => parentCell(c.father, 'phones') },
+    { label: 'Telegram', value: c => parentCell(c.mother, 'telegram') || parentCell(c.father, 'telegram') },
+    { label: 'Instagram', value: c => parentCell(c.mother, 'instagram') || parentCell(c.father, 'instagram') },
+    { label: 'Контакты ребёнка', value: c => c.childContacts || '' },
+    { label: 'Источник', value: c => sourceInfo(c)?.label || '' },
+    { label: 'Аллергии', value: c => c.allergies || '' },
+    { label: 'Примечание', value: c => c.notes || '' },
+  ], filtered)
   const rangeFrom = filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
   const rangeTo = Math.min(currentPage * PAGE_SIZE, filtered.length)
 
@@ -364,10 +397,23 @@ export default function Clients() {
             }}>{n}</button>
           ))}
         </div>
-        <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
-          Отображены строки {rangeFrom} — {rangeTo}. Всего {filtered.length}
-          {filtered.length !== clientsCount && ` из ${clientsCount}`}.
-        </p>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>
+            Отображены строки {rangeFrom} — {rangeTo}. Всего {filtered.length}
+            {filtered.length !== clientsCount && ` из ${clientsCount}`}.
+          </p>
+
+          {/* Выгружаем всех найденных, а не текущую страницу: фильтр «должники»
+              должен дать файл со всеми должниками, а не с первыми пятьюдесятью. */}
+          <button onClick={exportRows} disabled={!filtered.length} style={{
+            display: 'inline-flex', alignItems: 'center', gap: '5px',
+            background: 'transparent', border: '1px solid #e5e7eb', borderRadius: '8px',
+            padding: '6px 10px', color: '#4b5563', fontSize: '12px',
+            cursor: filtered.length ? 'pointer' : 'default', opacity: filtered.length ? 1 : 0.5,
+          }}>
+            <Icon name="download" size={14} />Экспорт
+          </button>
+        </div>
       </div>
 
       {/* Кнопки стоят прямо над таблицей: они работают с отмеченными строками.

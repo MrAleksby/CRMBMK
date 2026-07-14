@@ -17,6 +17,7 @@ import { LESSON_STATUSES, todayISO } from '../lib/group'
 import { buildJournal, journalToAttendance, lessonTypeLabel, formatLessonDate, planAttendanceUpdate } from '../lib/lesson'
 import { activeSubscription, lessonsLeft } from '../lib/subscription'
 import { clientBalances } from '../lib/balance'
+import { downloadCsv } from '../lib/export'
 import { useIsMobile } from '../lib/useIsMobile'
 
 const panel = {
@@ -361,6 +362,49 @@ export default function Lessons() {
   }
 
   const query = search.trim().toLowerCase()
+  // Строка на каждого ученика занятия, а не на занятие: в таблице нужно видеть,
+  // с кого сколько списали. Сумма берётся из журнала — она же ушла в начисление.
+  const exportLessons = () => {
+    const rows = []
+    for (const lesson of filtered) {
+      const teacher = teachers.find(t => t.id === lesson.teacherId)
+      const attendance = lesson.attendance?.length
+        ? lesson.attendance
+        : (lesson.studentIds || []).map(id => ({ clientId: id }))
+
+      for (const record of attendance) {
+        const client = clients.find(c => c.id === record.clientId)
+        rows.push({
+          date: lesson.date,
+          timeFrom: lesson.timeFrom || '',
+          timeTo: lesson.timeTo || '',
+          type: lessonTypeLabel(lesson.type),
+          status: LESSON_STATUSES[lesson.status]?.label || lesson.status,
+          group: lesson.groupName || '',
+          topic: lesson.topic || '',
+          teacher: teacher?.name || '',
+          student: record.clientName || client?.childName || '',
+          attendance: record.status === 'absent' ? 'Не был' : record.status ? 'Был' : '',
+          amount: Number(record.amountCharged) || 0,
+        })
+      }
+    }
+
+    downloadCsv('занятия', [
+      { label: 'Дата', value: r => r.date },
+      { label: 'Начало', value: r => r.timeFrom },
+      { label: 'Конец', value: r => r.timeTo },
+      { label: 'Тип', value: r => r.type },
+      { label: 'Статус', value: r => r.status },
+      { label: 'Группа', value: r => r.group },
+      { label: 'Тема', value: r => r.topic },
+      { label: 'Педагог', value: r => r.teacher },
+      { label: 'Ученик', value: r => r.student },
+      { label: 'Присутствие', value: r => r.attendance },
+      { label: 'Списано', value: r => r.amount },
+    ], rows)
+  }
+
   const filtered = lessons
     .filter(l => {
       if (query) {
@@ -472,6 +516,17 @@ export default function Lessons() {
         </div>
         <input placeholder="Поиск по группе или теме" style={{ ...inputStyle, width: '240px' }}
           value={search} onChange={e => setSearch(e.target.value)} />
+
+        {manages && (
+          <button onClick={exportLessons} disabled={!filtered.length} style={{
+            display: 'inline-flex', alignItems: 'center', gap: '5px',
+            background: 'transparent', border: '1px solid #e5e7eb', borderRadius: '10px',
+            padding: '8px 12px', color: '#4b5563', fontSize: '13px',
+            cursor: filtered.length ? 'pointer' : 'default', opacity: filtered.length ? 1 : 0.5,
+          }}>
+            <Icon name="download" size={14} />Экспорт
+          </button>
+        )}
       </div>
       )}
 
