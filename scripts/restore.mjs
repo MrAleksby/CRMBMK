@@ -20,7 +20,13 @@ import { getFirestore, Timestamp } from 'firebase-admin/firestore'
 
 const BATCH_LIMIT = 400   // предел Firestore — 500 операций на батч
 
+// Эмулятору ключ не нужен и не годится: он никого не аутентифицирует.
+// Так проверка восстановления (verify-restore.mjs) обходится без боевых доступов.
+const onEmulator = Boolean(process.env.FIRESTORE_EMULATOR_HOST)
+
 function credentials() {
+  if (onEmulator) return undefined
+
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT
   if (raw) return cert(JSON.parse(raw))
 
@@ -81,7 +87,9 @@ async function main() {
   const dump = JSON.parse(await readFile(file, 'utf8'))
   console.log(`Копия от ${dump.takenAt}, проект ${dump.project}\n`)
 
-  initializeApp({ credential: credentials() })
+  initializeApp(onEmulator
+    ? { projectId: dump.project }
+    : { credential: credentials() })
   const db = getFirestore()
 
   const names = Object.keys(dump.collections).filter(n => !only.length || only.includes(n))
