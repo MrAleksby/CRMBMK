@@ -164,6 +164,28 @@ async function main() {
     parts.push(`📅 <b>Завтра, ${when}</b>\n${heroesTomorrow.map(c => line(c, tomorrow)).join('\n')}`)
   }
 
+  // Остаток месяца: кого поздравлять дальше. Сегодняшних и завтрашних сюда не
+  // берём — они уже названы выше, дважды в одном сообщении они только мешают.
+  const dayOf = (c) => Number(String(c.birthDate).split('-')[2])
+  const monthOf = (c) => Number(String(c.birthDate).split('-')[1])
+
+  const rest = students
+    .filter(c => monthOf(c) === now.getUTCMonth() + 1 && dayOf(c) > tomorrow.getUTCDate())
+    // Через границу месяца завтра уже в следующем — тогда «остаток» этого месяца пуст,
+    // и условие выше само отсечёт всех.
+    .filter(c => tomorrow.getUTCMonth() === now.getUTCMonth())
+    .sort((a, b) => dayOf(a) - dayOf(b))
+
+  if (rest.length) {
+    const month = MONTHS[now.getUTCMonth()]
+    const rows = rest.map(c => {
+      const date = new Date(Date.UTC(now.getUTCFullYear(), monthOf(c) - 1, dayOf(c)))
+      const age = turningAge(c.birthDate, date)
+      return `• ${dayOf(c)} ${month} — <b>${c.childName}</b>${age ? ` (${plural(age, 'год', 'года', 'лет')})` : ''}`
+    })
+    parts.push(`🗓 <b>Ещё в этом месяце</b>\n${rows.join('\n')}`)
+  }
+
   await send(parts.join('\n\n'))
 }
 
