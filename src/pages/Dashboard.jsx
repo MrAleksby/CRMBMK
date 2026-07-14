@@ -118,7 +118,12 @@ export default function Dashboard() {
       <ErrorBanner message={loadError} onRetry={fetchData} />
 
       {/* Цифры дня. Итоги за всё время живут в «Отчётах» — здесь они только мешают. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
+      {/* auto-fit, а не «4 колонки»: на телефоне жёсткая сетка выносила карточки
+          за край экрана, и страница ездила вбок. */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+        gap: '12px', marginBottom: '16px',
+      }}>
         <div style={card}>
           <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>Занятий сегодня</p>
           <p style={{ fontSize: '22px', fontWeight: '700', color: '#7c3aed', margin: 0 }}>{todayLessons.length}</p>
@@ -192,7 +197,9 @@ export default function Dashboard() {
         })}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px',
+      }}>
         {/* Предоплаты */}
         <div style={card}>
           <div style={cardTitle}>

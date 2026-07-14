@@ -84,6 +84,7 @@ import Avatar from '../components/Avatar'
 import { lessonsLeft } from '../lib/subscription'
 import { clientBalances } from '../lib/balance'
 import { useSelection } from '../lib/selection'
+import { useIsMobile } from '../lib/useIsMobile'
 import ActionToolbar from '../components/ActionToolbar'
 import {
   getAge, ageLabel, contactRows, contactTitle, statusInfo, searchText, sortClients,
@@ -140,6 +141,7 @@ function birthLine(client) {
 }
 
 export default function Clients() {
+  const isMobile = useIsMobile()
   const [clients, setClients] = useState([])
   const [transactions, setTransactions] = useState([])
   const [charges, setCharges] = useState([])
@@ -390,6 +392,63 @@ export default function Clients() {
           padding: '40px', textAlign: 'center',
         }}>
           <p style={{ color: '#6b7280', fontSize: '14px' }}>Клиентов не найдено</p>
+        </div>
+      ) : isMobile ? (
+        // На телефоне таблица в 900px превращается в возню с горизонтальной прокруткой:
+        // менеджер ищет баланс и телефон, а видит фамилию и пустое место. Поэтому
+        // карточки — по одному ученику в строку, только то, ради чего сюда заходят.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {visible.map(c => {
+            const balance = getBalance(c.id)
+            const status = statusInfo(c)
+            const left = lessonsLeft(subscriptions, c.id, balance, chargesBy.get(c.id) || [], c)
+            const phone = contactRows(c).flatMap(r => r.phones)[0]
+            const age = getAge(c)
+
+            return (
+              <div key={c.id} style={{
+                background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '14px',
+                padding: '12px 14px', display: 'flex', gap: '10px', alignItems: 'flex-start',
+              }}>
+                <Avatar client={c} />
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <Link to={`/clients/${c.id}`} style={{
+                    color: '#7c3aed', fontWeight: '600', fontSize: '14px', textDecoration: 'none',
+                  }}>{c.childName}</Link>
+
+                  <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
+                    {age !== null && ageLabel(age)}
+                    {age !== null && ' · '}
+                    <span style={{ color: status.color }}>{status.label}</span>
+                  </div>
+
+                  {phone && (
+                    <a href={phoneUrl(phone)} style={{
+                      ...link, color: '#7c3aed', fontSize: '12px', marginTop: '4px',
+                      display: 'inline-flex', alignItems: 'center', gap: '4px',
+                    }}>
+                      <Icon name="phone" size={12} />{phone}
+                    </a>
+                  )}
+                </div>
+
+                {manages && (
+                  <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <div style={{
+                      fontSize: '13px', fontWeight: balance !== 0 ? '700' : '400',
+                      color: balance < 0 ? '#dc2626' : '#111827',
+                    }}>
+                      {balance.toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '11px', color: left < 0 ? '#dc2626' : '#9ca3af' }}>
+                      {lessonsLabel(left)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       ) : (
         <div style={{

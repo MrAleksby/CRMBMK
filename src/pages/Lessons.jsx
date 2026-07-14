@@ -17,6 +17,7 @@ import { LESSON_STATUSES, todayISO } from '../lib/group'
 import { buildJournal, journalToAttendance, lessonTypeLabel, formatLessonDate, planAttendanceUpdate } from '../lib/lesson'
 import { activeSubscription, lessonsLeft } from '../lib/subscription'
 import { clientBalances } from '../lib/balance'
+import { useIsMobile } from '../lib/useIsMobile'
 
 const panel = {
   background: '#ffffff',
@@ -66,7 +67,10 @@ export default function Lessons() {
   const [journalId, setJournalId] = useState(null)
   const [creating, setCreating] = useState(false)
   const [mode, setMode] = useState('calendar')
-  const [view, setView] = useState('week')
+  // На телефоне неделя не влезает: семь колонок ужимаются в нечитаемые полоски.
+  // Открываем сразу день — переключиться на неделю или месяц можно вручную.
+  const isMobile = useIsMobile()
+  const [view, setView] = useState(() => (isMobile ? 'day' : 'week'))
   const [calendarDate, setCalendarDate] = useState(new Date())
   const [modalId, setModalId] = useState(null)
   const [studentsId, setStudentsId] = useState(null)

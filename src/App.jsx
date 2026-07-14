@@ -174,29 +174,42 @@ function App() {
           </Routes>
         </main>
 
-        {/* Mobile bottom nav */}
+        {/* Mobile bottom nav.
+            Пунктов до девяти, и на экране в 400px подписи налезали друг на друга.
+            Поэтому панель прокручивается вбок, а у каждого пункта своя минимальная
+            ширина: лучше листнуть, чем читать слипшиеся слова. */}
         <nav style={{
           display: 'none',
           position: 'fixed', bottom: 0, left: 0, right: 0,
           background: '#ffffff', borderTop: '1px solid #e5e7eb',
-          padding: '8px 0', zIndex: 50,
+          padding: '8px 4px', zIndex: 50,
+          overflowX: 'auto',
         }} className="mobile-nav">
           {[
             ...navItems,
             { label: 'Выйти', icon: 'logout', onClick: () => signOut(auth) },
-          ].map(({ to, label, icon, color, end, onClick }) => (
-            to ? (
-              <NavLink key={to} to={to} end={end} style={({ isActive }) => ({ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', textDecoration: 'none', fontSize: '10px', fontWeight: '600', color: isActive ? '#7c3aed' : '#6b7280' })}>
+          ].map(({ to, label, icon, color, end, onClick }) => {
+            const item = (isActive) => ({
+              flex: '1 0 auto', minWidth: '62px',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
+              textDecoration: 'none', fontSize: '10px', fontWeight: '600',
+              whiteSpace: 'nowrap', padding: '2px 4px',
+              color: isActive ? '#7c3aed' : '#6b7280',
+              background: 'none', border: 'none', cursor: 'pointer',
+            })
+
+            return to ? (
+              <NavLink key={to} to={to} end={end} style={({ isActive }) => item(isActive)}>
                 <Icon name={icon} size={20} style={{ color }} />
                 {label}
               </NavLink>
             ) : (
-              <button key={label} onClick={onClick} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', background: 'none', border: 'none', fontSize: '10px', fontWeight: '600', color: '#6b7280', cursor: 'pointer' }}>
+              <button key={label} onClick={onClick} style={item(false)}>
                 <Icon name={icon} size={20} />
                 {label}
               </button>
             )
-          ))}
+          })}
         </nav>
       </div>
 
