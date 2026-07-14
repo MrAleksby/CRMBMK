@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { collection, getDocs, addDoc, updateDoc, writeBatch, doc } from 'firebase/firestore'
+import { collection, addDoc, updateDoc, writeBatch, doc } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import { readCollection, invalidate } from '../lib/store'

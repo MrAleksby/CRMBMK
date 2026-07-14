@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { collection, getDocs, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore'
+import { collection, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { useAuth } from '../AuthContext'
 import { canManage, teacherIdOf } from '../lib/access'

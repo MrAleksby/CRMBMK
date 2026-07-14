@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  collection, getDocs, getDoc, addDoc, doc, setDoc, updateDoc, deleteDoc, writeBatch,
-  // `query` переименован: ниже так называется строка поиска по лидам, и она
-  // затеняла бы функцию Firestore.
+  collection, getDocs, getDoc, addDoc, doc, setDoc, updateDoc, writeBatch,
   query as fsQuery, where,
 } from 'firebase/firestore'
 import { db, auth } from '../firebase'

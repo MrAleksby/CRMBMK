@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, writeBatch } from 'firebase/firestore'
+import { collection, getDoc, addDoc, updateDoc, deleteDoc, doc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { toAmount } from '../lib/amount'
 import { withTimeout, describeError } from '../lib/withTimeout'
@@ -18,7 +18,7 @@ import {
 } from '../lib/subscription'
 import {
   getAge, ageLabel, formatBirthday, contactRows, contactTitle, sourceInfo, genderInfo, statusInfo,
-  clientToForm, instagramUrl, telegramUrl, phoneUrl, parentPhones, isLeadClient,
+  clientToForm, instagramUrl, phoneUrl, parentPhones, isLeadClient,
   clientHistory, whyKeepClient, STATUS_DROPPED, lessonsLabel,
 } from '../lib/client'
 import { MONTHS_SHORT } from '../lib/constants'

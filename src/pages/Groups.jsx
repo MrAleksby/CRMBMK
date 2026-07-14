@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { collection, getDocs, doc, writeBatch } from 'firebase/firestore'
+import { collection, doc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import { readCollection, invalidate } from '../lib/store'

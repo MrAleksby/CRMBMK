@@ -26,4 +26,18 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+
+  // Скрипты бэкапа и конфиги собираются Node, а не браузером: там есть process,
+  // и глобалей браузера, наоборот, нет.
+  {
+    files: ['scripts/**/*.mjs', '*.config.js'],
+    languageOptions: { globals: globals.node },
+  },
+
+  // AuthContext рядом с провайдером экспортирует хук useAuth. Разносить их
+  // по файлам ради горячей перезагрузки незачем — это одна сущность.
+  {
+    files: ['src/AuthContext.jsx'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
 ])
