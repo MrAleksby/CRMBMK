@@ -62,18 +62,55 @@ function turningAge(birthDate, date) {
   return age > 0 && age < 120 ? age : null
 }
 
+// Кому писать. Если TELEGRAM_CHAT_ID не задан, спрашиваем у самого телеграма:
+// все, кто нажал боту «Запустить», видны в getUpdates. Так настройка сводится
+// к одному секрету — токену, а искать chat_id руками не нужно.
+//
+// Оговорка: getUpdates помнит события лишь сутки. Найденные id печатаются в лог —
+// их стоит закрепить секретом TELEGRAM_CHAT_ID, чтобы бот не «забыл» получателя.
+async function findChats(token) {
+  const res = await fetch(`https://api.telegram.org/bot${token}/getUpdates`)
+  const body = await res.json()
+  if (!body.ok) {
+    console.error('Telegram не отдал обновления:', body.description)
+    process.exit(1)
+  }
+
+  const chats = new Map()
+  for (const update of body.result || []) {
+    const chat = update.message?.chat || update.my_chat_member?.chat
+    if (chat) chats.set(String(chat.id), chat.first_name || chat.title || '')
+  }
+  return chats
+}
+
 async function send(text) {
   const token = process.env.TELEGRAM_BOT_TOKEN
-  const chats = (process.env.TELEGRAM_CHAT_ID || '').split(',').map(s => s.trim()).filter(Boolean)
 
   if (DRY_RUN) {
     console.log('--- сообщение (сухой прогон, не отправлено):\n')
     console.log(text)
     return
   }
-  if (!token || !chats.length) {
-    console.error('Нет TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID.')
+  if (!token) {
+    console.error('Нет TELEGRAM_BOT_TOKEN.')
     process.exit(1)
+  }
+
+  let chats = (process.env.TELEGRAM_CHAT_ID || '').split(',').map(s => s.trim()).filter(Boolean)
+
+  if (!chats.length) {
+    const found = await findChats(token)
+    if (!found.size) {
+      console.error(
+        'Некому писать: никто не нажал боту «Запустить».\n' +
+        'Пусть менеджер откроет бота и нажмёт Start, затем запустите ещё раз.')
+      process.exit(1)
+    }
+    chats = [...found.keys()]
+    console.log('Получатели найдены автоматически:')
+    for (const [id, name] of found) console.log(`  ${id} — ${name}`)
+    console.log('Закрепите их секретом TELEGRAM_CHAT_ID: getUpdates помнит только сутки.\n')
   }
 
   for (const chat_id of chats) {
