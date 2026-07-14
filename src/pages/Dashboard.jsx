@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
-import { readCollection, readClientMoney, invalidate } from '../lib/store'
+import { readCollection, readClientMoney, readLessonsOfDay, invalidate } from '../lib/store'
 import ErrorBanner from '../components/ErrorBanner'
 import Icon from '../components/Icon'
 import Avatar from '../components/Avatar'
@@ -62,7 +62,7 @@ export default function Dashboard() {
         readCollection('clients', { force }),
         readClientMoney({ force }),
         readCollection('charges', { force }),
-        readCollection('lessons', { force }),
+        readLessonsOfDay(today, { force }),
         readCollection('subscriptions', { force }),
         readCollection('teachers', { force }),
       ])
