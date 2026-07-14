@@ -1,0 +1,30 @@
+name: Дни рождения
+
+# Каждое утро бот проверяет базу и пишет менеджеру, у кого сегодня и завтра
+# день рождения. Если именинников нет — молчит: бот, который каждый день пишет
+# «сегодня никого», перестают читать через неделю.
+
+on:
+  schedule:
+    # 09:00 по Ташкенту (UTC+5) — рабочий день только начался, поздравить успеют.
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Напомнить о днях рождения
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: node scripts/birthdays.mjs
