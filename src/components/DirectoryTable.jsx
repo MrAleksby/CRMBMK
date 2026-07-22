@@ -307,8 +307,11 @@ export default function DirectoryTable({ dir }) {
                 ) : (
                   <input
                     style={inputStyle}
-                    type={field.type === FIELD_AMOUNT || field.type === FIELD_COUNT ? 'number' : 'text'}
-                    min={field.type === FIELD_AMOUNT ? 0 : field.min ?? 0}
+                    // Суммы вводят с запятой (1,5) — для них текстовое поле с
+                    // decimal-клавиатурой, разбор в toAmount. Счётчики остаются числовыми.
+                    type={field.type === FIELD_COUNT ? 'number' : 'text'}
+                    inputMode={field.type === FIELD_AMOUNT ? 'decimal' : undefined}
+                    min={field.type === FIELD_COUNT ? (field.min ?? 0) : undefined}
                     placeholder={field.placeholder || ''}
                     value={form[field.key]}
                     onChange={e => setForm({ ...form, [field.key]: e.target.value })}

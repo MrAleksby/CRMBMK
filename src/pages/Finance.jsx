@@ -16,6 +16,7 @@ import { buildTransaction, transactionToForm } from '../lib/transaction'
 import { formToSubscriptionDoc, endDateFromWeeks } from '../lib/subscription'
 import { clientBalances, debtAndPrepaid } from '../lib/balance'
 import { sortItems, getDirectory } from '../lib/directories'
+import { normalizeDecimal } from '../lib/amount'
 import { downloadCsv } from '../lib/export'
 import { useSelection } from '../lib/selection'
 import CategoryOptions from '../components/CategoryOptions'
@@ -320,8 +321,8 @@ export default function Finance() {
 
   // Таблица только по фактическим деньгам.
   const rows = useMemo(() => {
-    const from = amountFrom === '' ? null : Number(amountFrom)
-    const to = amountTo === '' ? null : Number(amountTo)
+    const from = amountFrom === '' ? null : Number(normalizeDecimal(amountFrom))
+    const to = amountTo === '' ? null : Number(normalizeDecimal(amountTo))
     const query = search.trim().toLowerCase()
 
     const matches = (t) => {
@@ -445,9 +446,9 @@ export default function Finance() {
           <option value="all">Все статьи</option>
           <CategoryOptions categories={categories} />
         </select>
-        <input type="number" inputMode="numeric" placeholder="Сумма от" style={{ ...inputStyle, width: '110px' }}
+        <input type="text" inputMode="decimal" placeholder="Сумма от" style={{ ...inputStyle, width: '110px' }}
           value={amountFrom} onChange={e => { setAmountFrom(e.target.value); setPage(1) }} />
-        <input type="number" inputMode="numeric" placeholder="до" style={{ ...inputStyle, width: '100px' }}
+        <input type="text" inputMode="decimal" placeholder="до" style={{ ...inputStyle, width: '100px' }}
           value={amountTo} onChange={e => { setAmountTo(e.target.value); setPage(1) }} />
         <input placeholder="Ученик, плательщик, комментарий" style={{ ...inputStyle, flex: 1, minWidth: '220px' }}
           value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />

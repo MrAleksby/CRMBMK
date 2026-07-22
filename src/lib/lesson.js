@@ -3,6 +3,7 @@
 // уже с питанием, если ребёнок ел. Система лишь подставляет подсказку.
 
 import { suggestPrice } from './subscription.js'
+import { normalizeDecimal } from './amount.js'
 
 export const ATTENDANCE = {
   present: { label: 'Пришёл', color: '#059669', background: '#dcfce7' },
@@ -68,7 +69,7 @@ export function journalToAttendance(rows) {
     clientId: row.clientId,
     clientName: row.clientName,
     status: row.status,
-    amountCharged: Number(row.amount) || 0,
+    amountCharged: Number(normalizeDecimal(row.amount)) || 0,
   }))
 }
 
@@ -96,7 +97,7 @@ export function planAttendanceUpdate(oldAttendance, rows, { charges, activeSubFo
   for (const row of rows) {
     const old = before.get(row.clientId)
     // Сумма не зависит от посещения: платный пропуск списывает деньги.
-    const amount = Number(row.amount) || 0
+    const amount = Number(normalizeDecimal(row.amount)) || 0
     const charge = chargeOf.get(row.clientId)
 
     const record = {
@@ -139,7 +140,7 @@ export function validateJournal(rows) {
     }
     if (row.amount === '') continue
 
-    const amount = Number(row.amount)
+    const amount = Number(normalizeDecimal(row.amount))
     if (!Number.isFinite(amount) || amount < 0) {
       return `Сумма «${row.clientName}» должна быть неотрицательным числом`
     }
@@ -148,7 +149,7 @@ export function validateJournal(rows) {
 }
 
 export const journalTotal = (rows) =>
-  rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0)
+  rows.reduce((sum, r) => sum + (Number(normalizeDecimal(r.amount)) || 0), 0)
 
 export const lessonTypeLabel = (type) =>
   LESSON_TYPES.find(t => t.value === type)?.label || 'Групповой'

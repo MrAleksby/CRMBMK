@@ -1,5 +1,7 @@
 // Справочники и хелперы для карточки клиента.
 
+import { normalizeDecimal } from './amount.js'
+
 export const GENDERS = [
   { value: 'male', label: 'Мальчик', iconName: 'boy' },
   { value: 'female', label: 'Девочка', iconName: 'girl' },
@@ -303,7 +305,7 @@ const cleanParent = (p) => ({
 })
 
 export function formToDoc(form) {
-  const price = form.lessonPrice === '' ? null : Number(form.lessonPrice)
+  const price = form.lessonPrice === '' ? null : Number(normalizeDecimal(form.lessonPrice))
   const isLegal = form.payerType === 'legal'
   return {
     childName: form.childName.trim(),
@@ -336,7 +338,7 @@ export function validateClientForm(form) {
     if (calcAge(form.birthDate) === null) return 'Проверьте дату рождения'
   }
   if (form.lessonPrice !== '') {
-    const price = Number(form.lessonPrice)
+    const price = Number(normalizeDecimal(form.lessonPrice))
     if (!Number.isFinite(price) || price < 0) return 'Цена занятия — неотрицательное число'
   }
   if (form.payerType === 'legal' && !form.legalEntityId) {

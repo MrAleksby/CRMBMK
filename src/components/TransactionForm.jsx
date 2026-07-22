@@ -141,7 +141,7 @@ export default function TransactionForm({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
         <div>
           <label style={labelStyle}>Сумма (сум) *</label>
-          <input required type="number" min="0" inputMode="numeric" placeholder="0" style={inputStyle}
+          <input required type="text" inputMode="decimal" placeholder="0" style={inputStyle}
             value={form.amount} onChange={set('amount')} />
         </div>
 

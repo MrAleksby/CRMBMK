@@ -769,7 +769,7 @@ export default function ClientCard() {
                       <label style={{ fontSize: '11px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>
                         Сумма оплаты (сум) *
                       </label>
-                      <input type="number" min="0" inputMode="numeric" placeholder="0" style={{ ...inputStyle, width: '140px' }}
+                      <input type="text" inputMode="decimal" placeholder="0" style={{ ...inputStyle, width: '140px' }}
                         value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
                     </div>
 

@@ -80,7 +80,7 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
 
            {/* У отсутствующего сумма тоже вводится: пропуск без предупреждения
                 руководитель может решить списать. Пусто — значит прощён. */}
-            <input type="number" min="0" inputMode="numeric" style={inputStyle}
+            <input type="text" inputMode="decimal" style={inputStyle}
               placeholder={present ? 'Сумма' : 'Не списывать'}
               title={present ? undefined : 'Пропуск: оставьте пустым, если причина уважительная'}
               value={row.amount} onChange={e => update(row.clientId, { amount: e.target.value })} />

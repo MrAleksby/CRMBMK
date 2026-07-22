@@ -9,6 +9,7 @@
 import { perLessonPrice } from './directories.js'
 import { todayISO } from './group.js'
 import { toJsDate } from './finance.js'
+import { normalizeDecimal } from './amount.js'
 
 export const SUBSCRIPTION_STATUSES = {
   active: { label: 'Активен', color: '#059669', background: '#dcfce7' },
@@ -183,7 +184,7 @@ export function validateSubscriptionForm(form, packages, withPayment = false) {
   if (!form.startDate) return 'Укажите дату начала'
   if (form.endDate && form.endDate < form.startDate) return 'Дата окончания раньше начала'
   if (withPayment) {
-    const amount = Number(form.payAmount)
+    const amount = Number(normalizeDecimal(form.payAmount))
     if (!Number.isFinite(amount) || amount <= 0) return 'Укажите сумму оплаты'
     if (!form.payAccountId) return 'Выберите кассу'
     if (!form.payCategoryId) return 'Выберите статью дохода'
@@ -200,7 +201,7 @@ export function paymentFromForm(form, clientId, clientName, packageName) {
     kind: 'income',
     clientId,
     clientName: clientName || '',
-    amount: Number(form.payAmount) || 0,
+    amount: Number(normalizeDecimal(form.payAmount)) || 0,
     accountId: form.payAccountId,
     categoryId: form.payCategoryId,
     comment: `Оплата за абонемент${packageName ? ` «${packageName}»` : ''}`,

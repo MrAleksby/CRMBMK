@@ -205,7 +205,7 @@ export default function LessonModal({
                             </span>
                           ) : (
                             // Пропуск тоже может стоить денег, если ребёнок не предупредил.
-                            <input type="number" min="0" inputMode="numeric"
+                            <input type="text" inputMode="decimal"
                               style={{ ...inputStyle, width: '120px', textAlign: 'right' }}
                               value={record.amount}
                               placeholder={present ? 'Сумма' : 'Не списывать'}

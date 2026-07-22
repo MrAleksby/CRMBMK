@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { clientBalance } from '../lib/balance'
+import { normalizeDecimal } from '../lib/amount'
 import { toJsDate, KIND_INCOME, KIND_REFUND } from '../lib/finance'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import { readCollection, invalidate } from '../lib/store'
@@ -257,7 +258,7 @@ function LeadPayForm({ lead, accounts, categories, saving, onSubmit, onCancel })
   const set = k => e => setF({ ...f, [k]: e.target.value })
   const submit = () => {
     if (!Number(f.amount) || !f.accountId || !f.categoryId) return
-    onSubmit({ ...f, amount: Number(f.amount), date: new Date(`${f.date}T12:00:00`) })
+    onSubmit({ ...f, amount: Number(normalizeDecimal(f.amount)), date: new Date(`${f.date}T12:00:00`) })
   }
   return (
     <div style={card}>
@@ -270,7 +271,7 @@ function LeadPayForm({ lead, accounts, categories, saving, onSubmit, onCancel })
         <>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
             <div><label style={fLabel}>Сумма *</label>
-              <input type="number" min="0" style={{ ...inputStyle, width: '100%' }} value={f.amount} onChange={set('amount')} /></div>
+              <input type="text" inputMode="decimal" style={{ ...inputStyle, width: '100%' }} value={f.amount} onChange={set('amount')} /></div>
             <div><label style={fLabel}>Дата *</label>
               <input type="date" style={{ ...inputStyle, width: '100%' }} value={f.date} onChange={set('date')} /></div>
             <div><label style={fLabel}>Касса *</label>

@@ -132,7 +132,7 @@ export default function SubscriptionForm({
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
               <div>
                 <label style={labelStyle}>Сумма оплаты</label>
-                <input required type="number" min="0" inputMode="numeric" style={inputStyle}
+                <input required type="text" inputMode="decimal" style={inputStyle}
                   value={form.payAmount} onChange={set('payAmount')} placeholder="0" />
               </div>
               <div>

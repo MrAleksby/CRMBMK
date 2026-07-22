@@ -164,7 +164,7 @@ export default function ClientForm({ initial, saving, onSubmit, onCancel, legalE
         <p style={sectionTitle}> Оплата</p>
         <div style={grid}>
           <Field label="Цена занятия (сум)">
-            <input type="number" min="0" style={inputStyle} value={form.lessonPrice}
+            <input type="text" inputMode="decimal" style={inputStyle} value={form.lessonPrice}
               onChange={set('lessonPrice')} placeholder="Своя цена ребёнка" />
           </Field>
           <Field label="Плательщик">
