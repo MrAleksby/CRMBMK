@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { collection, addDoc, updateDoc, writeBatch, doc } from 'firebase/firestore'
 import { db, auth } from '../firebase'
@@ -155,6 +155,16 @@ export default function Finance() {
   const [sortDir, setSortDir] = useState('desc')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
+  const tableRef = useRef(null)
+
+  // Переключение страницы пагинации: меняем страницу и подтягиваем таблицу к верху.
+  // Иначе при замене всех строк браузер теряет якорь прокрутки и кидает в начало
+  // страницы. Только для кнопок пагинации — фильтры и поиск тоже зовут setPage(1),
+  // но прокручивать на каждую букву в поиске нельзя.
+  const goToPage = (next) => {
+    setPage(next)
+    tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   // Клик по заголовку: первый раз — по убыванию, повторный — переворот.
   const toggleSort = (key) => {
@@ -593,7 +603,7 @@ export default function Finance() {
             Нет операций, подходящих под фильтры
           </p>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <div ref={tableRef} style={{ overflowX: 'auto', scrollMarginTop: '16px' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
               <thead>
                 <tr>
@@ -688,14 +698,14 @@ export default function Finance() {
 
        {totalPages > 1 && (
           <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '14px', flexWrap: 'wrap' }}>
-            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+            <button onClick={() => goToPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
               style={pageBtn(false, currentPage === 1)}>←</button>
            {pageNumbers(currentPage, totalPages).map((n, i) => (
               n === '…'
                 ? <span key={`gap-${i}`} style={{ color: '#9ca3af', padding: '6px 4px' }}>…</span>
-                : <button key={n} onClick={() => setPage(n)} style={pageBtn(n === currentPage, false)}>{n}</button>
+                : <button key={n} onClick={() => goToPage(n)} style={pageBtn(n === currentPage, false)}>{n}</button>
             ))}
-            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+            <button onClick={() => goToPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
               style={pageBtn(false, currentPage === totalPages)}>→</button>
           </div>
         )}
