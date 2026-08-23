@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app'
-import { initializeFirestore } from 'firebase/firestore'
-import { getAuth } from 'firebase/auth'
+import { initializeFirestore, connectFirestoreEmulator } from 'firebase/firestore'
+import { getAuth, connectAuthEmulator } from 'firebase/auth'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -21,3 +21,17 @@ export const db = initializeFirestore(app, {
 })
 
 export const auth = getAuth(app)
+
+// Песочница: приложение работает против локального эмулятора с копией боевых
+// данных. Нужна, чтобы проверять изменения на настоящих объёмах, не трогая
+// рабочую базу и не тратя суточный лимит чтений.
+//
+//   npm run sandbox        — поднять эмулятор и залить в него вчерашнюю копию
+//   VITE_USE_EMULATOR=1 npm run dev
+//
+// Флага нет в сборке для боевого сайта, поэтому в продакшен этот код не влияет.
+if (import.meta.env.VITE_USE_EMULATOR) {
+  connectFirestoreEmulator(db, '127.0.0.1', 8080)
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
+  console.info('[FinGam] Песочница: работаем с локальным эмулятором, боевая база не затронута')
+}

@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "sandbox": "firebase emulators:exec --only firestore,auth --project crmbmk-d6303 \"node scripts/sandbox.mjs && echo ГОТОВО && sleep 100000\""
   },
   "dependencies": {
     "firebase": "^12.10.0",
