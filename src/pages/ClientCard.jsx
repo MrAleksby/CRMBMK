@@ -187,8 +187,8 @@ export default function ClientCard() {
 
   const fetchData = async (force = false) => {
     setLoadError('')
-    // После своей записи читаем заново — и сбрасываем кэш целиком, иначе соседняя
-    // страница (например, «Финансы») покажет ленту без только что принятой оплаты.
+    // Большие коллекции слушаются подписками и всегда свежие — перечитывать их
+    // после своей записи не нужно. Сбрасываем только разовые запросы (занятия дня).
     if (force) invalidate()
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())

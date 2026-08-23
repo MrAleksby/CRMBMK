@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { auth, db } from './firebase'
+import { stopAllLive } from './lib/store'
 
 const AuthContext = createContext({ user: undefined, profile: null })
 
@@ -11,7 +12,13 @@ export function AuthProvider({ children }) {
 
   useEffect(() => onAuthStateChanged(auth, (next) => {
     setUser(next)
-    if (!next) setProfile(null)
+    if (!next) {
+      setProfile(null)
+      // Подписки на коллекции переживают разлогин и тут же получают отказ по
+      // правам. Закрываем их сами и заодно чистим данные: следующий вошедший
+      // не должен увидеть чужие цифры, оставшиеся в памяти.
+      stopAllLive()
+    }
   }), [])
 
   // Профиль слушаем, а не читаем один раз: админ выдаёт доступ в соседней

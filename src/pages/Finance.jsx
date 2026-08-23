@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { collection, addDoc, updateDoc, writeBatch, doc } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
-import { readCollection, invalidate } from '../lib/store'
+import { readCollection, refreshDoc, forgetDocs } from '../lib/store'
 import { MONTHS_SHORT } from '../lib/constants'
 import {
   KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, KIND_DRAW, KIND_TRANSFER,
@@ -173,11 +173,11 @@ export default function Finance() {
     setPage(1)
   }
 
+  // force: true — перечитать всё из базы (первая загрузка, кнопка «Повторить»).
+  // После своей записи force НЕ нужен: кэш уже обновлён точечно в refreshDoc,
+  // и этот вызов просто разложит свежие данные по состоянию страницы, не читая базу.
   const fetchAll = async (force = false) => {
     setLoadError('')
-    // После своей записи читаем заново — и сбрасываем кэш целиком, иначе соседняя
-    // страница (например, «Финансы») покажет ленту без только что принятой оплаты.
-    if (force) invalidate()
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
       // Здесь нужны все операции целиком, включая расходы и зарплаты, — это
@@ -222,8 +222,10 @@ export default function Finance() {
         // Доход и назначенный абонемент — одной транзакцией: оборванная запись
         // оставила бы либо оплату без абонемента, либо абонемент без денег.
         const batch = writeBatch(db)
-        batch.set(doc(collection(db, 'transactions')), { ...buildTransaction(form, { clients, teachers }), createdAt: now })
-        batch.set(doc(collection(db, 'subscriptions')), {
+        const txRef = doc(collection(db, 'transactions'))
+        const subRef = doc(collection(db, 'subscriptions'))
+        batch.set(txRef, { ...buildTransaction(form, { clients, teachers }), createdAt: now })
+        batch.set(subRef, {
           ...formToSubscriptionDoc(
            { packageId: pkg.id, startDate: form.date, endDate: endDateFromWeeks(form.date, form.subscriptionWeeks), note: '' },
             pkg, form.clientId,
@@ -231,11 +233,18 @@ export default function Finance() {
           createdAt: now,
         })
         await batch.commit()
+        // Записали в две коллекции — дочитываем обе, иначе абонемент появится
+        // на экране только после того, как протухнет кэш.
+        await Promise.all([
+          refreshDoc('transactions', txRef.id),
+          refreshDoc('subscriptions', subRef.id),
+        ])
       } else {
-        await addDoc(collection(db, 'transactions'), { ...buildTransaction(form, { clients, teachers }), createdAt: now })
+        const ref = await addDoc(collection(db, 'transactions'), { ...buildTransaction(form, { clients, teachers }), createdAt: now })
+        await refreshDoc('transactions', ref.id)
       }
       setShowForm(false)
-      await fetchAll(true)
+      await fetchAll()
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -250,9 +259,10 @@ export default function Finance() {
     setSaving(true)
     try {
       await updateDoc(doc(db, 'transactions', editing.id), buildTransaction(form, { clients, teachers }))
+      await refreshDoc('transactions', editing.id)
       setEditing(null)
       selection.clear()
-      await fetchAll(true)
+      await fetchAll()
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -282,8 +292,10 @@ export default function Finance() {
       const batch = writeBatch(db)
       for (const row of chosen) batch.delete(doc(db, 'transactions', row.id))
       await batch.commit()
+      // Удалённое просто убираем из кэша — дочитывать нечего, чтений это не стоит.
+      forgetDocs('transactions', chosen.map(row => row.id))
       selection.clear()
-      await fetchAll(true)
+      await fetchAll()
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -410,7 +422,7 @@ export default function Finance() {
         </div>
       </div>
 
-      <ErrorBanner message={loadError} onRetry={fetchAll} />
+      <ErrorBanner message={loadError} onRetry={() => fetchAll(true)} />
 
      {editing && (
         <TransactionForm
