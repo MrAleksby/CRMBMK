@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "sandbox": "firebase emulators:exec --only firestore,auth --project crmbmk-d6303 \"node scripts/sandbox.mjs && echo ГОТОВО && sleep 100000\""
+    "sandbox": "firebase emulators:exec --only firestore,auth --project crmbmk-d6303 \"node scripts/sandbox.mjs && echo ГОТОВО && sleep 100000\"",
+    "audit": "npx esbuild scripts/audit.mjs --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/audit.mjs --log-level=error && node node_modules/.cache/audit.mjs"
   },
   "dependencies": {
     "firebase": "^12.10.0",
