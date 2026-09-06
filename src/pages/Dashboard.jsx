@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import { readCollection, readClientMoney, readLessonsOfDay, invalidate } from '../lib/store'
+import { useLiveRefresh } from '../lib/useLiveRefresh'
 import ErrorBanner from '../components/ErrorBanner'
 import Icon from '../components/Icon'
 import Avatar from '../components/Avatar'
@@ -81,6 +82,9 @@ export default function Dashboard() {
   }
 
   useEffect(() => { fetchData() }, [])
+
+  // Чужая правка приходит подпиской — перекладываем её в состояние страницы.
+  useLiveRefresh(fetchData)
 
   const balances = useMemo(() => clientBalances(transactions, charges), [transactions, charges])
 

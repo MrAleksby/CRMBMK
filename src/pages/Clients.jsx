@@ -6,6 +6,7 @@ import { withTimeout, describeError } from '../lib/withTimeout'
 import { useAuth } from '../AuthContext'
 import { canManage } from '../lib/access'
 import { readCollection, readClientMoney, invalidate } from '../lib/store'
+import { useLiveRefresh } from '../lib/useLiveRefresh'
 import ClientForm from '../components/ClientForm'
 import ErrorBanner from '../components/ErrorBanner'
 import Icon from '../components/Icon'
@@ -146,6 +147,9 @@ export default function Clients() {
   }
 
   useEffect(() => { fetchData() }, [])
+
+  // Чужая правка приходит подпиской — перекладываем её в состояние страницы.
+  useLiveRefresh(fetchData)
 
   // Один проход по всем операциям вместо пересчёта на каждого клиента.
   const balances = useMemo(() => clientBalances(transactions, charges), [transactions, charges])

@@ -6,6 +6,7 @@ import { useAuth } from '../AuthContext'
 import { canManage, teacherIdOf } from '../lib/access'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import { readCollection, readClientMoney, invalidate } from '../lib/store'
+import { useLiveRefresh } from '../lib/useLiveRefresh'
 import ErrorBanner from '../components/ErrorBanner'
 import Icon from '../components/Icon'
 import LessonJournal from '../components/LessonJournal'
@@ -126,6 +127,9 @@ export default function Lessons() {
   }
 
   useEffect(() => { fetchData() }, [])
+
+  // Чужая правка приходит подпиской — перекладываем её в состояние страницы.
+  useLiveRefresh(fetchData)
 
   // Переход с виджета посещений: /lessons?open=<id> сразу открывает занятие.
   useEffect(() => {

@@ -10,6 +10,7 @@ import { normalizeDecimal } from '../lib/amount'
 import { toJsDate, KIND_INCOME, KIND_REFUND } from '../lib/finance'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import { readCollection, invalidate } from '../lib/store'
+import { useLiveRefresh } from '../lib/useLiveRefresh'
 import ErrorBanner from '../components/ErrorBanner'
 import Icon from '../components/Icon'
 import LeadForm from '../components/LeadForm'
@@ -438,6 +439,9 @@ export default function Leads() {
   }
 
   useEffect(() => { fetchData() }, [])
+
+  // Чужая правка приходит подпиской — перекладываем её в состояние страницы.
+  useLiveRefresh(fetchData)
 
   const open = leads.find(l => l.id === openId) || null
   const stats = useMemo(() => funnelStats(leads), [leads])

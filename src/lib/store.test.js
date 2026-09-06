@@ -5,7 +5,7 @@
 // видит на экране после своей и чужой правки. Ошибка здесь не портит базу,
 // но показывает неправду — поэтому тесты.
 
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 
 let docs = {}          // фейковая база: id -> документ
 let reads = 0          // сколько документов Firestore бы затарифицировал
@@ -40,7 +40,7 @@ vi.mock('firebase/firestore', () => ({
   },
 }))
 
-const { readCollection, readClientMoney, refreshDoc, forgetDocs, stopAllLive } = await import('./store')
+const { readCollection, readClientMoney, refreshDoc, forgetDocs, stopAllLive, watch } = await import('./store')
 
 const tx = (kind, amount) => ({ __collection: 'transactions', kind, amount, clientId: 'c1' })
 
@@ -211,5 +211,83 @@ describe('точечное обновление после своей запис
     serverChange()
 
     expect((await readCollection('transactions')).map(r => r.id)).not.toContain('t3')
+  })
+})
+
+describe('сигнал «данные изменились»', () => {
+  // Сигнал собирается в один на такт, поэтому ждём его через таймер.
+  const settled = () => new Promise(resolve => setTimeout(resolve, 0))
+
+  // Слушатели живут вне подписок и выход из системы их не снимает — за собой
+  // убирает страница, когда её размонтируют. В тестах роль страницы играем мы.
+  let stop = []
+  const listen = (cb) => { const off = watch(cb); stop.push(off); return off }
+  afterEach(() => { stop.forEach(off => off()); stop = [] })
+
+  it('чужая правка будит страницу, а не ждёт перехода на вкладку', async () => {
+    await readCollection('transactions')
+    const woken = vi.fn()
+    listen(woken)
+
+    docs.t3 = tx('income', 300)
+    serverChange()
+    await settled()
+
+    expect(woken).toHaveBeenCalledTimes(1)
+  })
+
+  it('первый снимок страницу не будит: его она и так ждёт', async () => {
+    const woken = vi.fn()
+    listen(woken)
+
+    await readCollection('transactions')
+    await settled()
+
+    // Лишний сигнал здесь означал бы вторую загрузку сразу за первой.
+    expect(woken).not.toHaveBeenCalled()
+  })
+
+  it('запись сразу в несколько коллекций будит один раз, а не трижды', async () => {
+    // writeBatch трогает операцию, начисление и абонемент — снимков придёт три.
+    await Promise.all([
+      readCollection('transactions'),
+      readCollection('charges'),
+      readCollection('subscriptions'),
+    ])
+    const woken = vi.fn()
+    listen(woken)
+
+    serverChange()
+    await settled()
+
+    expect(woken).toHaveBeenCalledTimes(1)
+  })
+
+  it('уход со страницы снимает слушателя', async () => {
+    await readCollection('transactions')
+    const woken = vi.fn()
+    const unwatch = listen(woken)
+
+    unwatch()
+    serverChange()
+    await settled()
+
+    // Иначе размонтированная страница обновляла бы состояние вечно.
+    expect(woken).not.toHaveBeenCalled()
+  })
+
+  it('пробуждение не стоит обращений к базе', async () => {
+    await readCollection('transactions')
+    const rows = []
+    listen(() => { readCollection('transactions').then(r => rows.push(r)) })
+
+    serverChange()
+    const before = reads
+    await settled()
+    await settled()
+
+    expect(rows).toHaveLength(1)
+    // Строки уже лежат в подписке — перечитывать нечего.
+    expect(reads).toBe(before)
   })
 })

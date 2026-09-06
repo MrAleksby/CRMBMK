@@ -4,6 +4,7 @@ import { collection, addDoc, updateDoc, writeBatch, doc } from 'firebase/firesto
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import { readCollection, refreshDoc, forgetDocs } from '../lib/store'
+import { useLiveRefresh } from '../lib/useLiveRefresh'
 import { MONTHS_SHORT } from '../lib/constants'
 import {
   KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, KIND_DRAW, KIND_TRANSFER,
@@ -208,6 +209,9 @@ export default function Finance() {
   }
 
   useEffect(() => { fetchAll() }, [])
+
+  // Чужая правка приходит подпиской — перекладываем её в состояние страницы.
+  useLiveRefresh(fetchAll)
 
   const handleCreate = async (form) => {
     setSaving(true)

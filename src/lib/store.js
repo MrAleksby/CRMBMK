@@ -27,6 +27,36 @@ const rowsOf = (snapshot) => snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
 // встаёт в очередь `waiters` и получит данные, как только они появятся.
 const live = new Map()
 
+// ── Кто хочет знать о чужой правке ───────────────────────────────────────────
+//
+// Подписка узнаёт об изменении сама, но страница держит данные в `useState`:
+// без сигнала она покажет свежее только при следующем заходе на вкладку.
+// Здесь общий список слушателей; хук `useLiveRefresh` вешает на него
+// перезагрузку страницы.
+const watchers = new Set()
+let notifyScheduled = false
+
+// Одна запись `writeBatch` трогает несколько коллекций, и снимков придёт столько
+// же — собираем их в один сигнал, иначе страница перечитает себя трижды подряд.
+function notifyWatchers() {
+  if (notifyScheduled) return
+  notifyScheduled = true
+  setTimeout(() => {
+    notifyScheduled = false
+    // Копия списка: слушатель вправе отписаться прямо в обработчике.
+    for (const cb of [...watchers]) {
+      // Упавшая страница не должна лишать обновления остальных.
+      try { cb() } catch (e) { console.error(e) }
+    }
+  }, 0)
+}
+
+// Подписаться на «данные изменились». Возвращает отписку.
+export function watch(cb) {
+  watchers.add(cb)
+  return () => { watchers.delete(cb) }
+}
+
 function startLive(key, makeQuery) {
   // confirmed — снимок пришёл с сервера, а не только из локального кэша.
   const entry = { rows: null, error: null, confirmed: false, waiters: [], unsubscribe: null }
@@ -40,6 +70,8 @@ function startLive(key, makeQuery) {
   entry.unsubscribe = onSnapshot(
     makeQuery(),
     snapshot => {
+      // Данные уже были на экране до этого снимка — значит он их меняет.
+      const wasKnown = entry.confirmed
       entry.rows = rowsOf(snapshot)
       entry.error = null
       // Первый снимок Firestore отдаёт из локального кэша, не дожидаясь сервера,
@@ -53,6 +85,11 @@ function startLive(key, makeQuery) {
       // Firestore применяет нашу собственную запись до ответа сервера.
       if (!snapshot.metadata.fromCache) entry.confirmed = true
       if (entry.confirmed) settle('resolve', entry.rows)
+
+      // Первый снимок сигнала не требует: его ждёт сама страница (`settle`).
+      // А вот дальнейшие — это правка соседней вкладки или второго пользователя,
+      // и о ней страница иначе не узнает.
+      if (wasKnown) notifyWatchers()
     },
     error => {
       // Firestore при ошибке слушателя прекращает слушать сам. Держать мёртвую

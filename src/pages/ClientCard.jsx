@@ -24,6 +24,7 @@ import {
 import { MONTHS_SHORT } from '../lib/constants'
 import { KIND_INCOME, toJsDate, inPeriod as inMonth, availableYears, YEAR_ALL } from '../lib/finance'
 import { readCollection, readClientMoney, invalidate } from '../lib/store'
+import { useLiveRefresh } from '../lib/useLiveRefresh'
 import { categoriesForKind } from '../lib/transaction'
 import { clientBalance } from '../lib/balance'
 import { sortItems, getDirectory } from '../lib/directories'
@@ -235,6 +236,9 @@ export default function ClientCard() {
   }
 
   useEffect(() => { fetchData() }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Чужая правка приходит подпиской — перекладываем её в состояние страницы.
+  useLiveRefresh(fetchData)
 
   // Лента лицевого счёта: оплаты и начисления за занятия вперемешку, свежие сверху.
   const entries = [

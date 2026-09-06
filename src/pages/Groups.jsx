@@ -4,6 +4,7 @@ import { collection, doc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import { readCollection, invalidate } from '../lib/store'
+import { useLiveRefresh } from '../lib/useLiveRefresh'
 import { useAuth } from '../AuthContext'
 import { canManage } from '../lib/access'
 import ErrorBanner from '../components/ErrorBanner'
@@ -79,6 +80,9 @@ export default function Groups() {
   }
 
   useEffect(() => { fetchData() }, [])
+
+  // Чужая правка приходит подпиской — перекладываем её в состояние страницы.
+  useLiveRefresh(fetchData)
 
   // Переход из карточки клиента: /groups?open=<id> раскрывает нужную группу.
   useEffect(() => {

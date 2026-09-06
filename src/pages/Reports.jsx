@@ -5,6 +5,7 @@ import { useAuth } from '../AuthContext'
 import { canSeeCompanyMoney, canSeeClientMoney } from '../lib/access'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import { readCollection, readClientMoney } from '../lib/store'
+import { useLiveRefresh } from '../lib/useLiveRefresh'
 import ErrorBanner from '../components/ErrorBanner'
 import Icon from '../components/Icon'
 import { LEAD_STAGES } from '../lib/lead'
@@ -165,6 +166,9 @@ export default function Reports() {
   }
 
   useEffect(() => { fetchData() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Чужая правка приходит подпиской — перекладываем её в состояние страницы.
+  useLiveRefresh(fetchData)
 
   // Пустые месяцы не показываем и не выгружаем: в декабре будущего года
   // смотреть нечего, а строки с нулями только мешают читать таблицу.
