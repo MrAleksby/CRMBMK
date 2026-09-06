@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   monthlyMoney, monthlyStudents, monthlyLessons, teacherReport,
   debtorsReport, accountsReport, salaryReport, presetRange,
+  mealReport, mealByStudent,
 } from './reports'
 import { companyBalance } from './finance'
 import { lessonsLeft } from './subscription'
@@ -299,5 +300,79 @@ describe('presetRange', () => {
 
   it('год', () => {
     expect(presetRange('year', today)).toEqual({ from: '2026-01-01', to: '2026-12-31' })
+  })
+})
+
+// Питание: сколько собрали с родителей и сколько на еду потратили.
+// Главная опасность отчёта — показать ноль там, где данных просто нет: у занятий
+// до разделения еда сидит внутри общей суммы, и «собрано 0» читалось бы как
+// «за еду не брали денег», а это неправда.
+describe('mealReport — питание', () => {
+  const RANGE_MEAL = { from: '2026-05-01', to: '2026-07-31' }
+  const mealCharge = (amount, iso, meal) => ({
+    clientId: 'a', amount, date: day(iso), lessons: 1,
+    ...(meal === undefined ? {} : { amountLesson: amount - meal, amountMeal: meal }),
+  })
+
+  it('складывает выделенную еду и считает порции', () => {
+    const { rows } = mealReport(
+      [mealCharge(330_000, '2026-06-05', 30_000), mealCharge(300_000, '2026-06-07', 0)],
+      [], RANGE_MEAL, { categoryId: 'meal' },
+    )
+    const june = rows.find(r => r.key === '2026-06')
+
+    expect(june.collected).toBe(30_000)
+    // Ребёнок был на занятии, но не ел — это не порция.
+    expect(june.portions).toBe(1)
+  })
+
+  it('до начала разбивки собранное неизвестно, а не равно нулю', () => {
+    const { rows, since } = mealReport(
+      [mealCharge(250_000, '2026-05-10'), mealCharge(330_000, '2026-06-05', 30_000)],
+      [], RANGE_MEAL, { categoryId: 'meal' },
+    )
+
+    expect(since).toBe('2026-06')
+    expect(rows.find(r => r.key === '2026-05').collected).toBeNull()
+    expect(rows.find(r => r.key === '2026-05').diff).toBeNull()
+    expect(rows.find(r => r.key === '2026-06').collected).toBe(30_000)
+  })
+
+  it('разница = собрано минус потрачено по выбранной статье', () => {
+    const spending = [
+      tx('expense', 20_000, '2026-06-10', { categoryId: 'meal' }),
+      tx('expense', 90_000, '2026-06-11', { categoryId: 'rent' }),   // чужая статья
+      tx('income', 50_000, '2026-06-12', { categoryId: 'meal' }),    // не расход
+    ]
+    const { rows } = mealReport(
+      [mealCharge(330_000, '2026-06-05', 30_000)], spending, RANGE_MEAL, { categoryId: 'meal' },
+    )
+    const june = rows.find(r => r.key === '2026-06')
+
+    expect(june.spent).toBe(20_000)
+    expect(june.diff).toBe(10_000)
+  })
+
+  it('без выбранной статьи расходы не гадаются', () => {
+    const { rows } = mealReport(
+      [mealCharge(330_000, '2026-06-05', 30_000)],
+      [tx('expense', 20_000, '2026-06-10', { categoryId: 'meal' })],
+      RANGE_MEAL, {},
+    )
+    expect(rows.find(r => r.key === '2026-06').spent).toBe(0)
+  })
+
+  it('по ученикам: сумма, число раз и средняя порция', () => {
+    const charges = [
+      { clientId: 'a', amount: 330_000, amountMeal: 30_000, date: day('2026-06-05') },
+      { clientId: 'a', amount: 350_000, amountMeal: 50_000, date: day('2026-06-12') },
+      { clientId: 'b', amount: 310_000, amountMeal: 10_000, date: day('2026-06-05') },
+      { clientId: 'b', amount: 300_000, date: day('2026-06-12') },   // без еды — не в счёт
+    ]
+    const rows = mealByStudent(charges, [{ id: 'a', childName: 'Аня' }, { id: 'b', childName: 'Боря' }], RANGE_MEAL)
+
+    expect(rows.map(r => r.name)).toEqual(['Аня', 'Боря'])
+    expect(rows[0]).toMatchObject({ meal: 80_000, times: 2, average: 40_000 })
+    expect(rows[1]).toMatchObject({ meal: 10_000, times: 1 })
   })
 })

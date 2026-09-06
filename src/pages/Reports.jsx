@@ -18,7 +18,7 @@ import { sortItems, getDirectory } from '../lib/directories'
 import { TX_KINDS } from '../lib/finance'
 import { downloadCsv } from '../lib/export'
 import {
-  monthlyMoney, monthlyStudents, funnelReport, sourceReport,
+  monthlyMoney, monthlyStudents, funnelReport, sourceReport, mealReport, mealByStudent,
   monthlyLessons, teacherReport, presetRange, PRESETS,
   debtorsReport, accountsReport, categoriesReport, salaryReport,
 } from '../lib/reports'
@@ -108,6 +108,10 @@ export default function Reports() {
   const [studentFilters, setStudentFilters] = useState({ groupId: '', teacherId: '' })
   const [funnelFilters, setFunnelFilters] = useState({ source: '' })
   const [lessonFilters, setLessonFilters] = useState({ teacherId: '', groupId: '', type: '' })
+  // Статья, по которой школа платит за еду. Сопоставлять по названию нельзя —
+  // его переименуют, и отчёт молча обнулится. Поэтому статью выбирает человек,
+  // а «Питание» лишь подставляется по умолчанию, если такая статья есть.
+  const [mealCategoryId, setMealCategoryId] = useState('')
   const [debtFilter, setDebtFilter] = useState('debt')     // debt | prepaid | all
   const [categoryKind, setCategoryKind] = useState('')
 
@@ -202,10 +206,31 @@ export default function Reports() {
   const salaryRows = useMemo(() => salaryReport(transactions, lessons, teachers, range), [transactions, lessons, teachers, range])
   const sources = useMemo(() => sourceReport(leads, clients, transactions, SOURCES, range), [leads, clients, transactions, range])
 
+  const expenseCategories = useMemo(
+    () => categories.filter(c => c.kind === 'expense'), [categories])
+  // Подставляем «Питание», пока человек не выбрал другую статью сам.
+  useEffect(() => {
+    if (mealCategoryId || expenseCategories.length === 0) return
+    const guess = expenseCategories.find(c => /питани/i.test(c.name || ''))
+    if (guess) setMealCategoryId(guess.id)
+  }, [expenseCategories, mealCategoryId])
+
+  const meal = useMemo(
+    () => mealReport(charges, transactions, range, { categoryId: mealCategoryId }),
+    [charges, transactions, range, mealCategoryId])
+  const mealStudents = useMemo(
+    () => mealByStudent(charges, clients, range), [charges, clients, range])
+
   if (loading) return <div style={{ color: '#6b7280', padding: '32px' }}>Загрузка...</div>
 
   const maxCharged = Math.max(...moneyRows.map(r => r.charged), 1)
   const maxLessons = Math.max(...lessonRows.map(r => r.conducted), 1)
+  const mealTotals = meal.rows.reduce((acc, r) => ({
+    collected: acc.collected + (r.collected || 0),
+    spent: acc.spent + r.spent,
+    portions: acc.portions + (r.portions || 0),
+  }), { collected: 0, spent: 0, portions: 0 })
+
   const maxRevenue = Math.max(...sources.map(s => s.revenue), 1)
 
   const totals = moneyRows.reduce((acc, r) => ({
@@ -769,6 +794,120 @@ export default function Reports() {
             за занятие и за еду. У занятий, проведённых раньше, еда сидит внутри общей суммы,
             и выделить её неоткуда — там прочерк, а не ноль.
           </p>
+        )}
+
+       {/* ── Питание ─────────────────────────────────────────────────────────
+            Сколько собрали с родителей за еду против того, сколько на неё
+            потратили. Только админу: расходы компании менеджеру не показываем. */}
+       {seesMoney && (
+        <>
+        <ReportHead
+          title="Питание"
+          onExport={() => downloadCsv(`питание ${period}`, [
+            { label: 'Месяц', value: r => r.label },
+            { label: 'Собрано с учеников', value: r => (r.collected === null ? '' : r.collected) },
+            { label: 'Потрачено', value: r => r.spent },
+            { label: 'Разница', value: r => (r.diff === null ? '' : r.diff) },
+            { label: 'Порций', value: r => (r.portions === null ? '' : r.portions) },
+          ], meal.rows)}
+        >
+          <select value={mealCategoryId} style={select}
+            onChange={e => setMealCategoryId(e.target.value)}>
+            <option value="">Статья расхода не выбрана</option>
+            {expenseCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </ReportHead>
+
+        <p style={{ fontSize: '12px', color: '#6b7280', marginTop: 0, marginBottom: '12px' }}>
+         {meal.since
+            ? <>«Собрано» считается с того месяца, как в журнале появились отдельные поля за
+              занятие и за еду. У месяцев до этого стоит прочерк, а не ноль: там еда сидит
+              внутри общей суммы занятия, и выделить её неоткуда — сравнивать не с чем.</>
+            : <>Пока ни в одном занятии еда не выделена отдельной суммой. Заполняйте поле
+              «Питание» в журнале — и здесь появится, сколько собрано против потраченного.</>}
+        </p>
+
+        <div style={{ overflowX: 'auto', marginBottom: '18px' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '600px' }}>
+            <thead>
+              <tr>
+                <th style={thLeft}>Месяц</th>
+                <th style={th}>Собрано с учеников</th>
+                <th style={th}>Потрачено</th>
+                <th style={th} title="Собрано минус потрачено. Минус — еда обошлась дороже, чем за неё заплатили">Разница</th>
+                <th style={th} title="Сколько раз за еду что-то списали">Порций</th>
+              </tr>
+            </thead>
+            <tbody>
+             {meal.rows.map(r => (
+                <tr key={r.key} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  <td style={tdLeft}>{r.label}</td>
+                  <td style={{ ...td, color: r.collected ? '#059669' : '#9ca3af' }}>
+                   {r.collected === null ? '—' : money(r.collected)}
+                  </td>
+                  <td style={{ ...td, color: r.spent ? '#dc2626' : '#9ca3af' }}>
+                   {r.spent ? money(r.spent) : '—'}
+                  </td>
+                  <td style={{
+                    ...td, fontWeight: '600',
+                    color: r.diff === null ? '#9ca3af' : (r.diff < 0 ? '#dc2626' : '#059669'),
+                  }}>
+                   {r.diff === null ? '—' : money(r.diff)}
+                  </td>
+                  <td style={{ ...td, color: r.portions ? '#4b5563' : '#9ca3af' }}>
+                   {r.portions || '—'}
+                  </td>
+                </tr>
+              ))}
+              <tr style={{ borderTop: '2px solid #e5e7eb' }}>
+                <td style={{ ...tdLeft, fontWeight: '700', color: '#111827' }}>Итого</td>
+                <td style={{ ...td, fontWeight: '700', color: '#059669' }}>{money(mealTotals.collected)}</td>
+                <td style={{ ...td, fontWeight: '700', color: '#dc2626' }}>{money(mealTotals.spent)}</td>
+                <td style={{ ...td, fontWeight: '700', color: '#9ca3af' }}>—</td>
+                <td style={{ ...td, fontWeight: '700', color: '#4b5563' }}>{mealTotals.portions || '—'}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+       {mealStudents.length > 0 && (
+          <>
+          <ReportHead
+            title="Питание по ученикам"
+            onExport={() => downloadCsv(`питание по ученикам ${period}`, [
+              { label: 'Ученик', value: r => r.name },
+              { label: 'За еду', value: r => r.meal },
+              { label: 'Раз', value: r => r.times },
+              { label: 'В среднем', value: r => r.average },
+            ], mealStudents)}
+          />
+          <div style={{ overflowX: 'auto', marginBottom: '18px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '500px' }}>
+              <thead>
+                <tr>
+                  <th style={thLeft}>Ученик</th>
+                  <th style={th}>За еду</th>
+                  <th style={th}>Раз</th>
+                  <th style={th}>В среднем</th>
+                </tr>
+              </thead>
+              <tbody>
+               {mealStudents.map(r => (
+                  <tr key={r.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                    <td style={tdLeft}>
+                      <Link to={`/clients/${r.id}`} style={{ color: '#7c3aed', textDecoration: 'none', fontWeight: '600' }}>{r.name}</Link>
+                    </td>
+                    <td style={{ ...td, fontWeight: '600' }}>{money(r.meal)}</td>
+                    <td style={td}>{r.times}</td>
+                    <td style={{ ...td, color: '#4b5563' }}>{money(r.average)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          </>
+        )}
+        </>
         )}
 
         <ReportHead

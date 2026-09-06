@@ -536,3 +536,79 @@ export function teacherReport(lessons, charges, teachers, range, filters = {}) {
 
   return rows.filter(r => r.lessons > 0).sort((a, b) => b.lessons - a.lessons)
 }
+
+// --- 10. Питание --------------------------------------------------------------
+//
+// Отвечает на один вопрос: сколько собрали с родителей за еду и сколько на неё
+// потратили. Собранное берётся из начислений (`charges.amountMeal`) — это часть
+// суммы за занятие, которую менеджер выделил в журнале. Потраченное — обычные
+// расходы по выбранной статье («Питание» в справочнике).
+//
+// Сравнивать эти две колонки можно только с того месяца, когда в журнале появились
+// отдельные поля: у занятий, проведённых раньше, еда сидит внутри общей суммы
+// и выделить её неоткуда. Поэтому в таких месяцах «собрано» — не ноль, а null:
+// ноль означал бы «денег за еду не брали», а это неправда.
+export function mealReport(charges, transactions, range, { categoryId } = {}) {
+  // Месяц, с которого разбивка вообще ведётся: раньше сравнивать нечего.
+  let since = null
+  for (const c of charges) {
+    if (c.amountMeal === undefined || !c.date) continue
+    const key = monthKey(dayOf(c.date))
+    if (!since || key < since) since = key
+  }
+
+  const rows = new Map()
+  const row = (key) => {
+    if (!rows.has(key)) {
+      rows.set(key, { key, label: monthLabel(key), collected: 0, spent: 0, portions: 0 })
+    }
+    return rows.get(key)
+  }
+  for (const key of monthsOf(range)) row(key)
+
+  for (const c of charges) {
+    if (!inRange(c.date, range) || c.amountMeal === undefined) continue
+    const target = row(monthKey(dayOf(c.date)))
+    target.collected += c.amountMeal || 0
+    // Порция — это занятие, за еду на котором что-то списали. Нули не считаем:
+    // ребёнок мог быть на занятии и не есть.
+    if (c.amountMeal > 0) target.portions += 1
+  }
+
+  for (const t of transactions) {
+    if (t.kind !== KIND_EXPENSE || !inRange(t.date, range)) continue
+    if (categoryId && t.categoryId !== categoryId) continue
+    if (!categoryId) continue      // без выбранной статьи расходы не гадаем
+    row(monthKey(dayOf(t.date))).spent += t.amount || 0
+  }
+
+  const list = [...rows.values()].sort((a, b) => a.key.localeCompare(b.key))
+  for (const item of list) {
+    // До начала разбивки собранное неизвестно, а не равно нулю.
+    const known = since && item.key >= since
+    if (!known) { item.collected = null; item.portions = null; item.diff = null; continue }
+    item.diff = item.collected - item.spent
+  }
+  return { rows: list, since }
+}
+
+// Кто сколько заплатил за еду за период. Нужен, чтобы видеть, на кого приходится
+// расход: цена питания у детей разная и меняется от занятия к занятию.
+export function mealByStudent(charges, clients, range) {
+  const names = new Map(clients.map(c => [c.id, c.childName || 'Без имени']))
+  const rows = new Map()
+
+  for (const c of charges) {
+    if (!inRange(c.date, range) || !c.amountMeal || !c.clientId) continue
+    if (!rows.has(c.clientId)) {
+      rows.set(c.clientId, { id: c.clientId, name: names.get(c.clientId) || 'Удалённый ученик', meal: 0, times: 0 })
+    }
+    const target = rows.get(c.clientId)
+    target.meal += c.amountMeal
+    target.times += 1
+  }
+
+  return [...rows.values()]
+    .map(r => ({ ...r, average: Math.round(r.meal / r.times) }))
+    .sort((a, b) => b.meal - a.meal)
+}
