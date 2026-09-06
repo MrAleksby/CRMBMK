@@ -111,14 +111,15 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
               </span>
             </label>
 
-           {/* Сетка вместо ряда: на узком экране поля встают друг под друга
-                предсказуемо, а не переносятся как придётся.
+           {/* Три поля в один ряд: видно все сразу, взгляд не гоняется вниз-вверх.
+                Ширины долями, а не в пикселях, — колонки ужимаются вместе с
+                экраном и на телефоне остаются в строке, а не переносятся.
                 У отсутствующего суммы тоже вводятся: пропуск без предупреждения
                 руководитель может решить списать. Пусто — значит прощён.
                 На лицевой счёт уходит ИТОГ, разбивка нужна, чтобы видеть еду. */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              gridTemplateColumns: '1fr 1fr 1.6fr',
               gap: '8px',
             }}>
               <div>
@@ -134,7 +135,7 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
                   placeholder="Сумма" title="Сумма за питание"
                   value={row.amountMeal} onChange={e => update(row.clientId, { amountMeal: e.target.value })} />
               </div>
-              <div style={{ gridColumn: '1 / -1' }}>
+              <div>
                 <label style={fieldLabel}>Комментарий</label>
                 <input type="text" style={inputStyle}
                   placeholder="Необязательно"

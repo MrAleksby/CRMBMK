@@ -164,8 +164,8 @@ export default function LessonModal({
                       Состояние клиента
                     </th>
                    {!readOnly && (
-                      <th style={{ textAlign: 'right', padding: '6px 0', color: '#6b7280', fontSize: '12px', fontWeight: '600', width: '150px' }}>
-                        Занятие · Питание
+                      <th style={{ textAlign: 'right', padding: '6px 0', color: '#6b7280', fontSize: '12px', fontWeight: '600', width: '340px' }}>
+                        Занятие · Питание · Комментарий
                       </th>
                     )}
                   </tr>
@@ -209,21 +209,21 @@ export default function LessonModal({
                             // подставленная подсказка, а не то, что ввёл менеджер.
                             //
                             // Пропуск тоже может стоить денег, если ребёнок не предупредил.
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gap: '6px' }}>
                               <input type="text" inputMode="decimal"
-                                style={{ ...inputStyle, width: '130px', textAlign: 'right' }}
+                                style={{ ...inputStyle, width: '100%', textAlign: 'right' }}
                                 value={record.amountLesson}
                                 placeholder={present ? 'Занятие' : 'Не списывать'}
                                 title="Сумма за занятие"
                                 onChange={e => update(record.clientId, { amountLesson: e.target.value })} />
                               <input type="text" inputMode="decimal"
-                                style={{ ...inputStyle, width: '130px', textAlign: 'right' }}
+                                style={{ ...inputStyle, width: '100%', textAlign: 'right' }}
                                 value={record.amountMeal}
                                 placeholder="Питание"
                                 title="Сумма за питание"
                                 onChange={e => update(record.clientId, { amountMeal: e.target.value })} />
                               <input type="text"
-                                style={{ ...inputStyle, width: '130px', fontSize: '12px' }}
+                                style={{ ...inputStyle, width: '100%', fontSize: '12px' }}
                                 value={record.comment}
                                 placeholder="Комментарий"
                                 onChange={e => update(record.clientId, { comment: e.target.value })} />
