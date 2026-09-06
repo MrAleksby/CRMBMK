@@ -107,26 +107,40 @@ function LessonPopover({ lesson, clients, teachers }) {
   )
 }
 
+// Есть ли у устройства настоящее наведение. На планшете и телефоне его нет:
+// первое касание там уходит на «наведение», а до клика дело не доходит —
+// плитка выглядит нерабочей. Владелец на это и наткнулся 6 сентября 2026.
+const CAN_HOVER = typeof window !== 'undefined' && window.matchMedia
+  ? window.matchMedia('(hover: hover)').matches
+  : true
+
 function Tile({ lesson, tile, clients, teachers, onOpen }) {
   const [hover, setHover] = useState(false)
   const [, month, day] = lesson.date.split('-')
 
+  // На сенсорном экране подсказку по наведению не показываем вовсе: она там
+  // только съедает касание. Всё то же самое человек увидит, открыв занятие.
+  const hoverProps = CAN_HOVER
+    ? { onMouseEnter: () => setHover(true), onMouseLeave: () => setHover(false) }
+    : {}
+
   return (
-    <div
-      style={{ position: 'relative' }}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-    >
-      <div onClick={() => onOpen(lesson)} title={tile.title} style={{
+    <div style={{ position: 'relative' }} {...hoverProps}>
+     {/* Кнопка, а не div: браузер сам обрабатывает касание и клавиатуру.
+          У div на планшете активация зависит от того, не увёл ли палец пиксель. */}
+      <button type="button" onClick={() => onOpen(lesson)} title={tile.title} style={{
         minWidth: '44px', padding: '4px 3px', borderRadius: '7px', textAlign: 'center',
         background: tile.background,
         border: tile.dashed ? '1px dashed #dc2626' : '1px solid transparent',
         color: tile.color, cursor: 'pointer',
         textDecoration: tile.strike ? 'line-through' : 'none',
+        font: 'inherit', display: 'block',
+        // Чтобы касание не улетало в прокрутку и не ждало двойного тапа.
+        touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent',
       }}>
         <div style={{ fontSize: '10px', height: '12px' }}>{tile.icon}</div>
         <div style={{ fontSize: '11px', fontWeight: '600' }}>{day}.{month}</div>
-      </div>
+      </button>
 
      {hover && <LessonPopover lesson={lesson} clients={clients} teachers={teachers} />}
     </div>
