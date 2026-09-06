@@ -10,6 +10,7 @@ import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 let docs = {}          // фейковая база: id -> документ
 let reads = 0          // сколько документов Firestore бы затарифицировал
 let listeners = []
+let silent = false   // подписка молчит: так ведёт себя залипший канал Firestore
 
 vi.mock('../firebase', () => ({ db: {}, auth: {} }))
 
@@ -17,6 +18,18 @@ const matching = (ref) => Object.entries(docs)
   .filter(([, d]) => d.__collection === ref.name)
   .filter(([, d]) => !ref.clientMoney || ['income', 'refund'].includes(d.kind))
   .map(([id, d]) => ({ id, data: () => d }))
+
+// Снимок Firestore: документы, метка «откуда» и список изменившихся документов.
+// `docChanges` по умолчанию не включает снимки, где сменилась одна метка, —
+// именно по нему слой решает, будить страницу или нет.
+const snapshotOf = (ref, { fromCache = false, changed = null } = {}) => {
+  const docs = matching(ref)
+  return {
+    docs,
+    metadata: { fromCache },
+    docChanges: () => (changed === null ? docs : changed),
+  }
+}
 
 vi.mock('firebase/firestore', () => ({
   collection: (_db, name) => ({ name, clientMoney: false }),
@@ -29,12 +42,13 @@ vi.mock('firebase/firestore', () => ({
     return { exists: () => Boolean(docs[ref.id]), id: ref.id, data: () => docs[ref.id] }
   },
   // Первый снимок тарифицируется целиком, дальнейшие — только изменённым.
-  onSnapshot: (ref, onNext, onError) => {
+  // Подписка идёт с includeMetadataChanges, поэтому третий аргумент — опции.
+  onSnapshot: (ref, _options, onNext, onError) => {
     const listener = { ref, onNext, onError }
     listeners.push(listener)
     reads += matching(ref).length
     queueMicrotask(() => {
-      if (listeners.includes(listener)) onNext({ docs: matching(ref), metadata: { fromCache: false } })
+      if (!silent && listeners.includes(listener)) onNext(snapshotOf(ref))
     })
     return () => { listeners = listeners.filter(l => l !== listener) }
   },
@@ -48,12 +62,16 @@ const tx = (kind, amount) => ({ __collection: 'transactions', kind, amount, clie
 // снимок, платим только за изменившийся документ.
 const serverChange = () => {
   reads += 1
-  for (const l of listeners) l.onNext({ docs: matching(l.ref), metadata: { fromCache: false } })
+  for (const l of listeners) l.onNext(snapshotOf(l.ref))
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  // Сигнал слушателям собирается на такт вперёд. Даём ему сработать до теста,
+  // иначе он догонит следующий и тот увидит чужое пробуждение.
+  await new Promise(resolve => setTimeout(resolve, 0))
   stopAllLive()
   listeners = []
+  silent = false
   docs = { t1: tx('income', 100), t2: tx('expense', 50) }
   reads = 0
 })
@@ -113,16 +131,49 @@ describe('живые подписки', () => {
     const listener = listeners.find(l => l.ref.name === 'transactions')
 
     // Пришёл неполный снимок из кэша — ждать, а не отдавать.
-    listener.onNext({ docs: [{ id: 't1', data: () => docs.t1 }], metadata: { fromCache: true } })
+    listener.onNext({
+      docs: [{ id: 't1', data: () => docs.t1 }],
+      metadata: { fromCache: true },
+      docChanges: () => [],
+    })
     let settled = false
     pending.then(() => { settled = true })
     await Promise.resolve()
     expect(settled).toBe(false)
 
     // И только подтверждённый сервером снимок отдаём странице.
-    listener.onNext({ docs: matching(listener.ref), metadata: { fromCache: false } })
+    listener.onNext(snapshotOf(listener.ref))
     const rows = await pending
     expect(rows.map(r => r.id)).toContain('t9')
+  })
+
+  it('подтверждение сервером приходит одной сменой метки — и его довольно', async () => {
+    // С кэшем на диске Firestore отдаёт всю коллекцию сразу, но помечает
+    // «из кэша». Если данные с прошлого раза не менялись, подтверждать ему
+    // нечего, и приходит снимок, где сменилась одна метка. Не принимать его
+    // нельзя: страница висела бы на «Загрузка...» до самого таймаута.
+    const pending = readCollection('transactions')
+    const listener = listeners.find(l => l.ref.name === 'transactions')
+
+    listener.onNext(snapshotOf(listener.ref, { fromCache: true }))
+    listener.onNext(snapshotOf(listener.ref, { fromCache: false, changed: [] }))
+
+    expect((await pending).map(r => r.id)).toEqual(['t1', 't2'])
+  })
+
+  it('смена одной метки страницу не будит', async () => {
+    await readCollection('transactions')
+    const listener = listeners.find(l => l.ref.name === 'transactions')
+    const woken = vi.fn()
+    const off = watch(woken)
+
+    // Таких снимков с includeMetadataChanges приходит много: «ушло на сервер»,
+    // «сервер подтвердил». Данные в них те же — перечитывать страницу незачем.
+    listener.onNext(snapshotOf(listener.ref, { changed: [] }))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    off()
+
+    expect(woken).not.toHaveBeenCalled()
   })
 
   it('после подтверждения сервером снимки из кэша уже принимаются', async () => {
@@ -132,9 +183,35 @@ describe('живые подписки', () => {
     const listener = listeners.find(l => l.ref.name === 'transactions')
 
     docs.t7 = tx('income', 42)
-    listener.onNext({ docs: matching(listener.ref), metadata: { fromCache: true } })
+    listener.onNext(snapshotOf(listener.ref, { fromCache: true }))
 
     expect((await readCollection('transactions')).map(r => r.id)).toContain('t7')
+  })
+
+  it('молчащая подписка поднимается «Повторить», а не перезагрузкой страницы', async () => {
+    // Ошибку слушателя Firestore сообщает сам, а вот залипший канал просто молчит.
+    // Раньше повтор вставал в очередь к той же мёртвой подписке и ждал впустую —
+    // помогала только перезагрузка страницы, и не с первого раза.
+    vi.useFakeTimers()
+    try {
+      silent = true
+      // Ошибку ловим сразу: если повесить обработчик после прокрутки таймеров,
+      // отказ успеет пройти незамеченным и вылезет как unhandled rejection.
+      const pending = readCollection('lessons').catch(e => e)
+      const dead = listeners.find(l => l.ref.name === 'lessons')
+
+      await vi.advanceTimersByTimeAsync(46_000)
+      expect((await pending).name).toBe('TimeoutError')
+
+      silent = false
+      docs.l1 = { __collection: 'lessons', date: '2026-09-06' }
+      const rows = await readCollection('lessons', { force: true })
+
+      expect(rows).toHaveLength(1)
+      expect(listeners).not.toContain(dead)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('сломанная подписка не остаётся навсегда: «Повторить» поднимает её заново', async () => {

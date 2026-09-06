@@ -15,7 +15,7 @@
 
 import { collection, doc, getDoc, getDocs, onSnapshot, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
-import { withTimeout } from './withTimeout'
+import { withTimeout, FIRST_SNAPSHOT_MS } from './withTimeout'
 import { clientMoneyQuery, CLIENT_MONEY_KINDS } from './finance'
 
 const rowsOf = (snapshot) => snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -59,7 +59,7 @@ export function watch(cb) {
 
 function startLive(key, makeQuery) {
   // confirmed — снимок пришёл с сервера, а не только из локального кэша.
-  const entry = { rows: null, error: null, confirmed: false, waiters: [], unsubscribe: null }
+  const entry = { rows: null, error: null, confirmed: false, timedOut: false, waiters: [], unsubscribe: null }
   live.set(key, entry)
 
   const settle = (method, value) => {
@@ -69,6 +69,11 @@ function startLive(key, makeQuery) {
 
   entry.unsubscribe = onSnapshot(
     makeQuery(),
+    // Без includeMetadataChanges подписка молчит, когда данные не изменились,
+    // а изменилась только метка «снимок подтверждён сервером». Именно эту метку
+    // мы и ждём ниже — и с кэшем на диске страница висела бы на «Загрузка...»
+    // вечно: с диска приходит всё, но помеченное как кэш, а подтверждать нечего.
+    { includeMetadataChanges: true },
     snapshot => {
       // Данные уже были на экране до этого снимка — значит он их меняет.
       const wasKnown = entry.confirmed
@@ -89,7 +94,11 @@ function startLive(key, makeQuery) {
       // Первый снимок сигнала не требует: его ждёт сама страница (`settle`).
       // А вот дальнейшие — это правка соседней вкладки или второго пользователя,
       // и о ней страница иначе не узнает.
-      if (wasKnown) notifyWatchers()
+      //
+      // `docChanges()` отсеивает снимки, где сменилась одна метка: с
+      // includeMetadataChanges таких приходит много, и без проверки страница
+      // перечитывала бы себя на каждое «подтверждено сервером».
+      if (wasKnown && snapshot.docChanges().length > 0) notifyWatchers()
     },
     error => {
       // Firestore при ошибке слушателя прекращает слушать сам. Держать мёртвую
@@ -123,7 +132,11 @@ function readLive(key, makeQuery, { force = false } = {}) {
   // `force` для живого ключа означает не «перечитать» (нечего перечитывать),
   // а «подписка сломалась, подними заново» — по кнопке «Повторить».
   let entry = live.get(key)
-  if (force && entry?.error) { stopLive(key); entry = undefined }
+  // Зависшую подписку «Повторить» обязано поднимать заново. Ошибка слушателя
+  // запись убивает сама, а вот молчание — нет: канал Firestore может залипнуть,
+  // и тогда повтор бесконечно ждал бы всё ту же мёртвую подписку. Именно из-за
+  // этого не помогало ничего, кроме перезагрузки страницы, и не по одному разу.
+  if (force && (entry?.error || entry?.timedOut)) { stopLive(key); entry = undefined }
   if (!entry) entry = startLive(key, makeQuery)
 
   if (entry.rows && entry.confirmed) return Promise.resolve(entry.rows)
@@ -133,7 +146,12 @@ function readLive(key, makeQuery, { force = false } = {}) {
   // транспорте onSnapshot молчит бесконечно, и страница зависла бы на «Загрузка...».
   return withTimeout(new Promise((resolve, reject) => {
     entry.waiters.push({ resolve, reject })
-  }))
+  }), FIRST_SNAPSHOT_MS).catch(error => {
+    // Подписку не рвём: снимок может ещё прийти, и тогда она пригодится живой.
+    // Но помечаем, чтобы «Повторить» знал, что её можно и нужно поднять заново.
+    entry.timedOut = true
+    throw error
+  })
 }
 
 // ── Разовые чтения с кэшем ───────────────────────────────────────────────────

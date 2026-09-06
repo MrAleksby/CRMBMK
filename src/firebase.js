@@ -1,5 +1,8 @@
 import { initializeApp } from 'firebase/app'
-import { initializeFirestore, connectFirestoreEmulator } from 'firebase/firestore'
+import {
+  initializeFirestore, connectFirestoreEmulator,
+  persistentLocalCache, persistentMultipleTabManager,
+} from 'firebase/firestore'
 import { getAuth, connectAuthEmulator } from 'firebase/auth'
 
 const firebaseConfig = {
@@ -16,8 +19,27 @@ const app = initializeApp(firebaseConfig)
 // По умолчанию Firestore ходит через WebChannel. Если сеть, провайдер или расширение
 // браузера его режут, SDK не падает с ошибкой, а молча ждёт — страница висит на «Загрузка...».
 // autoDetectLongPolling распознаёт такую сеть и переключается на long-polling.
+//
+// Кэш на диске (IndexedDB) — против долгого входа. Без него каждое открытие CRM
+// выкачивало всю историю заново: «Финансы» — это 2400 документов, на медленной
+// связи такая перекачка не укладывалась в отведённые 15 секунд, человек видел
+// «Сервер не ответил» и обновлял страницу по пять раз подряд.
+//
+// С кэшем SDK поднимает данные с диска, а у сервера спрашивает только то, что
+// изменилось с прошлого раза (по resume-токену подписки). Едет не история,
+// а разница — и вход перестаёт зависеть от её объёма. Заодно это ещё одна
+// экономия чтений: перезагрузка страницы больше не тарифицируется целиком.
+//
+// tabManager — многовкладочный: карточка ученика открывается в новой вкладке
+// (`target="_blank"`), а с однооконным менеджером вторая вкладка не получила бы
+// доступ к кэшу и упала бы с ошибкой.
+//
+// Если IndexedDB недоступна (режим инкогнито, запрет на данные сайтов), SDK
+// сообщает об этом в консоль и работает как раньше, из памяти. Терять нечего:
+// это ровно то поведение, что было до кэша.
 export const db = initializeFirestore(app, {
   experimentalAutoDetectLongPolling: true,
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 })
 
 export const auth = getAuth(app)
