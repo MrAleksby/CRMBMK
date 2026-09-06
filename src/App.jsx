@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
 import { logout } from './lib/session'
+import { APP_VERSION, watchVersion } from './lib/version'
 import { useAuth } from './AuthContext'
 import { isApproved, canManage, canSeeCompanyMoney, canSeeSettings } from './lib/access'
 import { downloadBackup } from './lib/backup'
@@ -44,6 +45,12 @@ const navItem = (isActive) => ({
 })
 
 function App() {
+  // Одностраничное приложение код не перезапрашивает, пока открыта вкладка.
+  // На планшете вкладки живут неделями — и человек неделями работает в старой
+  // версии, не зная об этом. Спрашиваем у сервера сами и предлагаем обновиться.
+  const [newVersion, setNewVersion] = useState(null)
+  useEffect(() => watchVersion(setNewVersion), [])
+
   const { user, profile } = useAuth()
   const [backingUp, setBackingUp] = useState(false)
 
@@ -91,6 +98,26 @@ function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <div style={{ minHeight: '100vh', background: '#f1f2f4' }}>
+
+       {/* Вышла новая версия. Кнопка, а не автоматическая перезагрузка: человек
+            может стоять посреди заполнения журнала, и выдёргивать страницу
+            из-под него нельзя. */}
+       {newVersion && (
+          <div style={{
+            position: 'sticky', top: 0, zIndex: 60,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            gap: '12px', flexWrap: 'wrap',
+            background: '#ede9fe', borderBottom: '1px solid #ddd6fe',
+            padding: '10px 16px', fontSize: '13px', color: '#4b5563',
+          }}>
+            <span>Вышло обновление CRM. Страница работает на старой версии.</span>
+            <button onClick={() => window.location.reload()} style={{
+              background: '#7c3aed', color: '#fff', border: 'none',
+              padding: '6px 14px', borderRadius: '8px',
+              fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+            }}>Обновить</button>
+          </div>
+        )}
 
         {/* Desktop sidebar */}
         <aside style={{

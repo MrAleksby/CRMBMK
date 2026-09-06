@@ -196,24 +196,41 @@ function sameCharge(charge, row) {
     && (charge.comment || '') === next.comment
 }
 
-export function validateJournal(rows) {
-  for (const row of rows) {
-    // У отсутствующего пустые суммы — норма: пропуск по уважительной причине.
-    // У пришедшего должна быть заполнена хотя бы одна часть: бывает занятие
-    // без питания и, наоборот, одно питание без занятия.
-    if (row.status === 'present' && !filled(row.amountLesson) && !filled(row.amountMeal)) {
-      return `Укажите сумму для «${row.clientName}»`
-    }
-
-    for (const [field, label] of [['amountLesson', 'занятие'], ['amountMeal', 'питание']]) {
-      if (!filled(row[field])) continue
-      const value = Number(normalizeDecimal(row[field]))
-      if (!Number.isFinite(value) || value < 0) {
-        return `Сумма за ${label} у «${row.clientName}» должна быть неотрицательным числом`
-      }
-    }
+// Что не так с одной строкой журнала. null — всё в порядке.
+function rowProblem(row) {
+  // У отсутствующего пустые суммы — норма: пропуск по уважительной причине.
+  // У пришедшего должна быть заполнена хотя бы одна часть: бывает занятие
+  // без питания и, наоборот, одно питание без занятия.
+  if (row.status === 'present' && !filled(row.amountLesson) && !filled(row.amountMeal)) {
+    return 'сумма не указана'
+  }
+  for (const [field, label] of [['amountLesson', 'занятие'], ['amountMeal', 'питание']]) {
+    if (!filled(row[field])) continue
+    const value = Number(normalizeDecimal(row[field]))
+    if (!Number.isFinite(value) || value < 0) return `${label}: не похоже на сумму`
   }
   return null
+}
+
+// Все проблемные строки разом, а не первая попавшаяся.
+//
+// Раньше проверка возвращала одного ученика за раз: менеджер исправлял его,
+// жал «Провести», получал следующего — и так по кругу, не понимая, сколько
+// их всего. При двенадцати детях в группе это пытка.
+export function journalProblems(rows) {
+  return rows
+    .map(row => ({ clientId: row.clientId, clientName: row.clientName, problem: rowProblem(row) }))
+    .filter(row => row.problem)
+}
+
+export function validateJournal(rows) {
+  const problems = journalProblems(rows)
+  if (problems.length === 0) return null
+  if (problems.length === 1) {
+    const only = problems[0]
+    return `«${only.clientName}» — ${only.problem}`
+  }
+  return `Не заполнено у ${problems.length}: ` + problems.map(p => `«${p.clientName}»`).join(', ')
 }
 
 export const journalTotal = (rows) => rows.reduce((sum, r) => sum + rowTotal(r), 0)

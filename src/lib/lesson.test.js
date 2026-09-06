@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { planAttendanceUpdate, buildJournal, journalToAttendance, attendanceTile, attendanceToRow, journalTotal, validateJournal, rowTotal, splitFields } from './lesson'
+import { planAttendanceUpdate, buildJournal, journalToAttendance, attendanceTile, attendanceToRow, journalTotal, validateJournal, rowTotal, splitFields, journalProblems } from './lesson'
 
 // Правка журнала проведённого занятия — самое опасное место в системе: сумма
 // живёт в двух коллекциях сразу (lessons.attendance и charges). Если они разойдутся,
@@ -230,7 +230,7 @@ describe('разделение суммы: занятие и питание', ()
 
   it('пришедшему нужна хотя бы одна сумма', () => {
     expect(validateJournal([row({ amountLesson: '', amountMeal: '' })]))
-      .toBe('Укажите сумму для «Аня»')
+      .toBe('«Аня» — сумма не указана')
   })
 
   it('отрицательное питание не принимается', () => {
@@ -332,5 +332,50 @@ describe('документ начисления не содержит undefined'
     for (const doc of [...plan.chargesToCreate, ...plan.chargesToUpdate, ...plan.attendance]) {
       expect(noUndefined(doc)).toBe(true)
     }
+  })
+})
+
+// Менеджер заполняет журнал на двенадцать детей. Если проверка называет одного
+// за раз, он исправляет, жмёт «Провести», получает следующего — и так по кругу,
+// не зная, сколько их всего. Владелец на это и пожаловался 6 сентября.
+describe('журнал называет всех незаполненных сразу', () => {
+  const row = (name, over = {}) => ({
+    clientId: name, clientName: name, status: 'present',
+    amountLesson: '300000', amountMeal: '', comment: '', ...over,
+  })
+
+  it('перечисляет всех, у кого нет суммы, а не первого', () => {
+    const rows = [
+      row('Аня'),
+      row('Боря', { amountLesson: '', amountMeal: '' }),
+      row('Вика'),
+      row('Гоша', { amountLesson: '', amountMeal: '' }),
+    ]
+
+    const message = validateJournal(rows)
+
+    expect(message).toContain('«Боря»')
+    expect(message).toContain('«Гоша»')
+    expect(message).toContain('2')
+    expect(message).not.toContain('«Аня»')
+  })
+
+  it('возвращает сами строки, чтобы подсветить их в списке', () => {
+    const rows = [row('Аня'), row('Боря', { amountLesson: '', amountMeal: '' })]
+
+    expect(journalProblems(rows).map(p => p.clientId)).toEqual(['Боря'])
+  })
+
+  it('отсутствующий без сумм проблемой не считается — пропуск прощён', () => {
+    const rows = [row('Аня', { status: 'absent', amountLesson: '', amountMeal: '' })]
+
+    expect(journalProblems(rows)).toEqual([])
+    expect(validateJournal(rows)).toBeNull()
+  })
+
+  it('нечисловая сумма тоже попадает в список с указанием поля', () => {
+    const rows = [row('Аня', { amountMeal: 'абв' })]
+
+    expect(journalProblems(rows)[0].problem).toContain('питание')
   })
 })

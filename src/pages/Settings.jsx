@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { APP_VERSION } from '../lib/version'
 import { DIRECTORIES } from '../lib/directories'
 import { useAuth } from '../AuthContext'
 import { isAdmin } from '../lib/access'
@@ -47,6 +48,11 @@ export default function Settings() {
           </h2>
         <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
           Справочники: на них опираются уроки, абонементы и финансы
+        </p>
+       {/* Версия открытой сейчас сборки. Без неё на вопрос «у тебя свежая
+            версия?» приходилось отвечать перепиской в несколько кругов. */}
+        <p style={{ fontSize: '11px', color: '#9ca3af', marginTop: '6px' }}>
+          Версия {APP_VERSION}
         </p>
       </div>
 

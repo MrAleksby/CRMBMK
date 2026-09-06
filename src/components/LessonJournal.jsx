@@ -1,19 +1,24 @@
 import { useState } from 'react'
-import { ATTENDANCE, journalTotal, journalMealTotal, rowTotal, validateJournal } from '../lib/lesson'
+import { ATTENDANCE, journalTotal, journalMealTotal, journalProblems, rowTotal, validateJournal } from '../lib/lesson'
 
+// Поля подписаны, а не помечены только подсказкой внутри. Подсказка исчезает,
+// как только в поле что-то введено, и на планшете, где поля переносятся на
+// вторую строку, становится непонятно, где занятие, а где питание.
+// 6 сентября 2026 владелец на это и наткнулся: «не выходят поля».
 const inputStyle = {
   background: '#ffffff',
   border: '1px solid #e5e7eb',
   borderRadius: '8px',
-  padding: '6px 10px',
+  padding: '8px 10px',
   color: '#111827',
-  fontSize: '13px',
+  fontSize: '14px',
   outline: 'none',
-  width: '110px',
+  width: '100%',
 }
 
-// Комментарий длиннее сумм: в него пишут фразой, а не числом.
-const commentStyle = { ...inputStyle, width: '170px', flex: '1 1 150px' }
+const fieldLabel = {
+  display: 'block', fontSize: '11px', color: '#6b7280', marginBottom: '3px',
+}
 
 const btn = (color = '#7c3aed') => ({
   background: color, color: '#fff', border: 'none', padding: '8px 16px',
@@ -28,24 +33,38 @@ const ghostBtn = {
 export default function LessonJournal({ rows: initialRows, saving, editing = false, onConduct, onCancel }) {
   const [rows, setRows] = useState(initialRows)
   const [error, setError] = useState('')
+  // Кого именно не хватило. Держим отдельно от текста ошибки: при двенадцати
+  // детях прочитать список имён в одну строку трудно, а подсвеченную строку
+  // видно сразу.
+  const [missing, setMissing] = useState(() => new Set())
 
-  const update = (clientId, patch) =>
+  const update = (clientId, patch) => {
     setRows(rows.map(r => (r.clientId === clientId ? { ...r, ...patch } : r)))
+    // Начал исправлять — снимаем подсветку с этой строки, не дожидаясь
+    // повторного нажатия «Провести».
+    if (missing.has(clientId)) {
+      const next = new Set(missing)
+      next.delete(clientId)
+      setMissing(next)
+    }
+  }
 
   const handleConduct = () => {
     const problem = validateJournal(rows)
     if (problem) {
       setError(problem)
+      setMissing(new Set(journalProblems(rows).map(p => p.clientId)))
       return
     }
     setError('')
+    setMissing(new Set())
     onConduct(rows)
   }
 
   const total = journalTotal(rows)
+  const mealTotal = journalMealTotal(rows)
   const presentCount = rows.filter(r => r.status === 'present').length
   const paidSkips = rows.filter(r => r.status !== 'present' && rowTotal(r) > 0).length
-  const mealTotal = journalMealTotal(rows)
 
   if (rows.length === 0) {
     return (
@@ -59,19 +78,23 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
 
   return (
     <div style={{ background: '#f7f8fa', borderRadius: '12px', padding: '14px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '12px', color: '#6b7280', gap: '10px', flexWrap: 'wrap' }}>
-        <span>Ученик</span>
-        <span>Занятие · Питание · Комментарий · Итого</span>
-      </div>
-
      {rows.map(row => {
         const present = row.status === 'present'
+        const flagged = missing.has(row.clientId)
         return (
           <div key={row.clientId} style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            gap: '10px', padding: '8px 0', borderBottom: '1px solid #e5e7eb', flexWrap: 'wrap',
+            padding: '10px',
+            marginBottom: '8px',
+            borderRadius: '10px',
+            // Подсвечиваем строку целиком: имя в тексте ошибки ещё надо найти
+            // глазами в списке, а цветную строку видно сразу.
+            background: flagged ? '#fef2f2' : '#ffffff',
+            border: `1px solid ${flagged ? '#fecaca' : '#e5e7eb'}`,
           }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', minWidth: 0 }}>
+            <label style={{
+              display: 'flex', alignItems: 'center', gap: '10px',
+              cursor: 'pointer', marginBottom: '8px', flexWrap: 'wrap',
+            }}>
               <input type="checkbox" checked={present}
                 onChange={() => update(row.clientId, { status: present ? 'absent' : 'present' })} />
               <span style={{ fontSize: '14px', color: '#111827', fontWeight: '500' }}>{row.clientName}</span>
@@ -80,28 +103,43 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
                 background: ATTENDANCE[row.status].background,
                 color: ATTENDANCE[row.status].color,
               }}>{ATTENDANCE[row.status].label}</span>
+              <span style={{
+                marginLeft: 'auto', fontSize: '13px', fontWeight: '600',
+                color: rowTotal(row) > 0 ? '#111827' : '#9ca3af',
+              }}>
+                Итого: {rowTotal(row) > 0 ? `${rowTotal(row).toLocaleString()} сум` : '—'}
+              </span>
             </label>
 
-           {/* У отсутствующего суммы тоже вводятся: пропуск без предупреждения
+           {/* Сетка вместо ряда: на узком экране поля встают друг под друга
+                предсказуемо, а не переносятся как придётся.
+                У отсутствующего суммы тоже вводятся: пропуск без предупреждения
                 руководитель может решить списать. Пусто — значит прощён.
                 На лицевой счёт уходит ИТОГ, разбивка нужна, чтобы видеть еду. */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <input type="text" inputMode="decimal" style={inputStyle}
-                placeholder={present ? 'Занятие' : 'Не списывать'}
-                title={present ? 'Сумма за занятие' : 'Пропуск: оставьте пустым, если причина уважительная'}
-                value={row.amountLesson} onChange={e => update(row.clientId, { amountLesson: e.target.value })} />
-              <input type="text" inputMode="decimal" style={inputStyle}
-                placeholder="Питание" title="Сумма за питание"
-                value={row.amountMeal} onChange={e => update(row.clientId, { amountMeal: e.target.value })} />
-              <input type="text" style={commentStyle}
-                placeholder="Комментарий" title="Необязательно"
-                value={row.comment} onChange={e => update(row.clientId, { comment: e.target.value })} />
-              <span style={{
-                fontSize: '13px', minWidth: '90px', textAlign: 'right',
-                color: rowTotal(row) > 0 ? '#111827' : '#9ca3af', fontWeight: '600',
-              }}>
-               {rowTotal(row) > 0 ? `${rowTotal(row).toLocaleString()} сум` : '—'}
-              </span>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              gap: '8px',
+            }}>
+              <div>
+                <label style={fieldLabel}>Занятие</label>
+                <input type="text" inputMode="decimal" style={inputStyle}
+                  placeholder={present ? 'Сумма' : 'Не списывать'}
+                  title={present ? 'Сумма за занятие' : 'Пропуск: оставьте пустым, если причина уважительная'}
+                  value={row.amountLesson} onChange={e => update(row.clientId, { amountLesson: e.target.value })} />
+              </div>
+              <div>
+                <label style={fieldLabel}>Питание</label>
+                <input type="text" inputMode="decimal" style={inputStyle}
+                  placeholder="Сумма" title="Сумма за питание"
+                  value={row.amountMeal} onChange={e => update(row.clientId, { amountMeal: e.target.value })} />
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={fieldLabel}>Комментарий</label>
+                <input type="text" style={inputStyle}
+                  placeholder="Необязательно"
+                  value={row.comment} onChange={e => update(row.clientId, { comment: e.target.value })} />
+              </div>
             </div>
           </div>
         )
