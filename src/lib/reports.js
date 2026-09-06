@@ -298,7 +298,7 @@ export function monthlyLessons(lessons, charges, range, filters = {}) {
     if (!rows.has(key)) {
       rows.set(key, {
         key, label: monthLabel(key),
-        conducted: 0, cancelled: 0, planned: 0, present: 0, absent: 0, charged: 0,
+        conducted: 0, cancelled: 0, planned: 0, present: 0, absent: 0, charged: 0, meal: 0,
       })
     }
     return rows.get(key)
@@ -327,7 +327,12 @@ export function monthlyLessons(lessons, charges, range, filters = {}) {
     if (!inRange(c.date, range)) continue
     const filtered = teacherId || groupId || type
     if (filtered && !(c.lessonId && countedLessons.has(c.lessonId))) continue
-    row(monthKey(dayOf(c.date))).charged += c.amount || 0
+    const target = row(monthKey(dayOf(c.date)))
+    target.charged += c.amount || 0
+    // Питание считаем только там, где менеджер его выделил. У занятий, проведённых
+    // до разделения, еда сидит внутри общей суммы и вытащить её неоткуда —
+    // поэтому в колонке будет ноль, а не выдуманная доля.
+    target.meal += c.amountMeal || 0
   }
 
   return [...rows.values()].sort((a, b) => a.key.localeCompare(b.key))

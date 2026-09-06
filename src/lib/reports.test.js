@@ -237,6 +237,21 @@ describe('monthlyLessons и teacherReport', () => {
   ]
   const charges = [charge('a', 330_000, '2026-06-05')]
 
+  it('«из них питание» берёт только выделенную еду, а не долю от суммы', () => {
+    // Часть занятий проведена до разделения: в их сумме еда сидит внутри, и
+    // вытащить её неоткуда. Такие списания дают ноль, а не выдуманную долю —
+    // иначе отчёт показывал бы расходы на еду, которых никто не вводил.
+    const withSplit = { ...charge('a', 330_000, '2026-06-05'), amountLesson: 300_000, amountMeal: 30_000 }
+    const oldStyle = charge('b', 250_000, '2026-06-06')
+
+    const june = monthlyLessons(lessons, [withSplit, oldStyle], RANGE).find(r => r.key === '2026-06')
+
+    expect(june.charged).toBe(580_000)
+    expect(june.meal).toBe(30_000)
+    // Занятия = списано − питание, и это по-прежнему полная сумма.
+    expect(june.charged - june.meal).toBe(550_000)
+  })
+
   it('считает посещения и пропуски', () => {
     const rows = monthlyLessons(lessons, charges, RANGE)
     const june = rows.find(r => r.key === '2026-06')

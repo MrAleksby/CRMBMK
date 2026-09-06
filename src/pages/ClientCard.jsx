@@ -841,6 +841,17 @@ export default function ClientCard() {
                           <span style={chip('#dcfce7', '#059669')}>Оплата</span>
                         )}
                        {note && <span style={{ fontSize: '12px', color: '#6b7280' }}>{note}</span>}
+                       {/* Разбивка показывается справкой, отдельно от суммы: на балансе
+                            и в расчётах участвует только итог. У списаний, сделанных
+                            до разделения, разбивки нет — тогда и строки нет. */}
+                       {entry._charge && entry.amountMeal !== undefined && (
+                          <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                            занятие {(entry.amountLesson || 0).toLocaleString()} · питание {(entry.amountMeal || 0).toLocaleString()}
+                          </span>
+                        )}
+                       {entry._charge && entry.comment && (
+                          <span style={{ fontSize: '12px', color: '#6b7280', fontStyle: 'italic' }}>{entry.comment}</span>
+                        )}
                       </div>
                       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0 }}>
                         <span style={{ fontWeight: '700', fontSize: '12px', color: entry._charge ? '#dc2626' : '#059669' }}>

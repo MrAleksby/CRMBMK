@@ -2,9 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import StudentChecklist from './StudentChecklist'
 import { LESSON_STATUSES } from '../lib/group'
-import {
-  buildJournal, journalTotal, validateJournal, lessonTypeLabel, formatLessonDate,
-} from '../lib/lesson'
+import { buildJournal, journalTotal, validateJournal, lessonTypeLabel, formatLessonDate, attendanceToRow } from '../lib/lesson'
 import { durationMinutes } from '../lib/calendar'
 
 const overlay = {
@@ -82,7 +80,7 @@ export default function LessonModal({
 
   // Проведённое занятие показываем как есть, запланированное — как журнал.
   const displayRows = conducted
-    ? (lesson.attendance || []).map(a => ({ ...a, amount: String(a.amountCharged ?? 0) }))
+    ? (lesson.attendance || []).map(a => attendanceToRow(a))
     : rows
 
   const total = conducted

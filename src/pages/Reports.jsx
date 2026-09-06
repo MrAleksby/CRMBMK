@@ -702,7 +702,11 @@ export default function Reports() {
             { label: 'Отменено', value: r => r.cancelled },
             { label: 'Посещений', value: r => r.present },
             { label: 'Пропусков', value: r => r.absent },
-            ...(seesMoney ? [{ label: 'Списано', value: r => r.charged }] : []),
+            ...(seesMoney ? [
+              { label: 'Списано', value: r => r.charged },
+              { label: 'Из них питание', value: r => r.meal },
+              { label: 'Из них занятия', value: r => r.charged - r.meal },
+            ] : []),
           ], lessonRows)}
         >
           <select value={lessonFilters.teacherId} style={select}
@@ -733,6 +737,7 @@ export default function Reports() {
                 <th style={th}>Посещений</th>
                 <th style={th}>Пропусков</th>
                 {seesMoney && <th style={th}>Списано</th>}
+                {seesMoney && <th style={th} title="Сколько из списанного пришлось на еду">Из них питание</th>}
                 <th style={{ ...th, width: '110px' }} />
               </tr>
             </thead>
@@ -746,12 +751,25 @@ export default function Reports() {
                   <td style={{ ...td, color: '#059669' }}>{r.present || '—'}</td>
                   <td style={{ ...td, color: r.absent ? '#b45309' : '#9ca3af' }}>{r.absent || '—'}</td>
                   {seesMoney && <td style={td}>{money(r.charged)}</td>}
+                  {seesMoney && (
+                    <td style={{ ...td, color: r.meal ? '#4b5563' : '#9ca3af' }}>
+                      {r.meal ? money(r.meal) : '—'}
+                    </td>
+                  )}
                   <td style={td}><Bar value={r.conducted} max={maxLessons} color="#7c3aed" /></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+
+       {seesMoney && (
+          <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '-10px', marginBottom: '18px' }}>
+            «Из них питание» заполняется с того дня, как в журнале появились отдельные поля
+            за занятие и за еду. У занятий, проведённых раньше, еда сидит внутри общей суммы,
+            и выделить её неоткуда — там прочерк, а не ноль.
+          </p>
+        )}
 
         <ReportHead
           title="Педагоги"

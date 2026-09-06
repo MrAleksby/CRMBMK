@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ATTENDANCE, journalTotal, validateJournal } from '../lib/lesson'
+import { ATTENDANCE, journalTotal, journalMealTotal, rowTotal, validateJournal } from '../lib/lesson'
 
 const inputStyle = {
   background: '#ffffff',
@@ -9,8 +9,11 @@ const inputStyle = {
   color: '#111827',
   fontSize: '13px',
   outline: 'none',
-  width: '130px',
+  width: '110px',
 }
+
+// Комментарий длиннее сумм: в него пишут фразой, а не числом.
+const commentStyle = { ...inputStyle, width: '170px', flex: '1 1 150px' }
 
 const btn = (color = '#7c3aed') => ({
   background: color, color: '#fff', border: 'none', padding: '8px 16px',
@@ -41,7 +44,8 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
 
   const total = journalTotal(rows)
   const presentCount = rows.filter(r => r.status === 'present').length
-  const paidSkips = rows.filter(r => r.status !== 'present' && Number(r.amount) > 0).length
+  const paidSkips = rows.filter(r => r.status !== 'present' && rowTotal(r) > 0).length
+  const mealTotal = journalMealTotal(rows)
 
   if (rows.length === 0) {
     return (
@@ -55,9 +59,9 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
 
   return (
     <div style={{ background: '#f7f8fa', borderRadius: '12px', padding: '14px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '12px', color: '#6b7280' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '12px', color: '#6b7280', gap: '10px', flexWrap: 'wrap' }}>
         <span>Ученик</span>
-        <span>Сумма за занятие (с питанием)</span>
+        <span>Занятие · Питание · Комментарий · Итого</span>
       </div>
 
      {rows.map(row => {
@@ -78,12 +82,27 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
               }}>{ATTENDANCE[row.status].label}</span>
             </label>
 
-           {/* У отсутствующего сумма тоже вводится: пропуск без предупреждения
-                руководитель может решить списать. Пусто — значит прощён. */}
-            <input type="text" inputMode="decimal" style={inputStyle}
-              placeholder={present ? 'Сумма' : 'Не списывать'}
-              title={present ? undefined : 'Пропуск: оставьте пустым, если причина уважительная'}
-              value={row.amount} onChange={e => update(row.clientId, { amount: e.target.value })} />
+           {/* У отсутствующего суммы тоже вводятся: пропуск без предупреждения
+                руководитель может решить списать. Пусто — значит прощён.
+                На лицевой счёт уходит ИТОГ, разбивка нужна, чтобы видеть еду. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <input type="text" inputMode="decimal" style={inputStyle}
+                placeholder={present ? 'Занятие' : 'Не списывать'}
+                title={present ? 'Сумма за занятие' : 'Пропуск: оставьте пустым, если причина уважительная'}
+                value={row.amountLesson} onChange={e => update(row.clientId, { amountLesson: e.target.value })} />
+              <input type="text" inputMode="decimal" style={inputStyle}
+                placeholder="Питание" title="Сумма за питание"
+                value={row.amountMeal} onChange={e => update(row.clientId, { amountMeal: e.target.value })} />
+              <input type="text" style={commentStyle}
+                placeholder="Комментарий" title="Необязательно"
+                value={row.comment} onChange={e => update(row.clientId, { comment: e.target.value })} />
+              <span style={{
+                fontSize: '13px', minWidth: '90px', textAlign: 'right',
+                color: rowTotal(row) > 0 ? '#111827' : '#9ca3af', fontWeight: '600',
+              }}>
+               {rowTotal(row) > 0 ? `${rowTotal(row).toLocaleString()} сум` : '—'}
+              </span>
+            </div>
           </div>
         )
       })}
@@ -93,6 +112,9 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
          {editing ? 'Пришло' : 'Придёт'} {presentCount} из {rows.length}.{' '}
          {editing ? 'Списано' : 'Спишется'}{' '}
           <b style={{ color: '#111827' }}>{total.toLocaleString()} сум</b>
+         {mealTotal > 0 && (
+            <span style={{ color: '#6b7280' }}>{' '}· из них питание {mealTotal.toLocaleString()}</span>
+          )}
          {paidSkips > 0 && (
             <span style={{ color: '#b45309' }}>
              {' '}· платных пропусков: {paidSkips}

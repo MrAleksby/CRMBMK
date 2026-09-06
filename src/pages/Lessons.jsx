@@ -15,7 +15,7 @@ import StudentChecklist from '../components/StudentChecklist'
 import LessonCalendar from '../components/LessonCalendar'
 import LessonModal from '../components/LessonModal'
 import { LESSON_STATUSES, todayISO } from '../lib/group'
-import { buildJournal, journalToAttendance, lessonTypeLabel, formatLessonDate, planAttendanceUpdate } from '../lib/lesson'
+import { buildJournal, journalToAttendance, lessonTypeLabel, formatLessonDate, planAttendanceUpdate, splitFields } from '../lib/lesson'
 import { activeSubscription, lessonsLeft } from '../lib/subscription'
 import { clientBalances } from '../lib/balance'
 import { downloadCsv } from '../lib/export'
@@ -161,7 +161,11 @@ export default function Lessons() {
         batch.set(doc(collection(db, 'charges')), {
           clientId: record.clientId,
           clientName: record.clientName,
+          // На лицевом счёте лежит ИТОГ: баланс, прибыль и отчёты считают по нему
+          // и о разбивке знать не обязаны. Части — справкой, ради учёта питания.
           amount: record.amountCharged,
+          ...splitFields(record),
+          comment: record.comment || '',
           lessons: 1,
           description: lesson.groupName || lessonTypeLabel(lesson.type),
           lessonId: lesson.id,
@@ -197,8 +201,8 @@ export default function Lessons() {
       for (const chargeId of plan.chargesToDelete) {
         batch.delete(doc(db, 'charges', chargeId))
       }
-      for (const { id: chargeId, amount } of plan.chargesToUpdate) {
-        batch.update(doc(db, 'charges', chargeId), { amount })
+      for (const { id: chargeId, ...fields } of plan.chargesToUpdate) {
+        batch.update(doc(db, 'charges', chargeId), fields)
       }
       for (const charge of plan.chargesToCreate) {
         batch.set(doc(collection(db, 'charges')), {
