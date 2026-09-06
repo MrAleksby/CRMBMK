@@ -14,10 +14,13 @@ let silent = false   // подписка молчит: так ведёт себ�
 
 vi.mock('../firebase', () => ({ db: {}, auth: {} }))
 
-const matching = (ref) => Object.entries(docs)
-  .filter(([, d]) => d.__collection === ref.name)
-  .filter(([, d]) => !ref.clientMoney || ['income', 'refund'].includes(d.kind))
-  .map(([id, d]) => ({ id, data: () => d }))
+const matching = (ref) => {
+  const rows = Object.entries(docs)
+    .filter(([, d]) => d.__collection === ref.name)
+    .filter(([, d]) => !ref.clientMoney || ['income', 'refund'].includes(d.kind))
+    .map(([id, d]) => ({ id, data: () => d }))
+  return ref.take ? rows.slice(0, ref.take) : rows
+}
 
 // Снимок Firestore: документы, метка «откуда» и список изменившихся документов.
 // `docChanges` по умолчанию не включает снимки, где сменилась одна метка, —
@@ -34,8 +37,16 @@ const snapshotOf = (ref, { fromCache = false, changed = null } = {}) => {
 vi.mock('firebase/firestore', () => ({
   collection: (_db, name) => ({ name, clientMoney: false }),
   doc: (_db, name, id) => ({ name, id }),
-  where: () => ({}),
-  query: (ref) => ({ ...ref, clientMoney: true }),
+  // Части запроса различаем: раньше мок считал деньгами клиента ЛЮБОЙ query,
+  // и запрос «последние операции» молча превращался бы в оплаты и возвраты.
+  where: () => ({ __where: true }),
+  orderBy: () => ({ __orderBy: true }),
+  limit: (n) => ({ __limit: n }),
+  query: (ref, ...parts) => ({
+    ...ref,
+    clientMoney: parts.some(p => p.__where),
+    take: parts.find(p => p.__limit !== undefined)?.__limit,
+  }),
   getDocs: async (ref) => { const rows = matching(ref); reads += rows.length; return { docs: rows } },
   getDoc: async (ref) => {
     reads += 1
@@ -54,7 +65,7 @@ vi.mock('firebase/firestore', () => ({
   },
 }))
 
-const { readCollection, readClientMoney, refreshDoc, forgetDocs, stopAllLive, watch } = await import('./store')
+const { readCollection, readClientMoney, readLatestTransactions, refreshDoc, forgetDocs, stopAllLive, watch } = await import('./store')
 
 const tx = (kind, amount) => ({ __collection: 'transactions', kind, amount, clientId: 'c1' })
 
@@ -366,5 +377,40 @@ describe('сигнал «данные изменились»', () => {
     expect(rows).toHaveLength(1)
     // Строки уже лежат в подписке — перечитывать нечего.
     expect(reads).toBe(before)
+  })
+})
+
+// «Финансы» показывают ленту, не дожидаясь всей истории: полная коллекция едет
+// секунды, а последние операции — сразу. Ошибка здесь вернула бы пустой экран
+// на всё время загрузки.
+describe('последние операции для быстрой ленты', () => {
+  it('отдаёт запрошенное число и платит только за него', async () => {
+    docs.t3 = tx('expense', 1)
+    docs.t4 = tx('income', 2)
+
+    const rows = await readLatestTransactions(2)
+
+    expect(rows).toHaveLength(2)
+    expect(reads).toBe(2)
+  })
+
+  it('это не деньги клиента: расходы и зарплаты в ленте нужны', async () => {
+    // Запрос идёт без фильтра по виду — «Финансы» показывают кассу компании
+    // целиком. Если бы сюда попал фильтр, из ленты пропали бы расходы.
+    const rows = await readLatestTransactions(10)
+    expect(rows.map(r => r.id)).toContain('t2')   // расход
+  })
+
+  it('повторное открытие страницы не платит заново', async () => {
+    await readLatestTransactions(2)
+    const after = reads
+    await readLatestTransactions(2)
+    expect(reads).toBe(after)
+  })
+
+  it('не мешает подписке на всю коллекцию', async () => {
+    await readLatestTransactions(1)
+    const all = await readCollection('transactions')
+    expect(all).toHaveLength(2)
   })
 })

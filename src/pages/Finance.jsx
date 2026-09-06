@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { collection, addDoc, updateDoc, writeBatch, doc } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
-import { readCollection, refreshDoc, forgetDocs } from '../lib/store'
+import { readCollection, readLatestTransactions, refreshDoc, forgetDocs } from '../lib/store'
 import { useLiveRefresh } from '../lib/useLiveRefresh'
 import { MONTHS_SHORT } from '../lib/constants'
 import {
@@ -63,6 +63,9 @@ const COLUMNS = [
  { key: 'comment', label: 'Комментарий' },
 ]
 
+// Сколько операций показать, пока едет полная лента.
+const PREVIEW_SIZE = 20
+
 const PAGE_SIZES = [20, 50, 100]
 
 const money = (n) => `${(n || 0).toLocaleString('ru')} сум`
@@ -106,16 +109,21 @@ function pageNumbers(current, total) {
 
 // Суммы длинные (девять знаков), и крупные цифры съедали пол-экрана.
 // Держим их компактными: карточка — сводка, а не заголовок.
-function Metric({ label, value, color = '#111827', tint }) {
+// pending — история ещё едет. Показываем «считаем…», а не ноль: ноль выглядит
+// как настоящая цифра, и человек успел бы принять решение по пустому месту.
+function Metric({ label, value, color = '#111827', tint, pending = false }) {
   return (
     <div style={{
       ...card,
       padding: '14px 16px',
-      background: tint || '#ffffff',
-      border: `1px solid ${tint ? 'transparent' : '#e5e7eb'}`,
+      background: pending ? '#ffffff' : (tint || '#ffffff'),
+      border: `1px solid ${!pending && tint ? 'transparent' : '#e5e7eb'}`,
     }}>
       <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>{label}</p>
-      <p style={{ fontSize: '15px', fontWeight: '700', color, margin: 0 }}>{value}</p>
+      <p style={{
+        fontSize: '15px', fontWeight: '700', margin: 0,
+        color: pending ? '#9ca3af' : color,
+      }}>{pending ? 'считаем…' : value}</p>
     </div>
   )
 }
@@ -154,6 +162,12 @@ export default function Finance() {
 
   const [sortKey, setSortKey] = useState('date')
   const [sortDir, setSortDir] = useState('desc')
+  // Лента и карточки ждут всю историю (2000 операций, 977 начислений) — это
+  // несколько секунд. Справочники приходят почти сразу, поэтому страницу
+  // показываем по ним, а тяжёлое догружаем следом. Раньше всё это время висело
+  // «Загрузка...», хотя ввести операцию можно было уже на первой секунде.
+  const [ledgerLoading, setLedgerLoading] = useState(true)
+  const [preview, setPreview] = useState([])
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
   const tableRef = useRef(null)
@@ -181,30 +195,46 @@ export default function Finance() {
     setLoadError('')
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      // Здесь нужны все операции целиком, включая расходы и зарплаты, — это
-      // касса компании. Отсюда и отдельный ключ кэша: у остальных страниц
-      // в памяти лежат только оплаты и возвраты.
-      const [tx, ch, acc, cat, cl, te, pk] = await Promise.all([
-        readCollection('transactions', { force }),
-        readCollection('charges', { force }),
+
+      // Первая волна — справочники. Их полторы сотни документов, приходят почти
+      // мгновенно, и по ним страница уже пригодна: фильтры на месте, операцию
+      // можно ввести, не дожидаясь истории.
+      const [acc, cat, cl, te, pk] = await Promise.all([
         readCollection('accounts', { force }),
         readCollection('categories', { force }),
         readCollection('clients', { force }),
         readCollection('teachers', { force }),
         readCollection('packages', { force }),
       ])
-      setTransactions(tx)
-      setCharges(ch)
       setAccounts(sortItems(getDirectory('accounts'), acc))
       setCategories(sortItems(getDirectory('categories'), cat))
       setClients([...cl].sort((a, b) => String(a.childName || '').localeCompare(String(b.childName || ''), 'ru')))
       setTeachers(te)
       setPackages(pk)
+      setLoading(false)
+
+      // Пока едет полная лента, показываем последние операции: видно, что
+      // система жива и что записалось. Ошибку тут глотаем намеренно — это
+      // украшение, а не данные: настоящая ошибка придёт со второй волной.
+      readLatestTransactions(PREVIEW_SIZE, { force })
+        .then(rows => setPreview(rows))
+        .catch(() => {})
+
+      // Вторая волна — всё, на чём считаются карточки. Здесь нужны операции
+      // целиком, включая расходы и зарплаты: это касса компании. Отсюда и
+      // отдельный ключ кэша — у остальных страниц в памяти лежат только оплаты.
+      const [tx, ch] = await Promise.all([
+        readCollection('transactions', { force }),
+        readCollection('charges', { force }),
+      ])
+      setTransactions(tx)
+      setCharges(ch)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
     } finally {
       setLoading(false)
+      setLedgerLoading(false)
     }
   }
 
@@ -512,26 +542,75 @@ export default function Finance() {
         gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
         gap: '12px', marginBottom: '24px',
       }}>
-        <Metric label="Доходы" value={money(incomeTotal(periodTx))} color="#059669" />
+        <Metric label="Доходы" value={money(incomeTotal(periodTx))} color="#059669" pending={ledgerLoading} />
         {/* Списано — то, что школа отработала. Прибыль считается от него, а не от
             поступлений: абонемент платят разом, а зарабатывают по мере занятий. */}
-        <Metric label="Списано (занятия)" value={money(sumAmount(periodCharges))} color="#7c3aed" />
-        <Metric label="Расходы компании" value={money(expenseTotal(periodTx))} color="#dc2626" />
-        <Metric label="Выплаты ЗП" value={money(salaryTotal(periodTx))} color="#dc2626" />
-        <Metric label="Возвраты клиентам" value={money(refundTotal(periodTx))} color="#dc2626" />
+        <Metric label="Списано (занятия)" value={money(sumAmount(periodCharges))} color="#7c3aed" pending={ledgerLoading} />
+        <Metric label="Расходы компании" value={money(expenseTotal(periodTx))} color="#dc2626" pending={ledgerLoading} />
+        <Metric label="Выплаты ЗП" value={money(salaryTotal(periodTx))} color="#dc2626" pending={ledgerLoading} />
+        <Metric label="Возвраты клиентам" value={money(refundTotal(periodTx))} color="#dc2626" pending={ledgerLoading} />
         {/* Изъятия стоят рядом с прибылью: сколько школа заработала и сколько владелец забрал. */}
-        <Metric label="Изъятия владельца" value={money(drawTotal(periodTx))} color="#b45309" />
+        <Metric label="Изъятия владельца" value={money(drawTotal(periodTx))} color="#b45309" pending={ledgerLoading} />
         <Metric label="Прибыль за период" value={money(profit)}
-          color={profit >= 0 ? '#059669' : '#dc2626'} />
+          color={profit >= 0 ? '#059669' : '#dc2626'} pending={ledgerLoading} />
         <Metric label="Баланс компании" value={money(balance)}
-          color={balance >= 0 ? '#059669' : '#dc2626'} />
+          color={balance >= 0 ? '#059669' : '#dc2626'} pending={ledgerLoading} />
         <Metric label="Долги клиентов" value={money(debt)}
-          color={debt > 0 ? '#dc2626' : '#6b7280'} tint={debt > 0 ? '#fef2f2' : null} />
+          color={debt > 0 ? '#dc2626' : '#6b7280'} tint={debt > 0 ? '#fef2f2' : null} pending={ledgerLoading} />
         <Metric label="Должны клиентам" value={money(prepaid)}
-          color={prepaid > 0 ? '#059669' : '#6b7280'} tint={prepaid > 0 ? '#f0fdf4' : null} />
+          color={prepaid > 0 ? '#059669' : '#6b7280'} tint={prepaid > 0 ? '#f0fdf4' : null} pending={ledgerLoading} />
       </div>
 
      {/* Кассы и статьи */}
+     {/* Кассы, статьи и лента считаются по всей истории. Пока она едет, вместо них
+          показываем последние операции: пустые блоки выглядели бы как «данных нет». */}
+     {ledgerLoading ? (
+        <div style={{ ...card, marginBottom: '24px' }}>
+         {/* Ввод операции — главное ежедневное действие, и он не зависит от истории:
+              форме нужны только справочники, а они уже здесь. Держать кнопку
+              запертой до конца загрузки значило бы отнять ровно то, ради чего
+              человек и открыл «Финансы». */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
+            <button onClick={() => { setEditing(null); setShowForm(true) }} style={{
+              background: '#7c3aed', color: '#fff', border: 'none', padding: '8px 16px',
+              borderRadius: '10px', fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+            }}>+ Добавить</button>
+            <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>
+              загружаем историю — фильтры и итоги появятся через пару секунд
+            </p>
+          </div>
+
+          <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 6px' }}>
+            Последние операции{preview.length ? ` (${preview.length})` : ''}
+          </p>
+         {preview.length === 0 ? (
+            <p style={{ color: '#6b7280', fontSize: '13px', margin: 0 }}>Загрузка...</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+             {preview.map(t => (
+                <div key={t.id} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  gap: '10px', padding: '6px 0', borderBottom: '1px solid #f3f4f6', fontSize: '13px',
+                }}>
+                  <span style={{ color: '#6b7280', minWidth: '82px' }}>
+                   {toJsDate(t.date)?.toLocaleDateString('ru') || '—'}
+                  </span>
+                  <span style={{ color: kindMeta(t.kind).color, flex: '1 1 auto', minWidth: 0 }}>
+                   {kindMeta(t.kind).label}
+                  </span>
+                  <span style={{ color: '#4b5563', flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                   {t.clientName || t.payerName || t.comment || ''}
+                  </span>
+                  <span style={{ fontWeight: '600', color: kindMeta(t.kind).color, whiteSpace: 'nowrap' }}>
+                   {money(t.amount || 0)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+      <>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         <div style={card}>
           <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>Остатки по кассам (за всё время)</p>
@@ -741,6 +820,8 @@ export default function Finance() {
 
        {paginationBar('bottom')}
       </div>
+      </>
+      )}
     </div>
   )
 }

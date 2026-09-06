@@ -13,7 +13,7 @@
 // Побочный выигрыш важнее экономии: правку, сделанную вторым пользователем,
 // теперь видно сразу, а не через срок жизни кэша.
 
-import { collection, doc, getDoc, getDocs, onSnapshot, query, where } from 'firebase/firestore'
+import { collection, doc, getDoc, getDocs, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore'
 import { db } from '../firebase'
 import { withTimeout, FIRST_SNAPSHOT_MS } from './withTimeout'
 import { clientMoneyQuery, CLIENT_MONEY_KINDS } from './finance'
@@ -188,6 +188,15 @@ export const readCollection = (name, opts) =>
 // это не «часть transactions», а единственное, что ему вообще отдают правила.
 export const readClientMoney = (opts) =>
   readLive('transactions:client-money', () => clientMoneyQuery(db), opts)
+
+// Последние операции — чтобы «Финансы» показали ленту, не дожидаясь всей истории.
+// Полная коллекция (2000 документов) едет несколько секунд, и всё это время
+// человек смотрел на «Загрузка...». Двадцать документов приходят почти сразу.
+// Разовый запрос, не подписка: как только приедет полная лента, она это заменит.
+export const readLatestTransactions = (count, opts) =>
+  readOnce(`transactions:latest:${count}`,
+    () => getDocs(query(collection(db, 'transactions'), orderBy('date', 'desc'), limit(count))),
+    opts)
 
 // Занятия одного дня. Дашборду не нужны все занятия истории — ему нужен сегодня.
 export const readLessonsOfDay = (day, opts) =>
