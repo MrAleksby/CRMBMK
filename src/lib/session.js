@@ -16,6 +16,10 @@ import { signOut } from 'firebase/auth'
 import { terminate, clearIndexedDbPersistence } from 'firebase/firestore'
 import { auth, db } from '../firebase'
 import { stopAllLive } from './store'
+import { withTimeout } from './withTimeout'
+
+// Дольше этого выход ждать не должен: человек уже нажал кнопку.
+const CLEAR_TIMEOUT_MS = 3000
 
 export async function logout() {
   try {
@@ -32,12 +36,17 @@ export async function logout() {
   try {
     // Стереть копию можно только у остановленного Firestore. После terminate()
     // экземпляр непригоден — поэтому ниже страница перезагружается.
-    await terminate(db)
-    await clearIndexedDbPersistence(db)
+    //
+    // Под таймаутом обе операции: при открытой второй вкладке Firestore не
+    // всегда отвечает отказом — он может просто замолчать, и тогда `await`
+    // не вернётся никогда. Человек нажал бы «Выйти» и не увидел бы ничего.
+    // Лучше выйти, не стерев копию, чем не выйти вовсе.
+    await withTimeout(terminate(db), CLEAR_TIMEOUT_MS)
+    await withTimeout(clearIndexedDbPersistence(db), CLEAR_TIMEOUT_MS)
   } catch (e) {
-    // Firestore не даёт стереть общую копию, пока открыта вторая вкладка
-    // (`failed-precondition`). Выход при этом уже состоялся — не мешаем ему,
-    // но и не молчим: человек должен знать, что данные на диске остались.
+    // Не стёрли — открыта вторая вкладка или Firestore не ответил. Выход при
+    // этом уже состоялся: не мешаем ему, но и не молчим — данные на диске
+    // остались, и об этом должно быть видно в консоли.
     console.warn('[FinGam] Копия данных не стёрта:', e?.code || e)
   }
 

@@ -12,6 +12,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 const calls = []
 let signOutFails = false
 let clearFails = false
+let clearHangs = false
 
 vi.mock('../firebase', () => ({ auth: { __auth: true }, db: { __db: true } }))
 
@@ -24,9 +25,12 @@ vi.mock('firebase/auth', () => ({
 
 vi.mock('firebase/firestore', () => ({
   terminate: async () => { calls.push('terminate') },
-  clearIndexedDbPersistence: async () => {
+  clearIndexedDbPersistence: () => {
     calls.push('clear')
     if (clearFails) throw Object.assign(new Error('открыта вторая вкладка'), { code: 'failed-precondition' })
+    // Молчание вместо отказа — так Firestore ведёт себя при открытой второй вкладке.
+    if (clearHangs) return new Promise(() => {})
+    return Promise.resolve()
   },
 }))
 
@@ -38,6 +42,7 @@ beforeEach(() => {
   calls.length = 0
   signOutFails = false
   clearFails = false
+  clearHangs = false
   vi.stubGlobal('window', { location: { replace: (url) => calls.push(`replace:${url}`) } })
   vi.spyOn(console, 'warn').mockImplementation(() => {})
 })
@@ -72,6 +77,21 @@ describe('выход из системы', () => {
     // Так бывает, когда открыта вторая вкладка: Firestore не даёт стереть
     // общую копию из-под неё. Держать человека внутри из-за этого нельзя.
     expect(calls).toContain('replace:/')
+  })
+
+  it('Firestore замолчал при стирании — выход не зависает', async () => {
+    // Отказа нет, ответа тоже: `await` без таймаута не вернулся бы никогда,
+    // и человек нажал бы «Выйти», не увидев ничего.
+    vi.useFakeTimers()
+    try {
+      clearHangs = true
+      const done = logout()
+      await vi.advanceTimersByTimeAsync(4000)
+      await done
+      expect(calls).toContain('replace:/')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('отвалилась сеть — выход всё равно завершается', async () => {
