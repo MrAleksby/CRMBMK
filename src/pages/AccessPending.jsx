@@ -1,5 +1,4 @@
-import { signOut } from 'firebase/auth'
-import { auth } from '../firebase'
+import { logout } from '../lib/session'
 
 // Аккаунт заведён, но админ доступ ещё не включил. Экран висит до одобрения:
 // профиль слушается через onSnapshot, поэтому система откроется сама,
@@ -24,7 +23,7 @@ export default function AccessPending({ user }) {
         </p>
         <p style={{ fontSize: '13px', color: '#4b5563', margin: '18px 0 0' }}>{user.email}</p>
 
-        <button onClick={() => signOut(auth)} style={{
+        <button onClick={logout} style={{
           marginTop: '24px', background: 'transparent', border: '1px solid #e5e7eb',
           borderRadius: '10px', padding: '10px 16px', color: '#6b7280',
           fontSize: '14px', cursor: 'pointer',

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom'
-import { signOut } from 'firebase/auth'
-import { auth } from './firebase'
+import { logout } from './lib/session'
 import { useAuth } from './AuthContext'
 import { isApproved, canManage, canSeeCompanyMoney, canSeeSettings } from './lib/access'
 import { downloadBackup } from './lib/backup'
@@ -137,7 +136,7 @@ function App() {
             </button>
             )}
             <button
-              onClick={() => signOut(auth)}
+              onClick={logout}
               style={{
                 width: '100%', background: 'transparent',
                 border: '1px solid #e5e7eb', borderRadius: '10px',
@@ -187,7 +186,7 @@ function App() {
         }} className="mobile-nav">
           {[
             ...navItems,
-            { label: 'Выйти', icon: 'logout', onClick: () => signOut(auth) },
+            { label: 'Выйти', icon: 'logout', onClick: logout },
           ].map(({ to, label, icon, color, end, onClick }) => {
             const item = (isActive) => ({
               flex: '1 0 auto', minWidth: '62px',
