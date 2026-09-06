@@ -225,11 +225,17 @@ export default function Reports() {
 
   const maxCharged = Math.max(...moneyRows.map(r => r.charged), 1)
   const maxLessons = Math.max(...lessonRows.map(r => r.conducted), 1)
-  const mealTotals = meal.rows.reduce((acc, r) => ({
-    collected: acc.collected + (r.collected || 0),
-    spent: acc.spent + r.spent,
-    portions: acc.portions + (r.portions || 0),
-  }), { collected: 0, spent: 0, portions: 0 })
+  // Итог по колонке «Собрано» имеет смысл только по месяцам, где разбивка велась.
+  // «Потрачено» — за весь период: это настоящие деньги, они потрачены независимо
+  // от того, разделяли мы суммы или нет. Поэтому «Разницу» в итоге показываем,
+  // только если сравнимы все месяцы периода — иначе она врала бы в пользу школы.
+  const mealKnown = meal.rows.filter(r => r.collected !== null)
+  const mealTotals = {
+    collected: mealKnown.reduce((s, r) => s + r.collected, 0),
+    spent: meal.rows.reduce((s, r) => s + r.spent, 0),
+    portions: mealKnown.reduce((s, r) => s + r.portions, 0),
+    comparable: mealKnown.length === meal.rows.length && mealKnown.length > 0,
+  }
 
   const maxRevenue = Math.max(...sources.map(s => s.revenue), 1)
 
@@ -861,9 +867,20 @@ export default function Reports() {
               ))}
               <tr style={{ borderTop: '2px solid #e5e7eb' }}>
                 <td style={{ ...tdLeft, fontWeight: '700', color: '#111827' }}>Итого</td>
-                <td style={{ ...td, fontWeight: '700', color: '#059669' }}>{money(mealTotals.collected)}</td>
-                <td style={{ ...td, fontWeight: '700', color: '#dc2626' }}>{money(mealTotals.spent)}</td>
-                <td style={{ ...td, fontWeight: '700', color: '#9ca3af' }}>—</td>
+                <td style={{ ...td, fontWeight: '700', color: mealKnown.length ? '#059669' : '#9ca3af' }}
+                  title={mealKnown.length ? 'Только за месяцы, где еда выделена отдельной суммой' : undefined}>
+                 {mealKnown.length ? money(mealTotals.collected) : '—'}
+                </td>
+                <td style={{ ...td, fontWeight: '700', color: mealTotals.spent ? '#dc2626' : '#9ca3af' }}>
+                 {mealTotals.spent ? money(mealTotals.spent) : '—'}
+                </td>
+                <td style={{
+                  ...td, fontWeight: '700',
+                  color: !mealTotals.comparable ? '#9ca3af'
+                    : ((mealTotals.collected - mealTotals.spent) < 0 ? '#dc2626' : '#059669'),
+                }} title={mealTotals.comparable ? undefined : 'Часть месяцев периода без разбивки — сравнивать не с чем'}>
+                 {mealTotals.comparable ? money(mealTotals.collected - mealTotals.spent) : '—'}
+                </td>
                 <td style={{ ...td, fontWeight: '700', color: '#4b5563' }}>{mealTotals.portions || '—'}</td>
               </tr>
             </tbody>
