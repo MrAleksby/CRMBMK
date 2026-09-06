@@ -374,6 +374,28 @@ export default function Finance() {
   const currentPage = Math.min(page, totalPages)
   const pageRows = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
+  // Кнопки страниц стоят и над таблицей, и под ней. Снизу — чтобы дотянуться,
+  // дочитав последние строки. Сверху — чтобы после прокрутки к началу страницы
+  // они снова оказались под рукой: с одним нижним рядом за каждым следующим
+  // нажатием приходилось прокручивать вниз через двадцать строк, и на планшете
+  // в разделённом экране листать подряд было мучением.
+  const paginationBar = (place) => totalPages > 1 && (
+    <div style={{
+      display: 'flex', gap: '6px', justifyContent: 'center', flexWrap: 'wrap',
+      ...(place === 'top' ? { marginBottom: '12px' } : { marginTop: '14px' }),
+    }}>
+      <button onClick={() => goToPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+        style={pageBtn(false, currentPage === 1)}>←</button>
+      {pageNumbers(currentPage, totalPages).map((n, i) => (
+        n === '…'
+          ? <span key={`gap-${i}`} style={{ color: '#9ca3af', padding: '6px 4px' }}>…</span>
+          : <button key={n} onClick={() => goToPage(n)} style={pageBtn(n === currentPage, false)}>{n}</button>
+      ))}
+      <button onClick={() => goToPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+        style={pageBtn(false, currentPage === totalPages)}>→</button>
+    </div>
+  )
+
   // Сумма по отфильтрованному: менеджер сверяет её с выпиской.
   const rowsTotal = useMemo(
     // Перевод в итог не идёт: денег у компании не прибавилось и не убавилось.
@@ -619,7 +641,11 @@ export default function Finance() {
             Нет операций, подходящих под фильтры
           </p>
         ) : (
-          <div ref={tableRef} style={{ overflowX: 'auto', scrollMarginTop: '16px' }}>
+          <div ref={tableRef} style={{ scrollMarginTop: '16px' }}>
+            {/* Якорь прокрутки охватывает и верхние кнопки: иначе scrollIntoView
+                подвёл бы к первой строке, а сам ряд кнопок остался бы над экраном. */}
+            {paginationBar('top')}
+            <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
               <thead>
                 <tr>
@@ -709,22 +735,11 @@ export default function Finance() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 
-       {totalPages > 1 && (
-          <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginTop: '14px', flexWrap: 'wrap' }}>
-            <button onClick={() => goToPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-              style={pageBtn(false, currentPage === 1)}>←</button>
-           {pageNumbers(currentPage, totalPages).map((n, i) => (
-              n === '…'
-                ? <span key={`gap-${i}`} style={{ color: '#9ca3af', padding: '6px 4px' }}>…</span>
-                : <button key={n} onClick={() => goToPage(n)} style={pageBtn(n === currentPage, false)}>{n}</button>
-            ))}
-            <button onClick={() => goToPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
-              style={pageBtn(false, currentPage === totalPages)}>→</button>
-          </div>
-        )}
+       {paginationBar('bottom')}
       </div>
     </div>
   )
