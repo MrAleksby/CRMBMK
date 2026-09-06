@@ -379,3 +379,27 @@ describe('журнал называет всех незаполненных ср
     expect(journalProblems(rows)[0].problem).toContain('питание')
   })
 })
+
+// Журнал рисуется в ДВУХ местах: на странице «Уроки» (LessonJournal) и в окне
+// занятия из календаря (LessonModal). 6 сентября 2026 второе осталось со старым
+// полем `amount`: менеджер вводил суммы, а проведение читало `amountLesson`
+// и списало бы подставленную подсказку вместо введённого. Тест закрепляет
+// договор о полях, чтобы расхождение было видно сразу.
+describe('договор о полях строки журнала', () => {
+  it('buildJournal отдаёт ровно те поля, к которым привязаны оба экрана', () => {
+    const lesson = { studentIds: ['a'], attendance: [] }
+    const row = buildJournal(lesson, [{ id: 'a', childName: 'Аня', lessonPrice: 300000 }], [])[0]
+
+    expect(Object.keys(row).sort())
+      .toEqual(['amountLesson', 'amountMeal', 'clientId', 'clientName', 'comment', 'status'])
+    // Поля `amount` нет и быть не должно: кто на него смотрит — смотрит в пустоту.
+    expect('amount' in row).toBe(false)
+  })
+
+  it('attendanceToRow отдаёт те же поля', () => {
+    const row = attendanceToRow({ clientId: 'a', clientName: 'Аня', status: 'present', amountCharged: 330000 })
+
+    expect(Object.keys(row).sort())
+      .toEqual(['amountLesson', 'amountMeal', 'clientId', 'clientName', 'comment', 'status'])
+  })
+})

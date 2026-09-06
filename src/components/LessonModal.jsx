@@ -165,7 +165,7 @@ export default function LessonModal({
                     </th>
                    {!readOnly && (
                       <th style={{ textAlign: 'right', padding: '6px 0', color: '#6b7280', fontSize: '12px', fontWeight: '600', width: '150px' }}>
-                        Списание
+                        Занятие · Питание
                       </th>
                     )}
                   </tr>
@@ -202,12 +202,32 @@ export default function LessonModal({
                              {record.amountCharged > 0 ? `−${record.amountCharged.toLocaleString()} сум` : 'не списано'}
                             </span>
                           ) : (
+                            // Сумма делится на занятие и питание — те же поля, что и в
+                            // журнале на странице «Уроки». Раньше здесь стояло одно поле
+                            // `amount`, и введённое в него никуда не шло: проведение
+                            // читает `amountLesson`/`amountMeal`, и списалась бы
+                            // подставленная подсказка, а не то, что ввёл менеджер.
+                            //
                             // Пропуск тоже может стоить денег, если ребёнок не предупредил.
-                            <input type="text" inputMode="decimal"
-                              style={{ ...inputStyle, width: '120px', textAlign: 'right' }}
-                              value={record.amount}
-                              placeholder={present ? 'Сумма' : 'Не списывать'}
-                              onChange={e => update(record.clientId, { amount: e.target.value })} />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-end' }}>
+                              <input type="text" inputMode="decimal"
+                                style={{ ...inputStyle, width: '130px', textAlign: 'right' }}
+                                value={record.amountLesson}
+                                placeholder={present ? 'Занятие' : 'Не списывать'}
+                                title="Сумма за занятие"
+                                onChange={e => update(record.clientId, { amountLesson: e.target.value })} />
+                              <input type="text" inputMode="decimal"
+                                style={{ ...inputStyle, width: '130px', textAlign: 'right' }}
+                                value={record.amountMeal}
+                                placeholder="Питание"
+                                title="Сумма за питание"
+                                onChange={e => update(record.clientId, { amountMeal: e.target.value })} />
+                              <input type="text"
+                                style={{ ...inputStyle, width: '130px', fontSize: '12px' }}
+                                value={record.comment}
+                                placeholder="Комментарий"
+                                onChange={e => update(record.clientId, { comment: e.target.value })} />
+                            </div>
                           )}
                         </td>
                         )}
