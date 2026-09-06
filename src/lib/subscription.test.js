@@ -71,15 +71,21 @@ describe('lessonsLeft — долг', () => {
 describe('suggestPrice — подсказка цены', () => {
   it('абонемент важнее персональной цены', () => {
     const client = { id: 'a', lessonPrice: 100_000 }
-    expect(suggestPrice(client, [sub()])).toBe(330_000)
+    expect(suggestPrice(client, [sub()], TODAY)).toBe(330_000)
   })
 
   it('без абонемента — персональная цена', () => {
-    expect(suggestPrice({ id: 'a', lessonPrice: 100_000 }, [])).toBe(100_000)
+    expect(suggestPrice({ id: 'a', lessonPrice: 100_000 }, [], TODAY)).toBe(100_000)
+  })
+
+  it('просроченный абонемент цены не даёт', () => {
+    // Иначе подсказка предлагала бы тариф, которого у ребёнка больше нет.
+    const client = { id: 'a', lessonPrice: 100_000 }
+    expect(suggestPrice(client, [sub({ endDate: '2026-07-01' })], TODAY)).toBe(100_000)
   })
 
   it('ничего не известно — пусто, менеджер введёт руками', () => {
-    expect(suggestPrice({ id: 'a' }, [])).toBe('')
+    expect(suggestPrice({ id: 'a' }, [], TODAY)).toBe('')
   })
 })
 

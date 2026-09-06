@@ -104,8 +104,12 @@ export function lessonsLeft(subs, clientId, balance = 0, clientCharges = [], cli
 
 // Цена занятия: сначала абонемент, потом персональная цена ребёнка.
 // Пустая строка означает «менеджер введёт вручную».
-export function suggestPrice(client, subs) {
-  const price = subscriptionPerLesson(activeSubscription(subs, client?.id))
+//
+// `today` — как и у всех расчётов этого файла: просроченный абонемент цены
+// не даёт. Без параметра функция брала настоящую дату, и тест на неё протух
+// сам собой, когда наступило 1 сентября 2026 — срок абонемента из фикстуры.
+export function suggestPrice(client, subs, today = todayISO()) {
+  const price = subscriptionPerLesson(activeSubscription(subs, client?.id, today))
   if (price !== null) return price
   return Number.isFinite(client?.lessonPrice) ? client.lessonPrice : ''
 }
