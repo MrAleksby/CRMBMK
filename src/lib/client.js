@@ -113,6 +113,9 @@ export const emptyClientForm = () => ({
   payerType: 'parent',
   legalEntityId: '',
   status: 'active',
+  // Кто привёл этого ребёнка в школу. По этой связи пригласившему капают
+  // бонусы за пробное и за каждое посещение приглашённого.
+  referrerId: '',
   // Семья: общий кошелёк с братьями и сёстрами. Пусто — ребёнок сам по себе.
   // Новую семью заводят прямо здесь, набрав название, — отдельного справочника
   // ради одной фамилии не нужно.
@@ -299,6 +302,7 @@ export function clientToForm(client) {
   form.legalEntityId = client.legalEntityId || ''
   form.status = client.status || 'active'
   form.familyId = client.familyId || ''
+  form.referrerId = client.referrerId || ''
 
   // В форме всегда есть хотя бы одно поле для телефона, пусть и пустое.
   const toFormParent = (parent) => {
@@ -343,6 +347,7 @@ export function formToDoc(form) {
     // Новая семья заводится до сохранения карточки: страница создаёт документ
     // и кладёт сюда его id. Здесь остаётся только готовая связь.
     familyId: form.familyId || '',
+    referrerId: form.referrerId || '',
   }
 }
 

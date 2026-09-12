@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { planAttendanceUpdate, buildJournal, journalToAttendance, attendanceTile, attendanceToRow, journalTotal, validateJournal, rowTotal, splitFields, journalProblems } from './lesson'
+import { planAttendanceUpdate, buildJournal, journalToAttendance, attendanceTile, attendanceToRow, journalTotal, validateJournal, rowTotal, splitFields, journalProblems, rowBonus, journalBonusTotal
+} from './lesson'
 
 // Правка журнала проведённого занятия — самое опасное место в системе: сумма
 // живёт в двух коллекциях сразу (lessons.attendance и charges). Если они разойдутся,
@@ -391,7 +392,7 @@ describe('договор о полях строки журнала', () => {
     const row = buildJournal(lesson, [{ id: 'a', childName: 'Аня', lessonPrice: 300000 }], [])[0]
 
     expect(Object.keys(row).sort())
-      .toEqual(['amountLesson', 'amountMeal', 'clientId', 'clientName', 'comment', 'status'])
+      .toEqual(['amountBonus', 'amountLesson', 'amountMeal', 'clientId', 'clientName', 'comment', 'status'])
     // Поля `amount` нет и быть не должно: кто на него смотрит — смотрит в пустоту.
     expect('amount' in row).toBe(false)
   })
@@ -400,6 +401,71 @@ describe('договор о полях строки журнала', () => {
     const row = attendanceToRow({ clientId: 'a', clientName: 'Аня', status: 'present', amountCharged: 330000 })
 
     expect(Object.keys(row).sort())
-      .toEqual(['amountLesson', 'amountMeal', 'clientId', 'clientName', 'comment', 'status'])
+      .toEqual(['amountBonus', 'amountLesson', 'amountMeal', 'clientId', 'clientName', 'comment', 'status'])
+  })
+})
+
+// Бонус — право на скидку, а не деньги. Поэтому он уменьшает сумму списания:
+// школа получает меньше, и прибыль честно падает на подаренное. Противоположный
+// путь — списать полную сумму и дорисовать «оплату бонусом» — завысил бы доход
+// на деньги, которых никто не вносил.
+describe('бонус в журнале', () => {
+  const row = (extra) => ({
+    clientId: 'a', clientName: 'Аня', status: 'present',
+    amountLesson: '300000', amountMeal: '30000', amountBonus: '', comment: '', ...extra,
+  })
+
+  it('уменьшает сумму к списанию', () => {
+    expect(rowTotal(row({ amountBonus: '50000' }))).toBe(280_000)
+  })
+
+  it('без бонуса считается как раньше', () => {
+    expect(rowTotal(row())).toBe(330_000)
+  })
+
+  it('больше стоимости занятия не спишется — в минус не уходим', () => {
+    expect(rowTotal(row({ amountBonus: '400000' }))).toBe(0)
+    expect(rowBonus(row({ amountBonus: '400000' }))).toBe(330_000)
+  })
+
+  it('в записи журнала бонус лежит рядом, а на счёт уходит итог', () => {
+    const [record] = journalToAttendance([row({ amountBonus: '50000' })])
+
+    expect(record.amountCharged).toBe(280_000)
+    expect(record.amountBonus).toBe(50_000)
+    expect(record.amountLesson).toBe(300_000)
+  })
+
+  it('без бонуса поля в документе нет — Firestore не любит лишнего', () => {
+    const [record] = journalToAttendance([row()])
+    expect('amountBonus' in record).toBe(false)
+  })
+
+  it('сохранённая запись открывается с тем же бонусом', () => {
+    const back = attendanceToRow({
+      clientId: 'a', clientName: 'Аня', status: 'present',
+      amountCharged: 280_000, amountLesson: 300_000, amountMeal: 30_000, amountBonus: 50_000,
+    })
+
+    expect(back.amountBonus).toBe('50000')
+    expect(rowTotal(back)).toBe(280_000)
+  })
+
+  it('у старой записи без разбивки бонус не выдумывается', () => {
+    const back = attendanceToRow({ clientId: 'a', clientName: 'Аня', amountCharged: 330_000 })
+
+    expect(back.amountBonus).toBe('')
+    expect(back.amountLesson).toBe('330000')
+  })
+
+  it('итог по занятию показывает, сколько подарено', () => {
+    const rows = [row({ amountBonus: '50000' }), row({ clientId: 'b', amountBonus: '10000' })]
+
+    expect(journalBonusTotal(rows)).toBe(60_000)
+    expect(journalTotal(rows)).toBe(600_000)
+  })
+
+  it('чепуха в поле бонуса не проходит', () => {
+    expect(validateJournal([row({ amountBonus: '-5' })])).toMatch(/бонус/)
   })
 })

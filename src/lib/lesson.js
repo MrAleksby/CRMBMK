@@ -47,7 +47,17 @@ export function suggestedPrice(client, subscriptions = []) {
 const part = (value) => Number(normalizeDecimal(value)) || 0
 const filled = (value) => value !== '' && value !== null && value !== undefined
 
-export const rowTotal = (row) => part(row.amountLesson) + part(row.amountMeal)
+// Бонусы — не деньги, а право на скидку: потраченный бонус уменьшает сумму
+// списания. Поэтому прибыль падает ровно на подаренное, а касса и баланс
+// ученика остаются правдой. Ниже нуля не опускаем: подарить больше, чем стоит
+// занятие, нельзя — лишнее просто сгорело бы молча.
+export const rowBonus = (row) => Math.min(
+  part(row.amountBonus),
+  part(row.amountLesson) + part(row.amountMeal),
+)
+
+export const rowTotal = (row) =>
+  part(row.amountLesson) + part(row.amountMeal) - rowBonus(row)
 
 // Строка журнала из сохранённой записи. У занятий, проведённых до разделения,
 // разбивки нет вовсе — тогда весь итог кладём в «Занятие», а «Питание» оставляем
@@ -58,8 +68,9 @@ export function attendanceToRow(record, clientName) {
     clientId: record.clientId,
     clientName: record.clientName || clientName || 'Удалённый ученик',
     status: record.status || 'present',
-    amountLesson: String((hasSplit ? record.amountLesson : record.amountCharged) || ''),
+    amountLesson: String((hasSplit ? record.amountLesson : record.amountCharged + (record.amountBonus || 0)) || ''),
     amountMeal: String((hasSplit ? record.amountMeal : '') || ''),
+    amountBonus: String(record.amountBonus || ''),
     comment: record.comment || '',
   }
 }
@@ -79,6 +90,7 @@ export function buildJournal(lesson, clients, subscriptions = []) {
       // Подсказка цены — это цена занятия. Питание менеджер добавит сам.
       amountLesson: String(suggestedPrice(client, subscriptions) ?? ''),
       amountMeal: '',
+      amountBonus: '',
       comment: '',
     }
   })
@@ -100,6 +112,11 @@ export function journalToAttendance(rows) {
 // Это важнее, чем кажется. У занятий, проведённых до разделения, в итоге уже
 // сидела еда, и дописать им «питание 0» значило бы соврать. Поэтому случайное
 // пересохранение старого журнала разбивку не выдумывает: суммы остаются как есть.
+// Бонус пишем, только когда его потратили: у большинства занятий его нет,
+// и поле `amountBonus: 0` в каждой записи было бы шумом. Полей `undefined`
+// в документе быть не должно — Firestore отвергнет запись целиком.
+const bonusOf = (row) => (rowBonus(row) > 0 ? { amountBonus: rowBonus(row) } : {})
+
 const splitOf = (row) => (filled(row.amountMeal)
   ? { amountLesson: part(row.amountLesson), amountMeal: part(row.amountMeal) }
   : {})
@@ -112,6 +129,7 @@ function attendanceRecord(row) {
     status: row.status,
     amountCharged: rowTotal(row),
     ...splitOf(row),
+    ...bonusOf(row),
     comment: (row.comment || '').trim(),
   }
 }
@@ -129,6 +147,7 @@ export const splitFields = (record) => (record.amountMeal === undefined ? {} : {
 const chargeParts = (row) => ({
   amount: rowTotal(row),
   ...splitOf(row),
+  ...bonusOf(row),
   comment: (row.comment || '').trim(),
 })
 
@@ -204,7 +223,7 @@ function rowProblem(row) {
   if (row.status === 'present' && !filled(row.amountLesson) && !filled(row.amountMeal)) {
     return 'сумма не указана'
   }
-  for (const [field, label] of [['amountLesson', 'занятие'], ['amountMeal', 'питание']]) {
+  for (const [field, label] of [['amountLesson', 'занятие'], ['amountMeal', 'питание'], ['amountBonus', 'бонус']]) {
     if (!filled(row[field])) continue
     const value = Number(normalizeDecimal(row[field]))
     if (!Number.isFinite(value) || value < 0) return `${label}: не похоже на сумму`
@@ -237,6 +256,9 @@ export const journalTotal = (rows) => rows.reduce((sum, r) => sum + rowTotal(r),
 
 // Сколько из итога приходится на еду — подсказка под журналом.
 export const journalMealTotal = (rows) => rows.reduce((sum, r) => sum + part(r.amountMeal), 0)
+
+// Сколько на этом занятии закрыли бонусами: столько школа подарила.
+export const journalBonusTotal = (rows) => rows.reduce((sum, r) => sum + rowBonus(r), 0)
 
 export const lessonTypeLabel = (type) =>
   LESSON_TYPES.find(t => t.value === type)?.label || 'Групповой'

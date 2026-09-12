@@ -250,6 +250,16 @@ export default function ClientForm({
              {SOURCES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </Field>
+         {/* Кто привёл ребёнка. Раньше это писали в примечании текстом
+              («рекомендация Саодат, мамы Саши»), и посчитать бонусы по такой
+              записи было нельзя. */}
+          <Field label="Кто пригласил">
+            <select style={inputStyle} value={form.referrerId}
+              onChange={e => setForm({ ...form, referrerId: e.target.value })}>
+              <option value="">Никто</option>
+             {others.map(c => <option key={c.id} value={c.id}>{c.childName}</option>)}
+            </select>
+          </Field>
          {form.source === 'other' && (
             <Field label="Уточните источник">
               <input style={inputStyle} value={form.sourceNote} onChange={set('sourceNote')}

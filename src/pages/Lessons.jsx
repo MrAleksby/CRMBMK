@@ -18,7 +18,10 @@ import { LESSON_STATUSES, todayISO } from '../lib/group'
 import { buildJournal, journalToAttendance, lessonTypeLabel, formatLessonDate, planAttendanceUpdate, splitFields } from '../lib/lesson'
 import { activeSubscription, lessonsLeft } from '../lib/subscription'
 import { clientBalances, effectiveBalances } from '../lib/balance'
-import { walletCharges } from '../lib/family'
+import { walletCharges, walletKey } from '../lib/family'
+import {
+  bonusBalances, bonusRules, earnedBonuses, spentBonuses, validateBonusSpending,
+} from '../lib/bonus'
 import { downloadCsv } from '../lib/export'
 import { useIsMobile } from '../lib/useIsMobile'
 
@@ -63,6 +66,8 @@ export default function Lessons() {
   const [transactions, setTransactions] = useState([])
   const [charges, setCharges] = useState([])
   const [subscriptions, setSubscriptions] = useState([])
+  const [bonuses, setBonuses] = useState([])
+  const [rules, setRules] = useState(bonusRules(null))
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -111,14 +116,18 @@ export default function Lessons() {
       // упала бы с ошибкой вместо расписания.
       if (!manages) return
 
-      const [tx, ch, ss] = await Promise.all([
+      const [tx, ch, ss, bs, br] = await Promise.all([
         readClientMoney({ force }),
         readCollection('charges', { force }),
         readCollection('subscriptions', { force }),
+        readCollection('bonuses', { force }),
+        readCollection('bonusRules', { force }),
       ])
       setTransactions(tx)
       setCharges(ch)
       setSubscriptions(ss)
+      setBonuses(bs)
+      setRules(bonusRules(br.find(r => r.id === 'current')))
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -174,6 +183,10 @@ export default function Lessons() {
         })
       }
 
+      // Бонусы пишутся той же транзакцией: начисление пригласившему за визит
+      // приглашённого и трата тех, кем закрыли часть суммы.
+      writeBonuses(batch, lesson, attendance)
+
       await batch.commit()
       setJournalId(null)
       setModalId(null)
@@ -183,6 +196,32 @@ export default function Lessons() {
       setLoadError(describeError(e))
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Бонусы занятия считаются заново от журнала: старые записи этого занятия
+  // удаляются, новые создаются. Поэтому правка и повторное проведение не
+  // наслаивают бонусы вторым слоем.
+  const bonusesOf = (lessonId) => bonuses.filter(b => b.lessonId === lessonId)
+
+  const writeBonuses = (batch, lesson, attendance) => {
+    for (const row of bonusesOf(lesson.id)) batch.delete(doc(db, 'bonuses', row.id))
+
+    const date = new Date(`${lesson.date}T${lesson.timeFrom || '00:00'}`)
+    const docs = [
+      ...earnedBonuses({
+        lesson,
+        attendance,
+        clients,
+        // Бонусы этого занятия исключаем: иначе при правке пробное посчиталось бы
+        // обычным визитом, и пригласивший потерял бы разницу.
+        priorBonuses: bonuses.filter(b => b.lessonId !== lesson.id),
+        rules,
+      }),
+      ...spentBonuses({ lesson, attendance, clients }),
+    ]
+    for (const row of docs) {
+      batch.set(doc(collection(db, 'bonuses')), { ...row, date, createdAt: new Date() })
     }
   }
 
@@ -215,6 +254,8 @@ export default function Lessons() {
         })
       }
 
+      writeBonuses(batch, lesson, plan.attendance)
+
       await batch.commit()
       setJournalId(null)
       setModalId(null)
@@ -236,6 +277,10 @@ export default function Lessons() {
   const rollbackCharges = (batch, lessonId) => {
     const related = chargesOf(lessonId)
     for (const charge of related) batch.delete(doc(db, 'charges', charge.id))
+    // Бонусы помечены занятием и снимаются вместе с ним: и начисленные
+    // пригласившему за визит, и потраченные на скидку. Иначе за отменённое
+    // занятие остались бы и подарок, и списанная скидка.
+    for (const row of bonusesOf(lessonId)) batch.delete(doc(db, 'bonuses', row.id))
     return related.length
   }
 
@@ -366,6 +411,14 @@ export default function Lessons() {
   // Остаток в уроках выводится из денег, поэтому нужны и баланс, и начисления ученика.
   const chargesBy = {}
   for (const charge of charges) (chargesBy[charge.clientId] ||= []).push(charge)
+
+  // Остаток бонусов кошелька — по нему решаем, показывать ли поле «Бонус».
+  const bonusLeft = bonusBalances(bonuses)
+  const bonusLeftBy = {}
+  for (const client of clients) {
+    bonusLeftBy[client.id] = bonusLeft.get(walletKey(client)) || 0
+  }
+  const validateBonuses = (rows) => validateBonusSpending(rows, clients, bonuses)
 
   const lessonsLeftBy = {}
   for (const client of clients) {
@@ -507,6 +560,8 @@ export default function Lessons() {
           balances={balances}
           lessonsLeftBy={lessonsLeftBy}
           subscriptions={subscriptions}
+          bonusLeftBy={bonusLeftBy}
+          validateBonuses={validateBonuses}
           saving={saving}
           onClose={() => setModalId(null)}
           onConduct={handleConduct}
@@ -645,6 +700,8 @@ export default function Lessons() {
                 <div style={{ marginTop: '14px' }}>
                   <LessonJournal
                     rows={buildJournal(lesson, clients, subscriptions)}
+                    bonusLeftBy={bonusLeftBy}
+                    validateBonuses={validateBonuses}
                     saving={saving}
                     editing={lesson.status === 'conducted'}
                     onConduct={rows => lesson.status === 'conducted'

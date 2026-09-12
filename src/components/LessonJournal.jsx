@@ -1,5 +1,8 @@
 import { useState } from 'react'
-import { ATTENDANCE, journalTotal, journalMealTotal, journalProblems, rowTotal, validateJournal } from '../lib/lesson'
+import {
+  ATTENDANCE, journalTotal, journalMealTotal, journalBonusTotal,
+  journalProblems, rowTotal, validateJournal,
+} from '../lib/lesson'
 
 // Поля подписаны, а не помечены только подсказкой внутри. Подсказка исчезает,
 // как только в поле что-то введено, и на планшете, где поля переносятся на
@@ -30,7 +33,13 @@ const ghostBtn = {
   padding: '8px 14px', borderRadius: '10px', fontSize: '13px', cursor: 'pointer',
 }
 
-export default function LessonJournal({ rows: initialRows, saving, editing = false, onConduct, onCancel }) {
+export default function LessonJournal({
+  rows: initialRows, saving, editing = false, onConduct, onCancel,
+  // Остаток бонусов кошелька ученика и проверка траты. Поле «Бонус» показываем
+  // только тем, у кого бонусы есть: у большинства их нет, и лишняя колонка
+  // на планшете только сжимала бы суммы.
+  bonusLeftBy = {}, validateBonuses = () => null,
+}) {
   const [rows, setRows] = useState(initialRows)
   const [error, setError] = useState('')
   // Кого именно не хватило. Держим отдельно от текста ошибки: при двенадцати
@@ -50,7 +59,7 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
   }
 
   const handleConduct = () => {
-    const problem = validateJournal(rows)
+    const problem = validateJournal(rows) || validateBonuses(rows)
     if (problem) {
       setError(problem)
       setMissing(new Set(journalProblems(rows).map(p => p.clientId)))
@@ -63,6 +72,7 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
 
   const total = journalTotal(rows)
   const mealTotal = journalMealTotal(rows)
+  const bonusTotal = journalBonusTotal(rows)
   const presentCount = rows.filter(r => r.status === 'present').length
   const paidSkips = rows.filter(r => r.status !== 'present' && rowTotal(r) > 0).length
 
@@ -119,7 +129,7 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
                 На лицевой счёт уходит ИТОГ, разбивка нужна, чтобы видеть еду. */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '1fr 1fr 1.6fr',
+              gridTemplateColumns: (bonusLeftBy[row.clientId] > 0) ? '1fr 1fr 1fr 1.6fr' : '1fr 1fr 1.6fr',
               gap: '8px',
             }}>
               <div>
@@ -135,6 +145,16 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
                   placeholder="Сумма" title="Сумма за питание"
                   value={row.amountMeal} onChange={e => update(row.clientId, { amountMeal: e.target.value })} />
               </div>
+             {/* Бонусами закрывают часть суммы: это скидка, поэтому итог
+                  уменьшается, а на счёт ученика уходит уже уменьшенная сумма. */}
+             {bonusLeftBy[row.clientId] > 0 && (
+                <div>
+                  <label style={fieldLabel}>Бонус (есть {bonusLeftBy[row.clientId].toLocaleString()})</label>
+                  <input type="text" inputMode="decimal" style={inputStyle}
+                    placeholder="0" title="Сколько закрыть бонусами"
+                    value={row.amountBonus} onChange={e => update(row.clientId, { amountBonus: e.target.value })} />
+                </div>
+              )}
               <div>
                 <label style={fieldLabel}>Комментарий</label>
                 <input type="text" style={inputStyle}
@@ -153,6 +173,9 @@ export default function LessonJournal({ rows: initialRows, saving, editing = fal
           <b style={{ color: '#111827' }}>{total.toLocaleString()} сум</b>
          {mealTotal > 0 && (
             <span style={{ color: '#6b7280' }}>{' '}· из них питание {mealTotal.toLocaleString()}</span>
+          )}
+         {bonusTotal > 0 && (
+            <span style={{ color: '#7c3aed' }}>{' '}· бонусами {bonusTotal.toLocaleString()}</span>
           )}
          {paidSkips > 0 && (
             <span style={{ color: '#b45309' }}>

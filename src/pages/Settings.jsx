@@ -7,11 +7,13 @@ import DirectoryTable from '../components/DirectoryTable'
 import MigrationPanel from '../components/MigrationPanel'
 import AlfaImportPanel from '../components/AlfaImportPanel'
 import StaffPanel from '../components/StaffPanel'
+import BonusPanel from '../components/BonusPanel'
 import Icon from '../components/Icon'
 
 const MIGRATION = 'migration'
 const IMPORT = 'import'
 const STAFF = 'staff'
+const BONUSES = 'bonuses'
 
 const tab = (isActive) => ({
   // inline-flex, а не иконка внутри строки: во flex-ряду кнопка сжимается,
@@ -68,6 +70,11 @@ export default function Settings() {
         <button onClick={() => setActiveKey(IMPORT)} style={tab(activeKey === IMPORT)}>
           Импорт из AlfaCRM
         </button>
+       {admin && (
+          <button onClick={() => setActiveKey(BONUSES)} style={tab(activeKey === BONUSES)}>
+            Бонусы
+          </button>
+        )}
        {/* Не «Сотрудники»: так уже называется справочник педагогов. Здесь — вход в систему. */}
        {admin && (
           <button onClick={() => setActiveKey(STAFF)} style={tab(activeKey === STAFF)}>
@@ -78,6 +85,7 @@ export default function Settings() {
 
      {activeKey === MIGRATION ? <MigrationPanel />
         : activeKey === IMPORT ? <AlfaImportPanel />
+        : activeKey === BONUSES ? (admin ? <BonusPanel /> : null)
         : activeKey === STAFF ? (admin ? <StaffPanel /> : null)
         : <DirectoryTable dir={dir} />}
     </div>

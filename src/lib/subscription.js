@@ -177,6 +177,8 @@ export const emptySubscriptionForm = () => ({
   weeks: '',
   note: '',
   payAmount: '',
+  // Сколько закрыть бонусами. Пусто — платят только деньгами.
+  payBonus: '',
   payAccountId: '',
   payCategoryId: '',
   payDate: todayISO(),
@@ -196,14 +198,22 @@ export function subscriptionToForm(sub) {
 
 // withPayment — выдача нового абонемента: тогда оплата обязательна. При правке
 // (false) проверяем только сам абонемент.
-export function validateSubscriptionForm(form, packages, withPayment = false) {
+export function validateSubscriptionForm(form, packages, withPayment = false, bonusAvailable = 0) {
   if (!form.packageId) return 'Выберите абонемент'
   if (!packages.some(p => p.id === form.packageId)) return 'Абонемент не найден'
   if (!form.startDate) return 'Укажите дату начала'
   if (form.endDate && form.endDate < form.startDate) return 'Дата окончания раньше начала'
   if (withPayment) {
+    const bonus = Number(normalizeDecimal(form.payBonus || 0))
+    if (!Number.isFinite(bonus) || bonus < 0) return 'Бонус — неотрицательное число'
+    if (bonus > bonusAvailable) {
+      return `Бонусов только ${bonusAvailable.toLocaleString()}`
+    }
     const amount = Number(normalizeDecimal(form.payAmount))
-    if (!Number.isFinite(amount) || amount <= 0) return 'Укажите сумму оплаты'
+    if (!Number.isFinite(amount) || amount < 0) return 'Укажите сумму оплаты'
+    // Оплата может быть нулевой, если пакет целиком закрыт бонусами, но совсем
+    // без денег и без бонусов абонемент выдавать нечего.
+    if (amount <= 0 && bonus <= 0) return 'Укажите сумму оплаты'
     if (!form.payAccountId) return 'Выберите кассу'
     if (!form.payCategoryId) return 'Выберите статью дохода'
     if (!form.payDate) return 'Укажите дату оплаты'
@@ -227,7 +237,15 @@ export function paymentFromForm(form, clientId, clientName, packageName) {
   }
 }
 
-export function formToSubscriptionDoc(form, pkg, clientId, familyId = '') {
+// `bonus` — сколько закрыли бонусами при выдаче. Он уменьшает не только оплату,
+// но и цену самого абонемента: пакет за 2 640 000 с бонусом 100 000 записывается
+// как 2 540 000 на 8 уроков, то есть 317 500 за занятие.
+//
+// Почему так, а не «оплата меньше, цена прежняя»: занятий всё равно будет восемь,
+// и по полной цене они начислили бы 2 640 000, а денег пришло 2 540 000 — ученик
+// к концу пакета остался бы должен ровно подаренную сумму. Скидка должна лежать
+// в цене, иначе она превращается в долг.
+export function formToSubscriptionDoc(form, pkg, clientId, familyId = '', bonus = 0) {
   return {
     clientId,
     // Общий пакет семьи: цена занятия действует на всех её детей. Пусто —
@@ -239,7 +257,7 @@ export function formToSubscriptionDoc(form, pkg, clientId, familyId = '') {
     // у выданных абонементов цена занятия не поедет, и история не перепишется.
     // Счётчика использованных уроков нет: остаток выводится из денег.
     lessonsTotal: Number(pkg.lessonsCount) || 0,
-    price: Number(pkg.price) || 0,
+    price: Math.max(0, (Number(pkg.price) || 0) - (Number(bonus) || 0)),
     startDate: form.startDate,
     endDate: form.endDate || '',
     note: (form.note || '').trim(),

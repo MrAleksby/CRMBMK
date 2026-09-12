@@ -144,6 +144,30 @@ service cloud.firestore {
         && request.resource.data.date is timestamp;
     }
 
+    // --- bonuses: бонусы за приглашённых детей ---
+    // Это не деньги, а право на скидку: кассы у записи нет, в баланс компании
+    // и в прибыль бонусы не входят. Начисляются при проведении занятия
+    // приглашённого, тратятся скидкой на списание. Кошелёк общий с семьёй.
+    // Работа менеджера — он и проводит занятия.
+    match /bonuses/{id} {
+      allow read, delete: if canManage();
+      allow create, update: if canManage()
+        && request.resource.data.amount is number
+        && request.resource.data.amount >= 0
+        && request.resource.data.kind in ['earn', 'spend']
+        && request.resource.data.clientId is string
+        && request.resource.data.clientId.size() > 0
+        && request.resource.data.date is timestamp;
+    }
+
+    // --- bonusRules: сколько начислять за приглашённого ---
+    // Один документ `current`. Суммы меняются в Настройках, поэтому писать
+    // может только админ; читают все, кто проводит занятия.
+    match /bonusRules/{id} {
+      allow read: if isAllowed();
+      allow write: if isAdmin();
+    }
+
     // --- charges: начисления ученику за проведённые занятия ---
     // Денег не двигают, кассы не имеют. lessonId связывает с занятием
     // и позволяет откатить проведение. Педагогу не нужны: суммы не его дело.

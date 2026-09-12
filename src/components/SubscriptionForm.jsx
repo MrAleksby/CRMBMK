@@ -1,3 +1,4 @@
+import { toAmount } from '../lib/amount'
 import { useState } from 'react'
 import { perLessonPrice } from '../lib/directories'
 import {
@@ -14,7 +15,7 @@ const labelStyle = { fontSize: '11px', color: '#6b7280', display: 'block', margi
 
 export default function SubscriptionForm({
   initial, packages, accounts = [], incomeCategories = [], saving, onSubmit, onCancel,
-  family = [],
+  family = [], bonusAvailable = 0,
 }) {
   const [form, setForm] = useState(initial || emptySubscriptionForm)
   const [error, setError] = useState('')
@@ -53,13 +54,26 @@ export default function SubscriptionForm({
     const pkg = packages.find(p => p.id === packageId)
     setForm({
       ...form, packageId,
-      payAmount: withPayment && pkg ? String(Number(pkg.price) || '') : form.payAmount,
+      payAmount: withPayment && pkg ? String(moneyPart(pkg, form.payBonus)) : form.payAmount,
+    })
+  }
+
+  // Деньгами платят остаток после бонусов. Бонус уменьшает и цену абонемента,
+  // поэтому цена занятия падает, а долга к концу пакета не возникает.
+  const moneyPart = (pkg, bonus) =>
+    Math.max(0, (Number(pkg?.price) || 0) - (toAmount(bonus) || 0))
+
+  const setBonus = (e) => {
+    const payBonus = e.target.value
+    setForm({
+      ...form, payBonus,
+      payAmount: chosen ? String(moneyPart(chosen, payBonus)) : form.payAmount,
     })
   }
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    const problem = validateSubscriptionForm(form, packages, withPayment)
+    const problem = validateSubscriptionForm(form, packages, withPayment, bonusAvailable)
     if (problem) return setError(problem)
     setError('')
     onSubmit(form, chosen)
@@ -158,6 +172,13 @@ export default function SubscriptionForm({
                 <input required type="text" inputMode="decimal" style={inputStyle}
                   value={form.payAmount} onChange={set('payAmount')} placeholder="0" />
               </div>
+             {bonusAvailable > 0 && (
+                <div>
+                  <label style={labelStyle}>Бонусами (есть {bonusAvailable.toLocaleString()})</label>
+                  <input type="text" inputMode="decimal" style={inputStyle}
+                    value={form.payBonus} onChange={setBonus} placeholder="0" />
+                </div>
+              )}
               <div>
                 <label style={labelStyle}>Дата оплаты</label>
                 <input required type="date" style={inputStyle}

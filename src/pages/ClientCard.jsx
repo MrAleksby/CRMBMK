@@ -28,6 +28,10 @@ import { useLiveRefresh } from '../lib/useLiveRefresh'
 import { categoriesForKind } from '../lib/transaction'
 import { clientBalance, clientBalances, effectiveBalances } from '../lib/balance'
 import { siblings, walletCharges } from '../lib/family'
+import {
+  EARN, SPEND, REASON_MANUAL, REASON_SUBSCRIPTION, REASON_LABELS,
+  bonusBalanceOf, walletBonuses, invitedBy,
+} from '../lib/bonus'
 import { ensureFamilyId } from '../lib/family-run'
 import { sortItems, getDirectory } from '../lib/directories'
 
@@ -179,6 +183,8 @@ export default function ClientCard() {
   // ученика по-прежнему собирается из отфильтрованных `transactions`/`charges`.
   const [allTransactions, setAllTransactions] = useState([])
   const [allCharges, setAllCharges] = useState([])
+  const [bonuses, setBonuses] = useState([])
+  const [bonusForm, setBonusForm] = useState({ amount: '', comment: '' })
   const [subscriptions, setSubscriptions] = useState([])
   const [packages, setPackages] = useState([])
   const [issuing, setIssuing] = useState(false)
@@ -230,13 +236,14 @@ export default function ClientCard() {
       // Деньги — оплаты, начисления, абонементы, кассы — ему не отдаются вовсе.
       if (!manages) return
 
-      const [tx, ch, ss, pk, acc, cat] = await Promise.all([
+      const [tx, ch, ss, pk, acc, cat, bs] = await Promise.all([
         readClientMoney({ force }),
         readCollection('charges', { force }),
         readCollection('subscriptions', { force }),
         readCollection('packages', { force }),
         readCollection('accounts', { force }),
         readCollection('categories', { force }),
+        readCollection('bonuses', { force }),
       ])
       setTransactions(tx.filter(t => t.clientId === id))
       setCharges(ch.filter(c => c.clientId === id))
@@ -248,6 +255,7 @@ export default function ClientCard() {
       setSubscriptions(ss.filter(x =>
         x.clientId === id || (x.familyId && familyId && x.familyId === familyId)))
       setPackages(pk)
+      setBonuses(bs)
       setAccounts(sortItems(getDirectory('accounts'), acc))
       setCategories(sortItems(getDirectory('categories'), cat))
     } catch (e) {
@@ -277,6 +285,40 @@ export default function ClientCard() {
   // нельзя: наверху стоит остаток семьи, и под ним лежали бы записи, из которых
   // он не складывается — «оплату приняла, а в карточке её нет». Чужие строки
   // подписаны именем того ребёнка, к которому относятся.
+  // Бонусы. Кошелёк тот же, что и денежный: у семьи общий. Это не деньги,
+  // а право на скидку, поэтому в баланс ученика они не входят и живут отдельно.
+  const bonusLeft = client ? bonusBalanceOf(client, bonuses) : 0
+  const myBonuses = client ? walletBonuses(client, bonuses) : []
+  const referrer = client?.referrerId ? allClients.find(c => c.id === client.referrerId) : null
+  const invited = client ? invitedBy(client, allClients) : []
+
+  const handleBonus = async (kind) => {
+    const amount = toAmount(bonusForm.amount)
+    if (!amount || amount <= 0) return alert('Укажите сумму бонуса')
+    if (kind === SPEND && amount > bonusLeft) return alert('Столько бонусов нет')
+
+    setSaving(true)
+    try {
+      await addDoc(collection(db, 'bonuses'), {
+        kind,
+        amount,
+        reason: REASON_MANUAL,
+        clientId: id,
+        familyId: client.familyId || '',
+        comment: bonusForm.comment.trim(),
+        date: new Date(),
+        createdAt: new Date(),
+      })
+      setBonusForm({ amount: '', comment: '' })
+      await fetchData(true)
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const familyIds = [id, ...family.map(c => c.id)]
   const whoseName = (clientId) => (clientId === id
     ? ''
@@ -483,13 +525,30 @@ export default function ClientCard() {
     setSaving(true)
     try {
       const now = new Date()
+      const bonus = toAmount(form.payBonus) || 0
       const batch = writeBatch(db)
       batch.set(doc(collection(db, 'subscriptions')), {
-        ...formToSubscriptionDoc(form, pkg, id, form.shared ? client.familyId : ''),
+        ...formToSubscriptionDoc(form, pkg, id, form.shared ? client.familyId : '', bonus),
         createdAt: now,
       })
       batch.set(doc(collection(db, 'transactions')),
        { ...paymentFromForm(form, id, client.childName, pkg?.name), createdAt: now })
+
+      // Бонусы — не деньги: в кассу идёт только оплаченная часть, а подаренное
+      // уходит с бонусного счёта и уже вычтено из цены абонемента.
+      if (bonus > 0) {
+        batch.set(doc(collection(db, 'bonuses')), {
+          kind: SPEND,
+          amount: bonus,
+          reason: REASON_SUBSCRIPTION,
+          clientId: id,
+          familyId: client.familyId || '',
+          comment: `Оплата абонемента «${pkg?.name || ''}»`,
+          date: new Date(form.payDate || now),
+          createdAt: now,
+        })
+      }
+
       await batch.commit()
       setIssuing(false)
       await fetchData(true)
@@ -995,6 +1054,79 @@ export default function ClientCard() {
           </>
           )}
 
+         {/* Бонусы за приглашённых. Это не деньги, а право на скидку: в остаток
+              и в баланс компании они не входят, потратить можно при списании
+              за занятие и при выдаче абонемента. */}
+         {manages && (
+            <SummaryBlock title="Бонусы">
+              <div style={{ fontSize: '15px', fontWeight: '700', color: bonusLeft > 0 ? '#7c3aed' : '#6b7280' }}>
+               {bonusLeft.toLocaleString()} сум
+               {family.length > 0 && (
+                  <span style={{ fontSize: '11px', fontWeight: '400', color: '#6b7280' }}> · общие на семью</span>
+                )}
+              </div>
+
+             {referrer && (
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                  Пригласил{' '}
+                  <Link to={`/clients/${referrer.id}`} style={{ color: '#7c3aed', textDecoration: 'none' }}>
+                   {referrer.childName}
+                  </Link>
+                </div>
+              )}
+
+             {invited.length > 0 && (
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                  Привёл ({invited.length}):{' '}
+                 {invited.map((child, i) => (
+                    <span key={child.id}>
+                     {i > 0 && ', '}
+                      <Link to={`/clients/${child.id}`} style={{ color: '#7c3aed', textDecoration: 'none' }}>
+                       {child.childName}
+                      </Link>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+             {myBonuses.slice(0, 5).map(row => (
+                <div key={row.id} style={{
+                  display: 'flex', justifyContent: 'space-between', gap: '8px',
+                  fontSize: '12px', color: '#6b7280', marginTop: '4px',
+                }}>
+                  <span>{REASON_LABELS[row.reason] || 'Бонус'}{row.invitedName ? `: ${row.invitedName}` : ''}</span>
+                  <span style={{ color: row.kind === SPEND ? '#dc2626' : '#059669', whiteSpace: 'nowrap' }}>
+                   {row.kind === SPEND ? '−' : '+'}{(row.amount || 0).toLocaleString()}
+                  </span>
+                </div>
+              ))}
+             {myBonuses.length > 5 && (
+                <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
+                  …и ещё {myBonuses.length - 5}
+                </div>
+              )}
+
+             {/* Ручная правка: начислить за то, чего система не видит, или снять
+                  ошибочное. Обычные начисления идут сами при проведении занятия. */}
+              <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                <input style={{ ...inputStyle, width: '90px' }} inputMode="decimal"
+                  placeholder="Сумма" value={bonusForm.amount}
+                  onChange={e => setBonusForm({ ...bonusForm, amount: e.target.value })} />
+                <input style={{ ...inputStyle, flex: 1, minWidth: '90px' }}
+                  placeholder="За что" value={bonusForm.comment}
+                  onChange={e => setBonusForm({ ...bonusForm, comment: e.target.value })} />
+              </div>
+              <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                <button onClick={() => handleBonus(EARN)} disabled={saving} style={{
+                  ...secondaryBtn, color: '#059669', borderColor: '#bbf7d0', fontSize: '12px',
+                }}>Начислить</button>
+                <button onClick={() => handleBonus(SPEND)} disabled={saving} style={{
+                  ...secondaryBtn, color: '#dc2626', borderColor: '#fecaca', fontSize: '12px',
+                }}>Списать</button>
+              </div>
+            </SummaryBlock>
+          )}
+
          {/* Заказчик показывается, только когда платит юрлицо: это отдельная,
               не очевидная из контактов информация. Если платят родители, блок
               дублировал бы «Контакты» строкой ниже — там тот же человек. */}
@@ -1057,6 +1189,7 @@ export default function ClientCard() {
            {issuing && (
               <SubscriptionForm packages={packages} saving={saving} family={family}
                 accounts={accounts} incomeCategories={incomeCategories}
+                bonusAvailable={bonusLeft}
                 onSubmit={handleIssueSubscription} onCancel={() => setIssuing(false)} />
             )}
 

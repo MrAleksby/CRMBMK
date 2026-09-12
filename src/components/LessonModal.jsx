@@ -49,7 +49,11 @@ const notSet = { color: '#dc2626', fontStyle: 'italic' }
 // Занятие · Питание · Комментарий. Одна сетка на шапку, на поля ввода и на
 // проведённое занятие: развели бы их по разным местам — подписи разъехались бы
 // со значениями, а именно за этим сюда и смотрят.
-const moneyGrid = { display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gap: '6px' }
+const grid = (withBonus) => ({
+  display: 'grid',
+  gridTemplateColumns: withBonus ? '1fr 1fr 1fr 1.4fr' : '1fr 1fr 1.4fr',
+  gap: '6px',
+})
 
 // В строке журнала суммы лежат строками — это поля ввода. Для показа их нужно
 // вернуть в числа: пустое поле значит «не вводили», а не ноль.
@@ -60,12 +64,21 @@ const money = (value) => toAmount(value) ?? 0
 export default function LessonModal({
   lesson, clients, teachers, balances, lessonsLeftBy = {}, subscriptions = [], saving,
   onClose, onConduct, onReturn, onCancelLesson, onSaveStudents, readOnly = false,
+  // Бонусы кошелька ученика: поле «Бонус» появляется только у тех, у кого они есть.
+  bonusLeftBy = {}, validateBonuses = () => null,
 }) {
   const conducted = lesson.status === 'conducted'
   const [rows, setRows] = useState(() => buildJournal(lesson, clients, subscriptions))
   const [students, setStudents] = useState(lesson.studentIds || [])
   const [editingStudents, setEditingStudents] = useState(false)
   const [error, setError] = useState('')
+
+  // Колонка бонуса нужна, только если хоть у кого-то в занятии они есть или
+  // уже потрачены: иначе на планшете четыре поля в ряд ужимают суммы впустую.
+  const anyBonus = !readOnly && (
+    (lesson.studentIds || []).some(sid => bonusLeftBy[sid] > 0)
+    || (lesson.attendance || []).some(a => (a.amountBonus || 0) > 0)
+  )
 
   const status = LESSON_STATUSES[lesson.status] ?? LESSON_STATUSES.planned
   const teacher = teachers.find(t => t.id === lesson.teacherId)
@@ -74,7 +87,7 @@ export default function LessonModal({
     setRows(rows.map(r => (r.clientId === clientId ? { ...r, ...patch } : r)))
 
   const handleConduct = () => {
-    const problem = validateJournal(rows)
+    const problem = validateJournal(rows) || validateBonuses(rows)
     if (problem) return setError(problem)
     setError('')
     onConduct(lesson, rows)
@@ -185,9 +198,10 @@ export default function LessonModal({
                     </th>
                    {!readOnly && (
                       <th style={{ padding: '6px 0', color: '#6b7280', fontSize: '12px', fontWeight: '600', width: '340px' }}>
-                        <div style={moneyGrid}>
+                        <div style={grid(anyBonus)}>
                           <span style={{ textAlign: 'right' }}>Занятие</span>
                           <span style={{ textAlign: 'right' }}>Питание</span>
+                         {anyBonus && <span style={{ textAlign: 'right' }}>Бонус</span>}
                           <span style={{ textAlign: 'left' }}>Комментарий</span>
                         </div>
                       </th>
@@ -226,7 +240,7 @@ export default function LessonModal({
                             // заполняют. У занятий до разделения питания нет вовсе:
                             // там прочерк, а не «питание 0» — цифры, которой никто
                             // не вводил, в отчёте быть не должно.
-                            <div style={{ ...moneyGrid, alignItems: 'center' }}>
+                            <div style={{ ...grid(anyBonus), alignItems: 'center' }}>
                               <span style={{ textAlign: 'right', color: money(record.amountLesson) > 0 ? '#dc2626' : '#9ca3af' }}>
                                {money(record.amountLesson) > 0 ? money(record.amountLesson).toLocaleString() : '—'}
                               </span>
@@ -237,6 +251,11 @@ export default function LessonModal({
                                   пропуск читается по прочеркам в суммах и снятой галочке;
                                   подписывать его словами здесь значило бы снова
                                   поставить значение не под свою подпись. */}
+                             {anyBonus && (
+                                <span style={{ textAlign: 'right', color: money(record.amountBonus) > 0 ? '#7c3aed' : '#9ca3af' }}>
+                                 {money(record.amountBonus) > 0 ? money(record.amountBonus).toLocaleString() : '—'}
+                                </span>
+                              )}
                               <span style={{ textAlign: 'left', fontSize: '12px', color: '#6b7280' }}>
                                {record.comment}
                               </span>
@@ -249,7 +268,7 @@ export default function LessonModal({
                             // подставленная подсказка, а не то, что ввёл менеджер.
                             //
                             // Пропуск тоже может стоить денег, если ребёнок не предупредил.
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gap: '6px' }}>
+                            <div style={grid(anyBonus)}>
                               <input type="text" inputMode="decimal"
                                 style={{ ...inputStyle, width: '100%', textAlign: 'right' }}
                                 value={record.amountLesson}
@@ -262,6 +281,15 @@ export default function LessonModal({
                                 placeholder="Питание"
                                 title="Сумма за питание"
                                 onChange={e => update(record.clientId, { amountMeal: e.target.value })} />
+                             {anyBonus && (
+                                <input type="text" inputMode="decimal"
+                                  style={{ ...inputStyle, width: '100%', textAlign: 'right' }}
+                                  value={record.amountBonus}
+                                  placeholder={bonusLeftBy[record.clientId] > 0 ? String(bonusLeftBy[record.clientId]) : '—'}
+                                  disabled={!(bonusLeftBy[record.clientId] > 0)}
+                                  title="Сколько закрыть бонусами"
+                                  onChange={e => update(record.clientId, { amountBonus: e.target.value })} />
+                              )}
                               <input type="text"
                                 style={{ ...inputStyle, width: '100%', fontSize: '12px' }}
                                 value={record.comment}
