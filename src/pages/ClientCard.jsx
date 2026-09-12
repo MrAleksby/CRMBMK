@@ -1094,7 +1094,13 @@ export default function ClientCard() {
                   display: 'flex', justifyContent: 'space-between', gap: '8px',
                   fontSize: '12px', color: '#6b7280', marginTop: '4px',
                 }}>
-                  <span>{REASON_LABELS[row.reason] || 'Бонус'}{row.invitedName ? `: ${row.invitedName}` : ''}</span>
+                 {/* У ручной записи причина — это её комментарий: только он и говорит,
+                      за что начислили. Без него в ленте стояло бы голое «Вручную». */}
+                  <span>
+                   {REASON_LABELS[row.reason] || 'Бонус'}
+                   {row.invitedName ? `: ${row.invitedName}` : ''}
+                   {row.comment ? ` · ${row.comment}` : ''}
+                  </span>
                   <span style={{ color: row.kind === SPEND ? '#dc2626' : '#059669', whiteSpace: 'nowrap' }}>
                    {row.kind === SPEND ? '−' : '+'}{(row.amount || 0).toLocaleString()}
                   </span>
