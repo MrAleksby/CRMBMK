@@ -257,7 +257,8 @@ export function searchText(client) {
 //
 // Статус сортируется по смыслу — активен, пауза, бросил, — а не по алфавиту:
 // «Активен» и «Бросил» рядом в словаре, но противоположны по делу.
-export function sortClients(list, key, direction, { balance = () => 0, family = () => '' } = {}) {
+export function sortClients(list, key, direction,
+  { balance = () => 0, family = () => '', bonus = () => 0 } = {}) {
   const sign = direction === 'desc' ? -1 : 1
 
   const value = (client) => {
@@ -267,6 +268,7 @@ export function sortClients(list, key, direction, { balance = () => 0, family = 
       // Семьи без названия уходят вниз: пустая строка сортируется раньше любой
       // буквы, а внизу их искать привычнее, чем в начале списка.
       case 'family': return family(client) || 'яяя'
+      case 'bonus': return bonus(client)
       case 'status': return CLIENT_STATUSES.findIndex(s => s.value === (client.status || 'active'))
       case 'contacts': {
         const [first] = contactRows(client)

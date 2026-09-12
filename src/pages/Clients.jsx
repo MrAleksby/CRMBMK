@@ -13,7 +13,8 @@ import Icon from '../components/Icon'
 import Avatar from '../components/Avatar'
 import { lessonsLeft } from '../lib/subscription'
 import { clientBalances, effectiveBalances, debtAndPrepaid } from '../lib/balance'
-import { walletCharges, sharedNote, siblings, familyLabel } from '../lib/family'
+import { walletCharges, sharedNote, siblings, familyLabel, walletKey } from '../lib/family'
+import { bonusBalances } from '../lib/bonus'
 import { ensureFamilyId } from '../lib/family-run'
 import { useSelection } from '../lib/selection'
 import { useIsMobile } from '../lib/useIsMobile'
@@ -31,6 +32,7 @@ const PAGE_SIZE = 50
 const COLUMNS = [
   { key: 'name', label: 'ФИО' },
   { key: 'balance', label: 'Общий остаток' },
+  { key: 'bonus', label: 'Бонусы' },
   { key: 'family', label: 'Общий счёт с' },
   { key: 'status', label: 'Статус обучения' },
   { key: 'contacts', label: 'Контакты' },
@@ -81,6 +83,7 @@ export default function Clients() {
   const [charges, setCharges] = useState([])
   const [legalEntities, setLegalEntities] = useState([])
   const [families, setFamilies] = useState([])
+  const [bonuses, setBonuses] = useState([])
   const [lessons, setLessons] = useState([])
   const [groups, setGroups] = useState([])
   const [subscriptions, setSubscriptions] = useState([])
@@ -110,7 +113,7 @@ export default function Clients() {
   const { user, profile } = useAuth()
   const manages = canManage(user?.uid, profile)
   // Педагогу денег не показываем: ни остатка, ни семьи — семья и есть общий счёт.
-  const columns = manages ? COLUMNS : COLUMNS.filter(col => !['balance', 'family'].includes(col.key))
+  const columns = manages ? COLUMNS : COLUMNS.filter(col => !['balance', 'bonus', 'family'].includes(col.key))
 
   const fetchData = async (force = false) => {
     setLoadError('')
@@ -137,14 +140,16 @@ export default function Clients() {
       // а деньги — нет: правила Firestore ему их и не отдадут.
       if (!manages) return
 
-      const [tx, ch, ss] = await Promise.all([
+      const [tx, ch, ss, bs] = await Promise.all([
         readClientMoney({ force }),
         readCollection('charges', { force }),
         readCollection('subscriptions', { force }),
+        readCollection('bonuses', { force }),
       ])
       setTransactions(tx)
       setCharges(ch)
       setSubscriptions(ss)
+      setBonuses(bs)
     } catch (e) {
       console.error(e)
       setLoadError(describeError(e))
@@ -171,6 +176,11 @@ export default function Clients() {
   // В колонке «Общий счёт с» стоят имена остальных детей семьи: у названия
   // семьи смысла нет, фамилии у брата и сестры бывают разными.
   const familyName = (client) => familyLabel(client, clients)
+
+  // Бонусы — отдельный счёт, в остаток они не входят: это не деньги ученика,
+  // а расход школы на приглашения, который зачтётся при списании за занятие.
+  const bonusLeft = useMemo(() => bonusBalances(bonuses), [bonuses])
+  const getBonus = (client) => bonusLeft.get(walletKey(client)) || 0
 
   // Сколько детей делят кошелёк — этим подписана сумма в строке.
   const familySize = (client) => (client.familyId ? siblings(client, clients).length + 1 : 1)
@@ -292,7 +302,7 @@ export default function Clients() {
   // Лиды держат карточку, но учениками не считаются.
   const clientsCount = clients.filter(c => (c.status || 'active') !== 'lead').length
   const filtered = sortClients(matching, sortKey, sortDir,
-    { balance: getBalance, family: (client) => client.familyId || '' })
+    { balance: getBalance, family: (client) => client.familyId || '', bonus: getBonus })
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, pageCount)
@@ -317,6 +327,7 @@ export default function Clients() {
       label: 'Остаток уроков',
       value: c => lessonsLeft(subscriptions, c.id, getBalance(c.id), chargesBy.get(c.id) || [], c),
     },
+    { label: 'Бонусы', value: c => getBonus(c) },
     { label: 'Цена занятия', value: c => c.lessonPrice ?? '' },
     { label: 'Мама', value: c => parentCell(c.mother, 'name') },
     { label: 'Телефоны мамы', value: c => parentCell(c.mother, 'phones') },
@@ -510,6 +521,9 @@ export default function Clients() {
                    {familySize(c) > 1 && (
                       <div style={{ fontSize: '10px', color: '#6b7280' }}>{sharedNote(familySize(c))}</div>
                     )}
+                   {getBonus(c) > 0 && (
+                      <div style={{ fontSize: '10px', color: '#7c3aed' }}>бонусы {getBonus(c).toLocaleString()}</div>
+                    )}
                   </div>
                 )}
               </div>
@@ -588,6 +602,14 @@ export default function Clients() {
                      {familySize(c) > 1 && (
                         <div style={{ fontSize: '10px', color: '#6b7280' }}>{sharedNote(familySize(c))}</div>
                       )}
+                    </td>
+                    )}
+
+                   {manages && (
+                    <td style={{ ...td(isLast), whiteSpace: 'nowrap' }}>
+                     {getBonus(c) > 0
+                        ? <span style={{ color: '#7c3aed', fontWeight: '600' }}>{getBonus(c).toLocaleString()}</span>
+                        : <span style={{ color: '#d1d5db' }}>—</span>}
                     </td>
                     )}
 
