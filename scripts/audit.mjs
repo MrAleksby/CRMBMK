@@ -20,7 +20,9 @@
 // «непроведённом» занятии. На вопрос «всё ли верно сейчас» брать живую базу.
 
 import { readFile } from 'node:fs/promises'
-import { clientBalances } from '../src/lib/balance.js'
+import { clientBalances, walletBalances, debtAndPrepaid } from '../src/lib/balance.js'
+import { walletKey } from '../src/lib/family.js'
+import { bonusBalances, EARN, SPEND, REASON_LESSON } from '../src/lib/bonus.js'
 import {
   companyBalance, accountTotals, realizedProfit, incomeTotal, expenseTotal,
   salaryTotal, refundTotal, drawTotal, otherIncomeTotal, sumAmount, toJsDate,
@@ -28,7 +30,7 @@ import {
 import { lessonsLeft, subscriptionPerLesson } from '../src/lib/subscription.js'
 
 const COLLECTIONS = ['transactions', 'charges', 'clients', 'lessons', 'subscriptions',
-  'accounts', 'categories', 'leads']
+  'accounts', 'categories', 'leads', 'families', 'bonuses']
 
 // Даты в дампе — { __type: 'timestamp', seconds }. Возвращаем им форму, которую
 // понимает toJsDate: у Firestore это объект с полем seconds.
@@ -75,7 +77,8 @@ async function fromLive() {
 
 const file = process.argv[2]
 const { data, source, reads } = file ? await fromBackup(file) : await fromLive()
-const { transactions, charges, clients, lessons, subscriptions, accounts, categories, leads } = data
+const { transactions, charges, clients, lessons, subscriptions, accounts, categories, leads,
+  families, bonuses } = data
 
 const money = (n) => n.toLocaleString('ru-RU', { maximumFractionDigits: 2 })
 const problems = []
@@ -139,7 +142,7 @@ for (const c of charges) {
   byLesson.get(c.lessonId).push(c)
 }
 const conducted = lessons.filter(l => l.status === 'conducted')
-let mismatched = 0, missing = 0, doubled = 0, splitBroken = 0
+let mismatched = 0, missing = 0, doubled = 0, splitBroken = 0, perStudent = 0, emptyJournal = 0
 for (const lesson of conducted) {
   const rows = (lesson.attendance || []).filter(a => Number(a.amountCharged) > 0)
   const journalSum = rows.reduce((s, a) => s + Number(a.amountCharged || 0), 0)
@@ -155,6 +158,21 @@ for (const lesson of conducted) {
   for (const c of own) perClient.set(c.clientId, (perClient.get(c.clientId) || 0) + 1)
   if ([...perClient.values()].some(n => n > 1)) doubled++
 
+  // Сверка по каждому ученику, а не только по итогу занятия. Если суммы двух
+  // детей поменялись местами, итог сойдётся, а на их счетах будет неправда.
+  const chargedTo = new Map()
+  for (const c of own) chargedTo.set(c.clientId, (chargedTo.get(c.clientId) || 0) + (c.amount || 0))
+  for (const a of rows) {
+    const got = chargedTo.get(a.clientId) || 0
+    if (Math.abs(got - Number(a.amountCharged || 0)) > 0.01) {
+      perStudent++
+      console.log(`        ${lesson.date}, ${a.clientName}: журнал ${money(Number(a.amountCharged || 0))}, начислено ${money(got)}`)
+    }
+  }
+
+  // Провели, но никого не отметили: занятие закрыто, а денег не списано.
+  if ((lesson.studentIds || []).length && !(lesson.attendance || []).length) emptyJournal++
+
   // Разбивка на занятие и питание обязана складываться в итог, иначе на экране
   // одно, а на лицевом счёте другое.
   for (const a of lesson.attendance || []) {
@@ -163,6 +181,8 @@ for (const lesson of conducted) {
   }
 }
 check(mismatched === 0, `суммы журнала = начисления на всех ${conducted.length} проведённых занятиях`)
+check(perStudent === 0, `суммы сходятся у каждого ученика, а не только в итоге (расхождений: ${perStudent})`)
+check(emptyJournal === 0, `нет проведённых занятий с составом, но с пустым журналом (найдено: ${emptyJournal})`)
 check(missing === 0, `нет проведённых занятий без начислений (найдено: ${missing})`)
 check(doubled === 0, `нет двойных начислений (найдено: ${doubled})`)
 check(splitBroken === 0, `занятие + питание = итог во всех журналах (расхождений: ${splitBroken})`)
@@ -175,6 +195,31 @@ const chargeSplitBroken = charges.filter(c => c.amountMeal !== undefined
   && Math.abs((c.amountLesson || 0) + (c.amountMeal || 0) - (c.amount || 0)) > 0.01)
 check(chargeSplitBroken.length === 0,
   `занятие + питание = сумма во всех начислениях (расхождений: ${chargeSplitBroken.length})`)
+
+// Дубль занятия: та же группа, та же дата и время. Провели оба — списали дважды.
+//
+// Разовые занятия без группы сюда не попадают: в одни и те же 11:00 законно идут
+// несколько пробных с разными детьми, и по группе их не различить. Для них дубль
+// ищем по составу: одни и те же ученики в одно время — вот это уже повтор.
+const seen = new Map()
+let duplicates = 0
+for (const l of lessons) {
+  if (l.status === 'cancelled') continue
+  const who = [...(l.studentIds || [])].sort().join(',')
+  const key = l.groupId
+    ? `g:${l.groupId}|${l.date}|${l.timeFrom || ''}`
+    : (who ? `s:${who}|${l.date}|${l.timeFrom || ''}` : null)
+  if (!key) continue
+  if (seen.has(key)) {
+    duplicates++
+    console.log(`        дубль: ${l.date} ${l.timeFrom || ''} ${l.groupName || 'разовое'}`)
+  } else seen.set(key, l.id)
+}
+check(duplicates === 0, `нет задвоенных занятий с одним составом в одно время (найдено: ${duplicates})`)
+
+const manualCharges = charges.filter(c => !c.lessonId)
+console.log(`       начислений без занятия (введены вручную): ${manualCharges.length}`
+  + ` на ${money(manualCharges.reduce((s, c) => s + (c.amount || 0), 0))}`)
 
 const today = new Date().toISOString().slice(0, 10)
 const hanging = lessons.filter(l => l.status !== 'conducted' && l.status !== 'cancelled'
@@ -235,6 +280,74 @@ for (const client of clients) {
   if ((bal > 0 && left < 0) || (bal < 0 && left > 0)) signMismatch++
 }
 check(signMismatch === 0, `остаток в уроках не спорит со знаком баланса у всех ${clients.length} учеников`)
+
+// ── 6. Семьи и общий счёт ────────────────────────────────────────────────────
+console.log('\n6. СЕМЬИ И ОБЩИЙ СЧЁТ')
+const familyIds = new Set(families.map(f => f.id))
+const inFamily = clients.filter(c => c.familyId)
+check(inFamily.filter(c => !familyIds.has(c.familyId)).length === 0,
+  `все ссылки на семью ведут в справочник (детей в семьях: ${inFamily.length})`)
+
+// Кошелёк — способ показа, а не отдельные деньги: сумма по кошелькам обязана
+// совпасть с суммой по детям, иначе общий счёт что-то теряет или дублирует.
+const wallets = walletBalances(balances, clients)
+const walletsSum = [...wallets.values()].reduce((s, v) => s + v, 0)
+check(Math.abs(walletsSum - balancesSum) < 0.01,
+  `сумма по кошелькам = сумма по детям: ${money(walletsSum)}`)
+
+// Долги и предоплаты по кошелькам не могут быть больше, чем по детям: внутри
+// семьи плюс одного гасит минус другого. Если больше — счёт где-то задвоился.
+const byChild = debtAndPrepaid(balances)
+const byWallet = debtAndPrepaid(balances, clients)
+check(byWallet.debt <= byChild.debt + 0.01 && byWallet.prepaid <= byChild.prepaid + 0.01,
+  'общий счёт семьи не задваивает долги и предоплаты')
+console.log(`       по детям: долги ${money(byChild.debt)}, предоплаты ${money(byChild.prepaid)}`)
+console.log(`       по кошелькам: долги ${money(byWallet.debt)}, предоплаты ${money(byWallet.prepaid)}`)
+
+const sharedSubs = subscriptions.filter(s => s.familyId)
+check(sharedSubs.filter(s => !familyIds.has(s.familyId)).length === 0,
+  `общие абонементы привязаны к существующим семьям (их ${sharedSubs.length})`)
+
+// ── 7. Бонусы ────────────────────────────────────────────────────────────────
+console.log('\n7. БОНУСЫ ЗА ПРИГЛАШЁННЫХ')
+check(bonuses.filter(b => !clientIds.has(b.clientId)).length === 0,
+  `все бонусы принадлежат существующим ученикам (записей ${bonuses.length})`)
+check(clients.filter(c => c.referrerId && !clientIds.has(c.referrerId)).length === 0,
+  'все ссылки «кто пригласил» ведут на существующего ученика')
+
+const bonusLeft = bonusBalances(bonuses)
+const negative = [...bonusLeft.entries()].filter(([, v]) => v < -0.01)
+check(negative.length === 0, `нет кошельков с отрицательным остатком бонусов (найдено: ${negative.length})`)
+
+// Трата бонуса и скидка в начислении — две стороны одной записи. Разойдутся —
+// значит где-то списали бонус, не уменьшив сумму занятия, или наоборот.
+const spentOnLessons = bonuses
+  .filter(b => b.kind === SPEND && b.reason === REASON_LESSON)
+  .reduce((s, b) => s + (b.amount || 0), 0)
+const discountInCharges = charges.reduce((s, c) => s + (c.amountBonus || 0), 0)
+check(Math.abs(spentOnLessons - discountInCharges) < 0.01,
+  `бонусы, списанные на занятиях = скидки в начислениях: ${money(spentOnLessons)}`)
+
+const conductedIds = new Set(conducted.map(l => l.id))
+const orphanBonuses = bonuses.filter(b => b.lessonId && !conductedIds.has(b.lessonId))
+check(orphanBonuses.length === 0,
+  `нет бонусов от отменённых или удалённых занятий (найдено: ${orphanBonuses.length})`)
+
+const earned = bonuses.filter(b => b.kind === EARN)
+check(earned.filter(b => b.invitedId && !clientIds.has(b.invitedId)).length === 0,
+  'все начисления ссылаются на существующего приглашённого')
+// Бонус мог быть начислен только тому, кто указан у приглашённого как пригласивший.
+const wrongReferrer = earned.filter(b => {
+  if (!b.invitedId) return false
+  const invited = clients.find(c => c.id === b.invitedId)
+  if (!invited?.referrerId) return false
+  const referrer = clients.find(c => c.id === invited.referrerId)
+  return referrer ? walletKey(referrer) !== walletKey({ id: b.clientId, familyId: b.familyId }) : false
+})
+check(wrongReferrer.length === 0,
+  `бонусы начислены тем, кто указан пригласившим (расхождений: ${wrongReferrer.length})`)
+console.log(`       начислено ${money(earned.reduce((s, b) => s + (b.amount || 0), 0))}`)
+console.log(`       потрачено ${money(bonuses.filter(b => b.kind === SPEND).reduce((s, b) => s + (b.amount || 0), 0))}`)
 
 // ── Итог ─────────────────────────────────────────────────────────────────────
 console.log('\n' + '─'.repeat(70))
