@@ -48,9 +48,9 @@ const part = (value) => Number(normalizeDecimal(value)) || 0
 const filled = (value) => value !== '' && value !== null && value !== undefined
 
 // Бонусы — не деньги, а право на скидку: потраченный бонус уменьшает сумму
-// списания. Поэтому прибыль падает ровно на подаренное, а касса и баланс
-// ученика остаются правдой. Ниже нуля не опускаем: подарить больше, чем стоит
-// занятие, нельзя — лишнее просто сгорело бы молча.
+// списания. Прибыль падает ровно на эту сумму: бонус — расход компании
+// на приглашённых, а касса и баланс ученика остаются правдой. Ниже нуля
+// не опускаем: списать больше, чем стоит занятие, нельзя — лишнее сгорело бы молча.
 export const rowBonus = (row) => Math.min(
   part(row.amountBonus),
   part(row.amountLesson) + part(row.amountMeal),
@@ -257,7 +257,7 @@ export const journalTotal = (rows) => rows.reduce((sum, r) => sum + rowTotal(r),
 // Сколько из итога приходится на еду — подсказка под журналом.
 export const journalMealTotal = (rows) => rows.reduce((sum, r) => sum + part(r.amountMeal), 0)
 
-// Сколько на этом занятии закрыли бонусами: столько школа подарила.
+// Сколько на этом занятии закрыли бонусами: столько школа потратила на бонусы.
 export const journalBonusTotal = (rows) => rows.reduce((sum, r) => sum + rowBonus(r), 0)
 
 export const lessonTypeLabel = (type) =>

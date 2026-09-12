@@ -10,8 +10,9 @@ import {
   KIND_INCOME, KIND_EXPENSE, KIND_SALARY, KIND_REFUND, KIND_DRAW, KIND_TRANSFER,
   kindMeta, YEAR_ALL,
   toJsDate, inPeriod, availableYears, documentNumber, sortTransactions,
-  incomeTotal, expenseTotal, salaryTotal, refundTotal, drawTotal, sumAmount,
+  incomeTotal, expenseTotal, salaryTotal, refundTotal, drawTotal,
   companyBalance, realizedProfit, accountTotals, categoryTotals,
+  chargesGross, bonusExpense,
 } from '../lib/finance'
 import { buildTransaction, transactionToForm } from '../lib/transaction'
 import { formToSubscriptionDoc, endDateFromWeeks } from '../lib/subscription'
@@ -545,10 +546,15 @@ export default function Finance() {
         gap: '12px', marginBottom: '24px',
       }}>
         <Metric label="Доходы" value={money(incomeTotal(periodTx))} color="#059669" pending={ledgerLoading} />
-        {/* Списано — то, что школа отработала. Прибыль считается от него, а не от
-            поступлений: абонемент платят разом, а зарабатывают по мере занятий. */}
-        <Metric label="Списано (занятия)" value={money(sumAmount(periodCharges))} color="#7c3aed" pending={ledgerLoading} />
+        {/* Списано — то, что школа отработала, по прайсу. Прибыль считается от него,
+            а не от поступлений: абонемент платят разом, а зарабатывают по мере
+            занятий. Бонусы из этой суммы не вычтены — они стоят отдельной
+            строкой расхода ниже, иначе не видно, во сколько обходятся приглашения. */}
+        <Metric label="Списано (занятия)" value={money(chargesGross(periodCharges))} color="#7c3aed" pending={ledgerLoading} />
         <Metric label="Расходы компании" value={money(expenseTotal(periodTx))} color="#dc2626" pending={ledgerLoading} />
+        {/* Бонусы за приглашённых — расход на привлечение. Кассу они не двигают:
+            школа отдаёт их занятиями, а не деньгами, но прибыль уменьшают. */}
+        <Metric label="Бонусы за приглашённых" value={money(bonusExpense(periodCharges))} color="#dc2626" pending={ledgerLoading} />
         <Metric label="Выплаты ЗП" value={money(salaryTotal(periodTx))} color="#dc2626" pending={ledgerLoading} />
         <Metric label="Возвраты клиентам" value={money(refundTotal(periodTx))} color="#dc2626" pending={ledgerLoading} />
         {/* Изъятия стоят рядом с прибылью: сколько школа заработала и сколько владелец забрал. */}

@@ -281,13 +281,17 @@ export default function LessonModal({
                                 placeholder="Питание"
                                 title="Сумма за питание"
                                 onChange={e => update(record.clientId, { amountMeal: e.target.value })} />
+                             {/* Списывают сколько нужно, а не весь остаток: в подсказке
+                                  ноль, а доступную сумму показывает всплывающая подпись. */}
                              {anyBonus && (
                                 <input type="text" inputMode="decimal"
                                   style={{ ...inputStyle, width: '100%', textAlign: 'right' }}
                                   value={record.amountBonus}
-                                  placeholder={bonusLeftBy[record.clientId] > 0 ? String(bonusLeftBy[record.clientId]) : '—'}
+                                  placeholder="0"
+                                  title={bonusLeftBy[record.clientId] > 0
+                                    ? `Есть ${bonusLeftBy[record.clientId].toLocaleString()} — можно списать часть`
+                                    : 'Бонусов нет'}
                                   disabled={!(bonusLeftBy[record.clientId] > 0)}
-                                  title="Сколько закрыть бонусами"
                                   onChange={e => update(record.clientId, { amountBonus: e.target.value })} />
                               )}
                               <input type="text"

@@ -279,7 +279,7 @@ export default function Lessons() {
     for (const charge of related) batch.delete(doc(db, 'charges', charge.id))
     // Бонусы помечены занятием и снимаются вместе с ним: и начисленные
     // пригласившему за визит, и потраченные на скидку. Иначе за отменённое
-    // занятие остались бы и подарок, и списанная скидка.
+    // занятие остались бы и начисление пригласившему, и списанный бонус.
     for (const row of bonusesOf(lessonId)) batch.delete(doc(db, 'bonuses', row.id))
     return related.length
   }

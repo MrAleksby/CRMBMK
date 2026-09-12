@@ -150,8 +150,10 @@ export default function LessonJournal({
              {bonusLeftBy[row.clientId] > 0 && (
                 <div>
                   <label style={fieldLabel}>Бонус (есть {bonusLeftBy[row.clientId].toLocaleString()})</label>
+                 {/* Списать можно любую часть остатка: сколько ввели, столько
+                      и уйдёт с бонусного счёта. Пусто — бонусы не тратим. */}
                   <input type="text" inputMode="decimal" style={inputStyle}
-                    placeholder="0" title="Сколько закрыть бонусами"
+                    placeholder="0" title="Сколько списать бонусами — можно часть"
                     value={row.amountBonus} onChange={e => update(row.clientId, { amountBonus: e.target.value })} />
                 </div>
               )}

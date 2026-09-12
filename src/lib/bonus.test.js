@@ -7,6 +7,7 @@ import {
   formToSubscriptionDoc, validateSubscriptionForm, emptySubscriptionForm,
 } from './subscription'
 import { perLessonPrice } from './directories'
+import { chargesGross, bonusExpense, realizedProfit } from './finance'
 
 // Бонус — право на скидку, а не деньги. Проверяем правило владельца:
 // первое проведённое занятие приглашённого даёт 50 000, каждое следующее 10 000.
@@ -159,8 +160,8 @@ describe('кого пригласил', () => {
 
 
 // Бонус при выдаче абонемента уменьшает не только оплату, но и цену пакета.
-// Иначе занятий будет на полную сумму, денег придёт меньше, и подаренное
-// вернётся к родителю долгом.
+// Иначе занятий будет на полную сумму, денег придёт меньше, и списанные бонусы
+// вернутся к родителю долгом.
 describe('бонус в абонементе', () => {
   const pkg = { id: 'p8', name: 'Пакет 8', lessonsCount: 8, price: 2_640_000 }
   const form = { startDate: '2026-01-01', endDate: '', note: '' }
@@ -207,5 +208,42 @@ describe('бонус в абонементе', () => {
     }
 
     expect(validateSubscriptionForm(payment, [pkg], true, 0)).toBe('Укажите сумму оплаты')
+  })
+})
+
+
+// Бонус — расход компании на привлечение: приглашённый приносит деньги,
+// пригласившему начисляют бонус, и прибыль падает на эту сумму. В отчёте
+// нужны обе величины: занятия по прайсу и сам расход.
+describe('бонус в отчёте', () => {
+  // Занятие стоило 300 000, 50 000 закрыли бонусом — на счёт ушло 250 000.
+  const charges = [{ amount: 250_000, amountBonus: 50_000 }, { amount: 300_000 }]
+
+  it('занятия показываются по прайсу', () => {
+    expect(chargesGross(charges)).toBe(600_000)
+  })
+
+  it('расход на бонусы виден отдельной строкой', () => {
+    expect(bonusExpense(charges)).toBe(50_000)
+  })
+
+  it('у занятий без бонусов расхода нет', () => {
+    expect(bonusExpense([{ amount: 300_000 }])).toBe(0)
+  })
+
+  it('прибыль = занятия по прайсу минус бонусы и расходы', () => {
+    const transactions = [
+      { kind: 'expense', amount: 100_000, date: '2026-01-01' },
+    ]
+
+    // 600 000 по прайсу − 50 000 бонусов − 100 000 расходов.
+    expect(realizedProfit(transactions, charges)).toBe(450_000)
+  })
+
+  it('разделение не меняет саму прибыль: она та же, что от фактических начислений', () => {
+    const transactions = [{ kind: 'expense', amount: 100_000, date: '2026-01-01' }]
+    const factual = charges.reduce((s, c) => s + c.amount, 0) - 100_000
+
+    expect(realizedProfit(transactions, charges)).toBe(factual)
   })
 })

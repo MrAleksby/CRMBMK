@@ -534,8 +534,8 @@ export default function ClientCard() {
       batch.set(doc(collection(db, 'transactions')),
        { ...paymentFromForm(form, id, client.childName, pkg?.name), createdAt: now })
 
-      // Бонусы — не деньги: в кассу идёт только оплаченная часть, а подаренное
-      // уходит с бонусного счёта и уже вычтено из цены абонемента.
+      // Бонусы — не деньги: в кассу идёт только оплаченная часть, а списанные
+      // бонусы уходят с бонусного счёта и уже вычтены из цены абонемента.
       if (bonus > 0) {
         batch.set(doc(collection(db, 'bonuses')), {
           kind: SPEND,
