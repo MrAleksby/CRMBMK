@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { clientBalances, debtAndPrepaid, effectiveBalances, walletBalances } from './balance'
-import { walletCharges, siblings, namesOf, sharedNote, wallets } from './family'
+import { walletCharges, siblings, namesOf, sharedNote, wallets, familyLabel } from './family'
+import { emptyClientForm, validateClientForm, LINK_FAMILY } from './client'
 import { activeSubscription, expectedPrice, lessonsLeft, formToSubscriptionDoc } from './subscription'
 import { debtors, prepaidClients } from './dashboard'
 
@@ -195,5 +196,37 @@ describe('списки дашборда', () => {
     const rows = prepaidClients(clients, [], balances, [], { today: '2026-06-01' })
 
     expect(rows.map(r => r.name)).toEqual(['Анна Иванова и Пётр Сидоров', 'Мария Петрова'])
+  })
+})
+
+
+// Названия у семьи нет намеренно: фамилии у брата и сестры бывают разными,
+// и «семья Ивановых» была бы неправдой. Подписываем именами детей.
+describe('как подписана семья', () => {
+  it('в строке ребёнка стоят имена остальных детей', () => {
+    expect(familyLabel(anna, clients)).toBe('Пётр Сидоров')
+    expect(familyLabel(petr, clients)).toBe('Анна Иванова')
+  })
+
+  it('у одиночки подписи нет', () => {
+    expect(familyLabel(maria, clients)).toBe('')
+  })
+
+  it('троих перечисляет через «и»', () => {
+    const third = { id: 'olga', childName: 'Ольга Иванова', familyId: 'f1' }
+    expect(familyLabel(anna, [...clients, third])).toBe('Пётр Сидоров и Ольга Иванова')
+  })
+})
+
+describe('связывание счёта', () => {
+  const form = () => ({ ...emptyClientForm(), childName: 'Пётр', mother: { ...emptyClientForm().mother, name: 'Мама' } })
+
+  it('нельзя связать счёт, не выбрав ученика', () => {
+    expect(validateClientForm({ ...form(), familyId: LINK_FAMILY }))
+      .toBe('Выберите ученика, с которым общий счёт')
+  })
+
+  it('выбран ученик — форма проходит', () => {
+    expect(validateClientForm({ ...form(), familyId: LINK_FAMILY, linkClientId: 'anna' })).toBe(null)
   })
 })

@@ -13,7 +13,7 @@ import Icon from '../components/Icon'
 import Avatar from '../components/Avatar'
 import { lessonsLeft } from '../lib/subscription'
 import { clientBalances, effectiveBalances, debtAndPrepaid } from '../lib/balance'
-import { walletCharges, sharedNote, siblings } from '../lib/family'
+import { walletCharges, sharedNote, siblings, familyLabel } from '../lib/family'
 import { ensureFamilyId } from '../lib/family-run'
 import { useSelection } from '../lib/selection'
 import { useIsMobile } from '../lib/useIsMobile'
@@ -31,7 +31,7 @@ const PAGE_SIZE = 50
 const COLUMNS = [
   { key: 'name', label: 'ФИО' },
   { key: 'balance', label: 'Общий остаток' },
-  { key: 'family', label: 'Семья' },
+  { key: 'family', label: 'Общий счёт с' },
   { key: 'status', label: 'Статус обучения' },
   { key: 'contacts', label: 'Контакты' },
   { key: 'notes', label: 'Примечание' },
@@ -168,10 +168,9 @@ export default function Clients() {
   const totals = useMemo(() => debtAndPrepaid(ownBalances, clients), [ownBalances, clients])
   const getBalance = (clientId) => balances.get(clientId) || 0
 
-  const familyName = useMemo(() => {
-    const byId = new Map(families.map(f => [f.id, f.name]))
-    return (client) => (client.familyId ? (byId.get(client.familyId) || 'Семья') : '')
-  }, [families])
+  // В колонке «Общий счёт с» стоят имена остальных детей семьи: у названия
+  // семьи смысла нет, фамилии у брата и сестры бывают разными.
+  const familyName = (client) => familyLabel(client, clients)
 
   // Сколько детей делят кошелёк — этим подписана сумма в строке.
   const familySize = (client) => (client.familyId ? siblings(client, clients).length + 1 : 1)
@@ -293,7 +292,7 @@ export default function Clients() {
   // Лиды держат карточку, но учениками не считаются.
   const clientsCount = clients.filter(c => (c.status || 'active') !== 'lead').length
   const filtered = sortClients(matching, sortKey, sortDir,
-    { balance: getBalance, family: familyName })
+    { balance: getBalance, family: (client) => client.familyId || '' })
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, pageCount)
@@ -353,6 +352,7 @@ export default function Clients() {
           saving={saving}
           legalEntities={legalEntities}
           families={families}
+          clients={clients}
           onSubmit={handleAddClient}
           onCancel={() => setShowAddClient(false)}
         />

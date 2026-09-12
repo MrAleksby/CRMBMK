@@ -55,6 +55,11 @@ export function familyOf(client, clients, families = []) {
 export const siblings = (client, clients) =>
   (client?.familyId ? clients.filter(c => c.familyId === client.familyId && c.id !== client.id) : [])
 
+// Как подписать семью в интерфейсе. Названия у неё нет: фамилия не годится,
+// у брата и сестры они бывают разными. Семья и есть её дети, поэтому
+// подписываем именами — в строке ребёнка именами остальных, в списках всеми.
+export const familyLabel = (client, clients) => namesOf(siblings(client, clients))
+
 // Имена через запятую: «Пётр Сидоров и Мария Сидорова».
 export function namesOf(list) {
   const names = list.map(c => c.childName || 'Без имени')

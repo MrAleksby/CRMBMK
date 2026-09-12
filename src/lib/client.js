@@ -90,9 +90,13 @@ export function whyKeepClient(client, history) {
 export const statusInfo = (client) =>
   CLIENT_STATUSES.find(s => s.value === (client.status || 'active')) ?? CLIENT_STATUSES[0]
 
-// Значение «завести новую семью» в выпадающем списке. Не id, а метка:
-// документа ещё нет, он создаётся при сохранении карточки.
-export const NEW_FAMILY = '__new__'
+// Значение «связать с учеником» в выпадающем списке. Не id семьи, а метка:
+// семьи ещё нет, она заводится при сохранении карточки.
+//
+// Названия у семьи нет намеренно. Фамилия не годится: у брата и сестры
+// они бывают разными, и «семья Ивановы» звучит неправдой. Семья и есть
+// её дети, поэтому везде она подписана их именами.
+export const LINK_FAMILY = '__link__'
 
 export const emptyClientForm = () => ({
   childName: '',
@@ -113,7 +117,8 @@ export const emptyClientForm = () => ({
   // Новую семью заводят прямо здесь, набрав название, — отдельного справочника
   // ради одной фамилии не нужно.
   familyId: '',
-  newFamilyName: '',
+  // С кем связываем счёт, когда семьи ещё нет: выбранный в списке ученик.
+  linkClientId: '',
 })
 
 // Дата рождения хранится строкой 'YYYY-MM-DD' — так её отдаёт <input type="date">
@@ -357,8 +362,8 @@ export function validateClientForm(form) {
     const price = Number(normalizeDecimal(form.lessonPrice))
     if (!Number.isFinite(price) || price < 0) return 'Цена занятия — неотрицательное число'
   }
-  if (form.familyId === NEW_FAMILY && !form.newFamilyName.trim()) {
-    return 'Назовите семью — например, по фамилии родителей'
+  if (form.familyId === LINK_FAMILY && !form.linkClientId) {
+    return 'Выберите ученика, с которым общий счёт'
   }
   if (form.payerType === 'legal' && !form.legalEntityId) {
     return 'Выберите юр. лицо или верните плательщика на родителей'

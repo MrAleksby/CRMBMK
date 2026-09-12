@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import {
-  GENDERS, SOURCES, MAX_PHONES, PAYER_TYPES, CLIENT_STATUSES, NEW_FAMILY,
+  GENDERS, SOURCES, MAX_PHONES, PAYER_TYPES, CLIENT_STATUSES, LINK_FAMILY,
   emptyClientForm, formToDoc, validateClientForm,
 } from '../lib/client'
+import { namesOf } from '../lib/family'
 
 const inputStyle = {
   background: '#f7f8fa',
@@ -101,13 +102,25 @@ function ParentFields({ title, icon, value, onChange }) {
 }
 
 export default function ClientForm({
-  initial, saving, onSubmit, onCancel, legalEntities = [], families = [],
+  initial, saving, onSubmit, onCancel, legalEntities = [],
+  families = [], clients = [], clientId = '',
 }) {
   const [form, setForm] = useState(initial || emptyClientForm())
   const [error, setError] = useState('')
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value })
   const today = new Date().toISOString().slice(0, 10)
+
+  // Существующие семьи подписаны именами своих детей: «Тамир и София».
+  // Пустых семей в списке нет — выбирать «семью из одного ребёнка» незачем.
+  const familyOptions = families
+    .map(f => ({ id: f.id, label: namesOf(clients.filter(c => c.familyId === f.id)) }))
+    .filter(f => f.label)
+
+  // Себя в список «с кем общий счёт» не предлагаем.
+  const others = clients
+    .filter(c => c.id !== clientId)
+    .sort((a, b) => String(a.childName || '').localeCompare(String(b.childName || ''), 'ru'))
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -118,13 +131,13 @@ export default function ClientForm({
     }
     setError('')
 
-    // Новой семьи в базе ещё нет: её документ создаёт страница, она же
-    // подставит id в карточку. Сюда возвращаем только название.
-    const isNew = form.familyId === NEW_FAMILY
+    // Семьи в базе ещё нет: её заводит страница и она же связывает второго
+    // ребёнка. Сюда возвращаем только того, с кем объединяем счёт.
+    const linking = form.familyId === LINK_FAMILY
     const doc = formToDoc(form)
     onSubmit(
-      { ...doc, familyId: isNew ? '' : doc.familyId },
-      { newFamilyName: isNew ? form.newFamilyName.trim() : '' },
+      { ...doc, familyId: linking ? '' : doc.familyId },
+      { linkClient: linking ? clients.find(c => c.id === form.linkClientId) : null },
     )
   }
 
@@ -192,18 +205,27 @@ export default function ClientForm({
           )}
         </div>
         <div style={{ ...grid, marginTop: '12px' }}>
-          <Field label="Семья (общий счёт)">
+          <Field label="Общий счёт">
             <select style={inputStyle} value={form.familyId}
               onChange={e => setForm({ ...form, familyId: e.target.value })}>
-              <option value="">Сам по себе</option>
-             {families.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-              <option value={NEW_FAMILY}>+ Новая семья…</option>
+              <option value="">Свой счёт</option>
+             {/* Семья названия не имеет: у брата и сестры бывают разные фамилии.
+                  Подписываем её именами детей — это и есть семья. */}
+             {familyOptions.map(f => (
+                <option key={f.id} value={f.id}>{f.label}</option>
+              ))}
+              <option value={LINK_FAMILY}>+ Связать с учеником…</option>
             </select>
           </Field>
-         {form.familyId === NEW_FAMILY && (
-            <Field label="Название семьи">
-              <input style={inputStyle} value={form.newFamilyName}
-                onChange={set('newFamilyName')} placeholder="Например, Ивановы" />
+         {form.familyId === LINK_FAMILY && (
+            <Field label="С кем общий счёт">
+              <select style={inputStyle} value={form.linkClientId}
+                onChange={e => setForm({ ...form, linkClientId: e.target.value })}>
+                <option value="">Выберите ученика</option>
+               {others.map(c => (
+                  <option key={c.id} value={c.id}>{c.childName}</option>
+                ))}
+              </select>
             </Field>
           )}
         </div>

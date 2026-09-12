@@ -401,6 +401,7 @@ export default function Leads() {
   // Семьи нужны при конверсии: второй ребёнок той же семьи заводится сразу
   // с общим кошельком, а не «потом не забыть привязать».
   const [families, setFamilies] = useState([])
+  const [clients, setClients] = useState([])
   const [accounts, setAccounts] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
@@ -422,18 +423,23 @@ export default function Leads() {
     if (force) invalidate()
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [ls, ts, les, acc, cat, fam] = await Promise.all([
+      const [ls, ts, les, acc, cat, fam, cls] = await Promise.all([
         readCollection('leads', { force }),
         readCollection('teachers', { force }),
         readCollection('legalEntities', { force }),
         readCollection('accounts', { force }),
         readCollection('categories', { force }),
         readCollection('families', { force }),
+        // Ученики нужны при конверсии: из них выбирают брата или сестру,
+        // с которыми у новичка общий счёт. Подписка общая со «Клиентами»,
+        // так что второй раз коллекция не выкачивается.
+        readCollection('clients', { force }),
       ])
       setLeads(ls)
       setStaff(ts.filter(s => s.active !== false))
       setLegalEntities(les)
       setFamilies(fam)
+      setClients(cls)
       setAccounts(acc.filter(a => a.active !== false))
       setCategories(cat.filter(c => c.kind === 'income' && c.active !== false))
     } catch (e) {
@@ -936,6 +942,7 @@ export default function Leads() {
               saving={saving}
               legalEntities={legalEntities}
               families={families}
+              clients={clients}
               onSubmit={handleConvert}
               onCancel={() => setMode('view')}
             />

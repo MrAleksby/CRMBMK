@@ -76,15 +76,16 @@ service cloud.firestore {
     }
 
     // --- families: общий кошелёк нескольких детей ---
-    // Семья — это только название; деньги лежат в transactions и charges,
-    // связь даёт поле familyId в карточке ребёнка. Заводит её менеджер прямо
-    // в карточке, поэтому здесь canManage, а не isAdmin, как у справочников.
+    // Сама по себе семья пустая: это только узел, к которому карточки детей
+    // привязаны полем familyId. Деньги лежат в transactions и charges.
+    // Названия у неё может не быть вовсе — у брата и сестры бывают разные
+    // фамилии, поэтому в интерфейсе семья подписана именами своих детей.
+    // Заводит её менеджер прямо в карточке — отсюда canManage.
     match /families/{id} {
       allow read: if isAllowed();
       allow delete: if canManage();
       allow create, update: if canManage()
         && request.resource.data.name is string
-        && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 200;
     }
 

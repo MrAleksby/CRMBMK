@@ -277,7 +277,7 @@ export default function ClientCard() {
   const balance = family.length > 0
     ? (effectiveBalances(clientBalances(allTransactions, allCharges), allClients).get(id) || 0)
     : ownBalance
-  const familyName = families.find(f => f.id === client?.familyId)?.name || ''
+
   const periodEntries = entries.filter(e => inMonth(e, filterMonth, filterYear))
   const incomeCount = transactions.filter(t => t.kind === KIND_INCOME).length
   const lessonsDone = charges.reduce((sum, c) => sum + (c.lessons || 0), 0)
@@ -604,6 +604,8 @@ export default function ClientCard() {
           saving={saving}
           legalEntities={legalEntities}
           families={families}
+          clients={allClients}
+          clientId={id}
           onSubmit={handleUpdate}
           onCancel={() => setEditing(false)}
         />
@@ -940,7 +942,7 @@ export default function ClientCard() {
               background: '#f7f8fa', border: '1px solid #f3f4f6', borderRadius: '10px',
               padding: '8px 10px', marginTop: '8px', fontSize: '12px', color: '#4b5563',
             }}>
-              Общий счёт{familyName ? ` семьи ${familyName}` : ''}: вместе с{' '}
+              Общий счёт вместе с{' '}
              {family.map((sibling, i) => (
                 <span key={sibling.id}>
                  {i > 0 && ', '}
