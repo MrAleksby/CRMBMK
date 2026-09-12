@@ -79,8 +79,18 @@ export default function LessonModal({
   }
 
   // Проведённое занятие показываем как есть, запланированное — как журнал.
+  //
+  // `attendanceToRow` готовит строку для полей ввода: суммы там строками,
+  // в «Занятии» и «Питании», а итога `amountCharged` в ней нет вовсе. Показать
+  // списание по такой строке нельзя — она про ввод, а не про готовую запись.
+  // Именно так окно и потеряло суммы: у проведённого занятия против каждого
+  // ученика стояло «не списано», хотя деньги списаны и итог внизу верный.
+  // Поэтому итог берём из самой записи журнала, а не из строки формы.
   const displayRows = conducted
-    ? (lesson.attendance || []).map(a => attendanceToRow(a))
+    ? (lesson.attendance || []).map(a => ({
+        ...attendanceToRow(a),
+        amountCharged: a.amountCharged || 0,
+      }))
     : rows
 
   const total = conducted
@@ -198,9 +208,23 @@ export default function LessonModal({
                        {!readOnly && (
                         <td style={{ padding: '8px 0', textAlign: 'right' }}>
                          {conducted ? (
-                            <span style={{ color: record.amountCharged > 0 ? '#dc2626' : '#9ca3af' }}>
-                             {record.amountCharged > 0 ? `−${record.amountCharged.toLocaleString()} сум` : 'не списано'}
-                            </span>
+                            <div>
+                              <span style={{ color: record.amountCharged > 0 ? '#dc2626' : '#9ca3af' }}>
+                               {record.amountCharged > 0 ? `−${record.amountCharged.toLocaleString()} сум` : 'не списано'}
+                              </span>
+                             {/* Разбивка и комментарий — справкой, как в журнале.
+                                  У занятий до разделения питания нет вовсе: тогда
+                                  строки не будет, а не «питание 0». */}
+                             {record.amountMeal !== '' && (
+                                <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                  занятие {Number(record.amountLesson || 0).toLocaleString()}
+                                  {' '}· питание {Number(record.amountMeal || 0).toLocaleString()}
+                                </div>
+                              )}
+                             {record.comment && (
+                                <div style={{ fontSize: '12px', color: '#6b7280' }}>{record.comment}</div>
+                              )}
+                            </div>
                           ) : (
                             // Сумма делится на занятие и питание — те же поля, что и в
                             // журнале на странице «Уроки». Раньше здесь стояло одно поле

@@ -102,3 +102,58 @@ describe('окно занятия: ввод сумм', () => {
     expect(document.body.textContent).toContain('Боря')
   })
 })
+
+// Проведённое занятие: окно должно показывать списанное, а не «не списано».
+//
+// 12 сентября 2026 владелец открыл проведённый урок — из календаря и по плитке
+// в карточке ученика — и против каждого ребёнка увидел «не списано», хотя
+// деньги списаны и итог внизу верный. Причина: строку рисовали через
+// `attendanceToRow`, а она готовит поля ввода и итога `amountCharged` не несёт.
+describe('окно занятия: проведённое', () => {
+  const conducted = {
+    ...lesson,
+    status: 'conducted',
+    attendance: [
+      { clientId: 'a', clientName: 'Аня', status: 'present', amountCharged: 320000, amountLesson: 300000, amountMeal: 20000, comment: 'добавка' },
+      { clientId: 'b', clientName: 'Боря', status: 'absent', amountCharged: 0, comment: '' },
+    ],
+  }
+
+  const textOf = (name) => screen.getByText(name).closest('tr').textContent.replace(/[\s, ]/g, '')
+
+  it('у ученика стоит списанная сумма, а не «не списано»', () => {
+    show({ lesson: conducted })
+
+    expect(textOf('Аня')).toContain('320000')
+    expect(textOf('Аня')).not.toContain('несписано')
+  })
+
+  it('разбивка и комментарий видны справкой', () => {
+    show({ lesson: conducted })
+
+    expect(textOf('Аня')).toContain('питание20000')
+    expect(textOf('Аня')).toContain('добавка')
+  })
+
+  it('прощённый пропуск так и помечен', () => {
+    show({ lesson: conducted })
+
+    expect(textOf('Боря')).toContain('несписано')
+  })
+
+  it('у занятия без разбивки строки про питание нет — это не «питание 0»', () => {
+    show({ lesson: { ...conducted, attendance: [
+      { clientId: 'a', clientName: 'Аня', status: 'present', amountCharged: 320000 },
+    ] } })
+
+    expect(textOf('Аня')).toContain('320000')
+    expect(textOf('Аня')).not.toContain('питание')
+  })
+
+  it('итог внизу сходится с суммами в строках', () => {
+    show({ lesson: conducted })
+
+    const shown = document.body.textContent.replace(/[\s, ]/g, '')
+    expect(shown).toContain('Списано:320000сум')
+  })
+})
