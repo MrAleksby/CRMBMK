@@ -263,23 +263,37 @@ export default function ClientCard() {
   // Чужая правка приходит подпиской — перекладываем её в состояние страницы.
   useLiveRefresh(fetchData)
 
-  // Лента лицевого счёта: оплаты и начисления за занятия вперемешку, свежие сверху.
-  const entries = [
-    ...transactions.map(t => ({ ...t, _charge: false })),
-    ...charges.map(c => ({ ...c, _charge: true })),
-  ].sort((a, b) => (toJsDate(b.date)?.getTime() || 0) - (toJsDate(a.date)?.getTime() || 0))
-
   // Личный баланс ребёнка и баланс его кошелька. У семьи деньги общие: пакет
-  // на двоих не делится заранее, а тратится по факту занятий. Поэтому показываем
-  // счёт семьи, а свои списания ребёнка видно ниже, в ленте.
+  // на двоих не делится заранее, а тратится по факту занятий.
   const ownBalance = clientBalance(transactions, charges, id)
   const family = client?.familyId ? siblings(client, allClients) : []
   const balance = family.length > 0
     ? (effectiveBalances(clientBalances(allTransactions, allCharges), allClients).get(id) || 0)
     : ownBalance
 
+  // Лента лицевого счёта: оплаты и начисления за занятия вперемешку, свежие сверху.
+  //
+  // У семьи лента общая, как и счёт. Показывать здесь только свои движения
+  // нельзя: наверху стоит остаток семьи, и под ним лежали бы записи, из которых
+  // он не складывается — «оплату приняла, а в карточке её нет». Чужие строки
+  // подписаны именем того ребёнка, к которому относятся.
+  const familyIds = [id, ...family.map(c => c.id)]
+  const whoseName = (clientId) => (clientId === id
+    ? ''
+    : (allClients.find(c => c.id === clientId)?.childName || ''))
+
+  const mine = family.length === 0
+  const entries = [
+    ...(mine ? transactions : allTransactions.filter(t => familyIds.includes(t.clientId)))
+      .map(t => ({ ...t, _charge: false, _who: whoseName(t.clientId) })),
+    ...(mine ? charges : allCharges.filter(c => familyIds.includes(c.clientId)))
+      .map(c => ({ ...c, _charge: true, _who: whoseName(c.clientId) })),
+  ].sort((a, b) => (toJsDate(b.date)?.getTime() || 0) - (toJsDate(a.date)?.getTime() || 0))
+
   const periodEntries = entries.filter(e => inMonth(e, filterMonth, filterYear))
-  const incomeCount = transactions.filter(t => t.kind === KIND_INCOME).length
+  // Платежи считаем по тому же кругу, что и лента: у семьи счёт общий, и «13
+  // платежей» рядом с общим остатком означали бы разное в разных карточках.
+  const incomeCount = entries.filter(e => !e._charge && e.kind === KIND_INCOME).length
   const lessonsDone = charges.reduce((sum, c) => sum + (c.lessons || 0), 0)
   const myLessons = lessons.filter(l => (l.studentIds || []).includes(id))
 
@@ -763,9 +777,16 @@ export default function ClientCard() {
          {manages && (
           <div style={panel}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', gap: '10px', flexWrap: 'wrap' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#111827', margin: 0 }}>
-                Уроки и оплаты
-              </h3>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#111827', margin: 0 }}>
+                  Уроки и оплаты
+                </h3>
+               {family.length > 0 && (
+                  <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0' }}>
+                    Счёт общий, поэтому показаны движения всей семьи
+                  </p>
+                )}
+              </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <select style={{ ...inputStyle, width: '120px' }} value={filterMonth} onChange={e => setFilterMonth(e.target.value)}>
                   <option value="all">Все месяцы</option>
@@ -875,6 +896,10 @@ export default function ClientCard() {
                         ) : (
                           <span style={chip('#dcfce7', '#059669')}>Оплата</span>
                         )}
+                       {/* Чья это запись. У своих подписи нет — карточка и так его. */}
+                       {entry._who && (
+                          <span style={chip('#ede9fe', '#7c3aed')}>{entry._who}</span>
+                        )}
                        {note && <span style={{ fontSize: '12px', color: '#6b7280' }}>{note}</span>}
                        {/* Разбивка показывается справкой, отдельно от суммы: на балансе
                             и в расчётах участвует только итог. У списаний, сделанных
@@ -959,7 +984,7 @@ export default function ClientCard() {
 
           <div style={{ borderTop: '1px solid #f3f4f6', marginTop: '9px', paddingTop: '2px' }}>
             <SummaryRow label="ID">#{client.id.slice(0, 6)}</SummaryRow>
-            <SummaryRow label="Платежи">{incomeCount} шт</SummaryRow>
+            <SummaryRow label={family.length > 0 ? 'Платежи семьи' : 'Платежи'}>{incomeCount} шт</SummaryRow>
            {/* В AlfaCRM это было «п 1 / ф 14» — расшифровку никто не помнил.
                 Будущие занятия видны ниже, в блоке «Ближайшие занятия». */}
             <SummaryRow label="Проведено занятий">{lessonsDone}</SummaryRow>
