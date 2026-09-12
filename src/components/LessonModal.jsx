@@ -4,6 +4,7 @@ import StudentChecklist from './StudentChecklist'
 import { LESSON_STATUSES } from '../lib/group'
 import { buildJournal, journalTotal, validateJournal, lessonTypeLabel, formatLessonDate, attendanceToRow } from '../lib/lesson'
 import { durationMinutes } from '../lib/calendar'
+import { toAmount } from '../lib/amount'
 
 const overlay = {
   position: 'fixed', inset: 0, background: 'rgba(17, 24, 39, 0.45)',
@@ -44,6 +45,15 @@ const ghostBtn = {
 }
 
 const notSet = { color: '#dc2626', fontStyle: 'italic' }
+
+// Занятие · Питание · Комментарий. Одна сетка на шапку, на поля ввода и на
+// проведённое занятие: развели бы их по разным местам — подписи разъехались бы
+// со значениями, а именно за этим сюда и смотрят.
+const moneyGrid = { display: 'grid', gridTemplateColumns: '1fr 1fr 1.4fr', gap: '6px' }
+
+// В строке журнала суммы лежат строками — это поля ввода. Для показа их нужно
+// вернуть в числа: пустое поле значит «не вводили», а не ноль.
+const money = (value) => toAmount(value) ?? 0
 
 // `readOnly` — карточка глазами педагога: состав и кто был, но ни сумм, ни
 // балансов, ни кнопок. Списание — это деньги, их вводит менеджер.
@@ -174,8 +184,12 @@ export default function LessonModal({
                       Состояние клиента
                     </th>
                    {!readOnly && (
-                      <th style={{ textAlign: 'right', padding: '6px 0', color: '#6b7280', fontSize: '12px', fontWeight: '600', width: '340px' }}>
-                        Занятие · Питание · Комментарий
+                      <th style={{ padding: '6px 0', color: '#6b7280', fontSize: '12px', fontWeight: '600', width: '340px' }}>
+                        <div style={moneyGrid}>
+                          <span style={{ textAlign: 'right' }}>Занятие</span>
+                          <span style={{ textAlign: 'right' }}>Питание</span>
+                          <span style={{ textAlign: 'left' }}>Комментарий</span>
+                        </div>
                       </th>
                     )}
                   </tr>
@@ -208,22 +222,24 @@ export default function LessonModal({
                        {!readOnly && (
                         <td style={{ padding: '8px 0', textAlign: 'right' }}>
                          {conducted ? (
-                            <div>
-                              <span style={{ color: record.amountCharged > 0 ? '#dc2626' : '#9ca3af' }}>
-                               {record.amountCharged > 0 ? `−${record.amountCharged.toLocaleString()} сум` : 'не списано'}
+                            // Проведённое читают по тем же трём колонкам, что и
+                            // заполняют. У занятий до разделения питания нет вовсе:
+                            // там прочерк, а не «питание 0» — цифры, которой никто
+                            // не вводил, в отчёте быть не должно.
+                            <div style={{ ...moneyGrid, alignItems: 'center' }}>
+                              <span style={{ textAlign: 'right', color: money(record.amountLesson) > 0 ? '#dc2626' : '#9ca3af' }}>
+                               {money(record.amountLesson) > 0 ? money(record.amountLesson).toLocaleString() : '—'}
                               </span>
-                             {/* Разбивка и комментарий — справкой, как в журнале.
-                                  У занятий до разделения питания нет вовсе: тогда
-                                  строки не будет, а не «питание 0». */}
-                             {record.amountMeal !== '' && (
-                                <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                                  занятие {Number(record.amountLesson || 0).toLocaleString()}
-                                  {' '}· питание {Number(record.amountMeal || 0).toLocaleString()}
-                                </div>
-                              )}
-                             {record.comment && (
-                                <div style={{ fontSize: '12px', color: '#6b7280' }}>{record.comment}</div>
-                              )}
+                              <span style={{ textAlign: 'right', color: money(record.amountMeal) > 0 ? '#dc2626' : '#9ca3af' }}>
+                               {money(record.amountMeal) > 0 ? money(record.amountMeal).toLocaleString() : '—'}
+                              </span>
+                             {/* В колонке комментария — только комментарий. Прощённый
+                                  пропуск читается по прочеркам в суммах и снятой галочке;
+                                  подписывать его словами здесь значило бы снова
+                                  поставить значение не под свою подпись. */}
+                              <span style={{ textAlign: 'left', fontSize: '12px', color: '#6b7280' }}>
+                               {record.comment}
+                              </span>
                             </div>
                           ) : (
                             // Сумма делится на занятие и питание — те же поля, что и в

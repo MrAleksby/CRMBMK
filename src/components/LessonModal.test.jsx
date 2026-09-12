@@ -119,41 +119,59 @@ describe('окно занятия: проведённое', () => {
     ],
   }
 
-  const textOf = (name) => screen.getByText(name).closest('tr').textContent.replace(/[\s, ]/g, '')
+  const textOf = (name) => screen.getByText(name).closest('tr').textContent.replace(/[\s,\u00a0]/g, '')
 
-  it('у ученика стоит списанная сумма, а не «не списано»', () => {
+  // Три колонки строки: занятие, питание, комментарий.
+  const cellsOf = (name) => [...screen.getByText(name).closest('tr')
+    .querySelectorAll('td:last-child > div > span')]
+    .map(el => el.textContent.replace(/[\s,\u00a0]/g, ''))
+
+  it('у ученика стоят списанные суммы, а не «не списано»', () => {
     show({ lesson: conducted })
 
-    expect(textOf('Аня')).toContain('320000')
+    expect(textOf('Аня')).toContain('300000')
     expect(textOf('Аня')).not.toContain('несписано')
   })
 
-  it('разбивка и комментарий видны справкой', () => {
+  it('занятие, питание и комментарий стоят каждое в своей колонке', () => {
     show({ lesson: conducted })
+    const cells = cellsOf('Аня')
 
-    expect(textOf('Аня')).toContain('питание20000')
-    expect(textOf('Аня')).toContain('добавка')
+    expect(cells[0]).toBe('300000')
+    expect(cells[1]).toBe('20000')
+    expect(cells[2]).toBe('добавка')
   })
 
-  it('прощённый пропуск так и помечен', () => {
+  it('у прощённого пропуска прочерки в обеих суммах', () => {
     show({ lesson: conducted })
+    const cells = cellsOf('Боря')
 
-    expect(textOf('Боря')).toContain('несписано')
+    expect(cells[0]).toBe('—')
+    expect(cells[1]).toBe('—')
+    expect(cells[2]).toBe('')
   })
 
-  it('у занятия без разбивки строки про питание нет — это не «питание 0»', () => {
+  it('у занятия без разбивки в питании прочерк, а не ноль', () => {
     show({ lesson: { ...conducted, attendance: [
       { clientId: 'a', clientName: 'Аня', status: 'present', amountCharged: 320000 },
     ] } })
+    const cells = cellsOf('Аня')
 
-    expect(textOf('Аня')).toContain('320000')
-    expect(textOf('Аня')).not.toContain('питание')
+    expect(cells[0]).toBe('320000')
+    expect(cells[1]).toBe('—')
+  })
+
+  it('подписи колонок стоят в том же порядке, что и значения', () => {
+    show({ lesson: conducted })
+    const head = [...document.querySelectorAll('thead th')].at(-1).textContent
+
+    expect(head).toBe('ЗанятиеПитаниеКомментарий')
   })
 
   it('итог внизу сходится с суммами в строках', () => {
     show({ lesson: conducted })
 
-    const shown = document.body.textContent.replace(/[\s, ]/g, '')
+    const shown = document.body.textContent.replace(/[\s,\u00a0]/g, '')
     expect(shown).toContain('Списано:320000сум')
   })
 })
