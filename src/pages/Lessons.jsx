@@ -17,7 +17,8 @@ import LessonModal from '../components/LessonModal'
 import { LESSON_STATUSES, todayISO } from '../lib/group'
 import { buildJournal, journalToAttendance, lessonTypeLabel, formatLessonDate, planAttendanceUpdate, splitFields } from '../lib/lesson'
 import { activeSubscription, lessonsLeft } from '../lib/subscription'
-import { clientBalances } from '../lib/balance'
+import { clientBalances, effectiveBalances } from '../lib/balance'
+import { walletCharges } from '../lib/family'
 import { downloadCsv } from '../lib/export'
 import { useIsMobile } from '../lib/useIsMobile'
 
@@ -354,7 +355,10 @@ export default function Lessons() {
   const today = todayISO()
 
   // Баланс ученика: нужен в модалке, чтобы должники были видны красным.
-  const balances = Object.fromEntries(clientBalances(transactions, charges))
+  // У детей одной семьи кошелёк общий — иначе ребёнок, за которого платит брат,
+  // всё занятие светился бы должником.
+  const balances = Object.fromEntries(
+    effectiveBalances(clientBalances(transactions, charges), clients))
 
   const modalLesson = lessons.find(l => l.id === modalId) || null
 
@@ -365,8 +369,11 @@ export default function Lessons() {
 
   const lessonsLeftBy = {}
   for (const client of clients) {
+    // Деньги общие — значит и непокрытые занятия ищем среди занятий всей семьи.
+    const own = chargesBy[client.id] || []
     lessonsLeftBy[client.id] = lessonsLeft(
-      subscriptions, client.id, balances[client.id] || 0, chargesBy[client.id] || [], client)
+      subscriptions, client.id, balances[client.id] || 0,
+      client.familyId ? walletCharges(client, clients, charges) : own, client)
   }
 
   const query = search.trim().toLowerCase()

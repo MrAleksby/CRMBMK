@@ -9,6 +9,7 @@
 import { todayISO, toISO, LESSON_STATUSES } from './group.js'
 import { lessonsLeft, clientSubscriptions } from './subscription.js'
 import { isLeadClient } from './client.js'
+import { walletKey, walletCharges, namesOf } from './family.js'
 import { KIND_INCOME, toJsDate } from './finance.js'
 
 // Занятия выбранного дня, по времени начала. Отменённые не показываем:
@@ -24,10 +25,25 @@ export const lessonStatusInfo = (lesson) =>
 
 // Должники: баланс минусовой — значит за проведённые занятия не заплачено.
 // Лиды сюда не попадают, у них истории нет.
+//
+// Баланс сюда приходит уже по кошелькам (у детей одной семьи он общий), поэтому
+// строки склеиваем по кошельку: иначе один долг семьи занял бы в списке две
+// строки с одинаковой суммой, и на дашборде читался бы как двойной.
 export function debtors(clients, balances, limit = 6) {
-  return clients
-    .filter(c => !isLeadClient(c) && (balances.get(c.id) || 0) < 0)
-    .map(c => ({ client: c, balance: balances.get(c.id) || 0 }))
+  const byWallet = new Map()
+
+  for (const client of clients) {
+    if (isLeadClient(client)) continue
+    const balance = balances.get(client.id) || 0
+    if (balance >= 0) continue
+
+    const key = walletKey(client)
+    if (byWallet.has(key)) byWallet.get(key).family.push(client)
+    else byWallet.set(key, { client, balance, family: [client] })
+  }
+
+  return [...byWallet.values()]
+    .map(row => ({ ...row, name: namesOf(row.family) }))
     .sort((a, b) => a.balance - b.balance)
     .slice(0, limit)
 }
@@ -38,7 +54,7 @@ export function prepaidClients(clients, subscriptions, balances, charges, {
   today = todayISO(),
   limit = 6,
 } = {}) {
-  const rows = []
+  const byWallet = new Map()
 
   for (const client of clients) {
     if (isLeadClient(client)) continue
@@ -46,14 +62,26 @@ export function prepaidClients(clients, subscriptions, balances, charges, {
     const balance = balances.get(client.id) || 0
     if (balance <= 0) continue
 
+    // Общий кошелёк семьи — одна строка на всех: деньги одни и те же.
+    const key = walletKey(client)
+    if (byWallet.has(key)) {
+      byWallet.get(key).family.push(client)
+      continue
+    }
+
     const subs = clientSubscriptions(subscriptions, client.id)
-    const clientCharges = charges.filter(ch => ch.clientId === client.id)
+    const clientCharges = client.familyId
+      ? walletCharges(client, clients, charges)
+      : charges.filter(ch => ch.clientId === client.id)
     const left = lessonsLeft(subs, client.id, balance, clientCharges, client, today)
 
-    rows.push({ client, balance, lessonsLeft: left })
+    byWallet.set(key, { client, balance, lessonsLeft: left, family: [client] })
   }
 
-  return rows.sort((a, b) => b.balance - a.balance).slice(0, limit)
+  return [...byWallet.values()]
+    .map(row => ({ ...row, name: namesOf(row.family) }))
+    .sort((a, b) => b.balance - a.balance)
+    .slice(0, limit)
 }
 
 // Поступления в кассу за период. Только доходы: расходы и зарплаты — не то,

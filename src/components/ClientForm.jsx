@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  GENDERS, SOURCES, MAX_PHONES, PAYER_TYPES, CLIENT_STATUSES,
+  GENDERS, SOURCES, MAX_PHONES, PAYER_TYPES, CLIENT_STATUSES, NEW_FAMILY,
   emptyClientForm, formToDoc, validateClientForm,
 } from '../lib/client'
 
@@ -100,7 +100,9 @@ function ParentFields({ title, icon, value, onChange }) {
   )
 }
 
-export default function ClientForm({ initial, saving, onSubmit, onCancel, legalEntities = [] }) {
+export default function ClientForm({
+  initial, saving, onSubmit, onCancel, legalEntities = [], families = [],
+}) {
   const [form, setForm] = useState(initial || emptyClientForm())
   const [error, setError] = useState('')
 
@@ -115,7 +117,15 @@ export default function ClientForm({ initial, saving, onSubmit, onCancel, legalE
       return
     }
     setError('')
-    onSubmit(formToDoc(form))
+
+    // Новой семьи в базе ещё нет: её документ создаёт страница, она же
+    // подставит id в карточку. Сюда возвращаем только название.
+    const isNew = form.familyId === NEW_FAMILY
+    const doc = formToDoc(form)
+    onSubmit(
+      { ...doc, familyId: isNew ? '' : doc.familyId },
+      { newFamilyName: isNew ? form.newFamilyName.trim() : '' },
+    )
   }
 
   return (
@@ -181,8 +191,31 @@ export default function ClientForm({ initial, saving, onSubmit, onCancel, legalE
             </Field>
           )}
         </div>
+        <div style={{ ...grid, marginTop: '12px' }}>
+          <Field label="Семья (общий счёт)">
+            <select style={inputStyle} value={form.familyId}
+              onChange={e => setForm({ ...form, familyId: e.target.value })}>
+              <option value="">Сам по себе</option>
+             {families.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+              <option value={NEW_FAMILY}>+ Новая семья…</option>
+            </select>
+          </Field>
+         {form.familyId === NEW_FAMILY && (
+            <Field label="Название семьи">
+              <input style={inputStyle} value={form.newFamilyName}
+                onChange={set('newFamilyName')} placeholder="Например, Ивановы" />
+            </Field>
+          )}
+        </div>
         <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '10px' }}>
           Цена подставится в журнал занятий. Если не задана — сумму введёт менеджер вручную.
+        </p>
+       {/* Общий счёт нужен ровно для того, чтобы не делить пакет заранее:
+            деньги семьи тратятся по факту занятий, кто ходил чаще — за того
+            и списано больше. Переписывать оплаты задним числом не приходится. */}
+        <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '6px' }}>
+          У детей одной семьи общий кошелёк: пакет на двоих делить не нужно.
+          Оплата остаётся одной операцией, а занятия и списания у каждого свои.
         </p>
       </div>
 

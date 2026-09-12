@@ -14,6 +14,7 @@ const labelStyle = { fontSize: '11px', color: '#6b7280', display: 'block', margi
 
 export default function SubscriptionForm({
   initial, packages, accounts = [], incomeCategories = [], saving, onSubmit, onCancel,
+  family = [],
 }) {
   const [form, setForm] = useState(initial || emptySubscriptionForm)
   const [error, setError] = useState('')
@@ -63,6 +64,10 @@ export default function SubscriptionForm({
     setError('')
     onSubmit(form, chosen)
   }
+
+  // Семья есть только у детей с братьями и сёстрами в базе — остальным
+  // галочка ни к чему и не показывается.
+  const canShare = family.length > 0
 
   if (options.length === 0) {
     return (
@@ -114,6 +119,24 @@ export default function SubscriptionForm({
         <input style={inputStyle} value={form.note} onChange={set('note')}
           placeholder="Любое текстовое примечание" />
       </div>
+
+     {/* Пакет на двоих детей. Делить его заранее не нужно: цена занятия
+          действует на обоих, а деньги семьи тратятся по факту занятий. */}
+     {canShare && (
+        <label style={{
+          display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px',
+          fontSize: '12px', color: '#4b5563', cursor: 'pointer',
+        }}>
+          <input type="checkbox" checked={Boolean(form.shared)}
+            onChange={e => setForm({ ...form, shared: e.target.checked })} />
+          <span>
+            Общий пакет семьи
+            <span style={{ color: '#6b7280' }}>
+              {' '}— цена занятия будет действовать и на {family.map(c => c.childName).join(', ')}
+            </span>
+          </span>
+        </label>
+      )}
 
      {/* Оплата за абонемент. За него всегда платят при выдаче: одно нажатие
           создаёт и абонемент, и доход. При правке этого блока нет. */}

@@ -87,6 +87,20 @@ export const DIRECTORIES = [
     columns: ['name', 'role', 'phone', 'telegram', 'rate'],
   },
   {
+    key: 'families',
+    label: 'Семьи',
+    iconName: 'groups',
+    itemName: 'семью',
+    hint: 'Семья — общий кошелёк нескольких детей: пакет на двоих не нужно делить, ' +
+      'деньги тратятся по факту занятий. Привязывают ребёнка к семье в его карточке. ' +
+      'Удаление семьи здесь не разъединит детей — уберите семью в карточке каждого.',
+    fields: [
+      { key: 'name', label: 'Название', type: FIELD_TEXT, required: true },
+      { key: 'note', label: 'Примечание', type: FIELD_TEXT },
+    ],
+    columns: ['name', 'note'],
+  },
+  {
     key: 'packages',
     label: 'Абонементы',
     iconName: 'ticket',

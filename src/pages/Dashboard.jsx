@@ -7,7 +7,7 @@ import { useLiveRefresh } from '../lib/useLiveRefresh'
 import ErrorBanner from '../components/ErrorBanner'
 import Icon from '../components/Icon'
 import Avatar from '../components/Avatar'
-import { clientBalances, debtAndPrepaid } from '../lib/balance'
+import { clientBalances, debtAndPrepaid, effectiveBalances } from '../lib/balance'
 import { ageLabel, lessonsLabel, plural } from '../lib/client'
 import { lessonStudentNames, lessonTypeLabel, isTrial } from '../lib/lesson'
 import { todayISO } from '../lib/group'
@@ -86,7 +86,11 @@ export default function Dashboard() {
   // Чужая правка приходит подпиской — перекладываем её в состояние страницы.
   useLiveRefresh(fetchData)
 
-  const balances = useMemo(() => clientBalances(transactions, charges), [transactions, charges])
+  // У детей одной семьи кошелёк общий: показываем и считаем деньги семьи,
+  // а в списках такая семья занимает одну строку, а не по строке на ребёнка.
+  const balances = useMemo(
+    () => effectiveBalances(clientBalances(transactions, charges), clients),
+    [transactions, charges, clients])
 
   const todayLessons = useMemo(() => lessonsOfDay(lessons, today), [lessons, today])
   const debtorRows = useMemo(() => pickDebtors(clients, balances), [clients, balances])
@@ -99,7 +103,8 @@ export default function Dashboard() {
   const incomeMonth = useMemo(
     () => incomeBetween(transactions, monthStartISO(today), today), [transactions, today])
 
-  const { debt: totalDebt, prepaid: totalPrepaid } = debtAndPrepaid(balances)
+  const { debt: totalDebt, prepaid: totalPrepaid } =
+    debtAndPrepaid(clientBalances(transactions, charges), clients)
   const teacherName = (id) => teachers.find(t => t.id === id)?.name || ''
 
   if (loading) return <div style={{ color: '#6b7280', padding: '32px' }}>Загрузка...</div>
@@ -214,12 +219,12 @@ export default function Dashboard() {
           </div>
           {prepaidRows.length === 0 ? (
             <p style={empty}>Предоплат нет</p>
-          ) : prepaidRows.map(({ client, balance, lessonsLeft }, i) => (
+          ) : prepaidRows.map(({ client, balance, lessonsLeft, name }, i) => (
             <div key={client.id} style={row(i === prepaidRows.length - 1)}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                 <Avatar client={client} size={26} />
                 <div style={{ minWidth: 0 }}>
-                  <Link to={`/clients/${client.id}`} style={nameLink}>{client.childName}</Link>
+                  <Link to={`/clients/${client.id}`} style={nameLink}>{name}</Link>
                   {/* Уроки выводятся из денег: цена занятия своя у каждого. */}
                   <p style={{ fontSize: '11px', color: '#6b7280', margin: 0 }}>
                     хватит на {lessonsLabel(lessonsLeft)}
@@ -240,11 +245,11 @@ export default function Dashboard() {
           </div>
           {debtorRows.length === 0 ? (
             <p style={empty}>Долгов нет</p>
-          ) : debtorRows.map(({ client, balance }, i) => (
+          ) : debtorRows.map(({ client, balance, name }, i) => (
             <div key={client.id} style={row(i === debtorRows.length - 1)}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                 <Avatar client={client} size={26} />
-                <Link to={`/clients/${client.id}`} style={nameLink}>{client.childName}</Link>
+                <Link to={`/clients/${client.id}`} style={nameLink}>{name}</Link>
               </div>
               <span style={{ fontSize: '13px', fontWeight: '700', color: '#dc2626', whiteSpace: 'nowrap' }}>
                 {balance.toLocaleString()}

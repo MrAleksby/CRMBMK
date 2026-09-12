@@ -90,6 +90,10 @@ export function whyKeepClient(client, history) {
 export const statusInfo = (client) =>
   CLIENT_STATUSES.find(s => s.value === (client.status || 'active')) ?? CLIENT_STATUSES[0]
 
+// Значение «завести новую семью» в выпадающем списке. Не id, а метка:
+// документа ещё нет, он создаётся при сохранении карточки.
+export const NEW_FAMILY = '__new__'
+
 export const emptyClientForm = () => ({
   childName: '',
   birthDate: '',
@@ -105,6 +109,11 @@ export const emptyClientForm = () => ({
   payerType: 'parent',
   legalEntityId: '',
   status: 'active',
+  // Семья: общий кошелёк с братьями и сёстрами. Пусто — ребёнок сам по себе.
+  // Новую семью заводят прямо здесь, набрав название, — отдельного справочника
+  // ради одной фамилии не нужно.
+  familyId: '',
+  newFamilyName: '',
 })
 
 // Дата рождения хранится строкой 'YYYY-MM-DD' — так её отдаёт <input type="date">
@@ -240,13 +249,16 @@ export function searchText(client) {
 //
 // Статус сортируется по смыслу — активен, пауза, бросил, — а не по алфавиту:
 // «Активен» и «Бросил» рядом в словаре, но противоположны по делу.
-export function sortClients(list, key, direction, { balance = () => 0 } = {}) {
+export function sortClients(list, key, direction, { balance = () => 0, family = () => '' } = {}) {
   const sign = direction === 'desc' ? -1 : 1
 
   const value = (client) => {
     switch (key) {
       case 'name': return client.childName || ''
       case 'balance': return balance(client.id)
+      // Семьи без названия уходят вниз: пустая строка сортируется раньше любой
+      // буквы, а внизу их искать привычнее, чем в начале списка.
+      case 'family': return family(client) || 'яяя'
       case 'status': return CLIENT_STATUSES.findIndex(s => s.value === (client.status || 'active'))
       case 'contacts': {
         const [first] = contactRows(client)
@@ -281,6 +293,7 @@ export function clientToForm(client) {
   form.payerType = client.payerType || 'parent'
   form.legalEntityId = client.legalEntityId || ''
   form.status = client.status || 'active'
+  form.familyId = client.familyId || ''
 
   // В форме всегда есть хотя бы одно поле для телефона, пусть и пустое.
   const toFormParent = (parent) => {
@@ -322,6 +335,9 @@ export function formToDoc(form) {
     payerType: form.payerType,
     legalEntityId: isLegal ? form.legalEntityId : '',
     status: form.status,
+    // Новая семья заводится до сохранения карточки: страница создаёт документ
+    // и кладёт сюда его id. Здесь остаётся только готовая связь.
+    familyId: form.familyId || '',
   }
 }
 
@@ -340,6 +356,9 @@ export function validateClientForm(form) {
   if (form.lessonPrice !== '') {
     const price = Number(normalizeDecimal(form.lessonPrice))
     if (!Number.isFinite(price) || price < 0) return 'Цена занятия — неотрицательное число'
+  }
+  if (form.familyId === NEW_FAMILY && !form.newFamilyName.trim()) {
+    return 'Назовите семью — например, по фамилии родителей'
   }
   if (form.payerType === 'legal' && !form.legalEntityId) {
     return 'Выберите юр. лицо или верните плательщика на родителей'

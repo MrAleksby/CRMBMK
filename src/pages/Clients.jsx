@@ -12,7 +12,9 @@ import ErrorBanner from '../components/ErrorBanner'
 import Icon from '../components/Icon'
 import Avatar from '../components/Avatar'
 import { lessonsLeft } from '../lib/subscription'
-import { clientBalances } from '../lib/balance'
+import { clientBalances, effectiveBalances, debtAndPrepaid } from '../lib/balance'
+import { walletCharges, sharedNote, siblings } from '../lib/family'
+import { ensureFamilyId } from '../lib/family-run'
 import { useSelection } from '../lib/selection'
 import { useIsMobile } from '../lib/useIsMobile'
 import { downloadCsv } from '../lib/export'
@@ -29,6 +31,7 @@ const PAGE_SIZE = 50
 const COLUMNS = [
   { key: 'name', label: 'ФИО' },
   { key: 'balance', label: 'Общий остаток' },
+  { key: 'family', label: 'Семья' },
   { key: 'status', label: 'Статус обучения' },
   { key: 'contacts', label: 'Контакты' },
   { key: 'notes', label: 'Примечание' },
@@ -77,6 +80,7 @@ export default function Clients() {
   const [transactions, setTransactions] = useState([])
   const [charges, setCharges] = useState([])
   const [legalEntities, setLegalEntities] = useState([])
+  const [families, setFamilies] = useState([])
   const [lessons, setLessons] = useState([])
   const [groups, setGroups] = useState([])
   const [subscriptions, setSubscriptions] = useState([])
@@ -105,7 +109,8 @@ export default function Clients() {
   // Педагогу деньги не показываем: ни остатка, ни долга, ни фильтра по балансу.
   const { user, profile } = useAuth()
   const manages = canManage(user?.uid, profile)
-  const columns = manages ? COLUMNS : COLUMNS.filter(col => col.key !== 'balance')
+  // Педагогу денег не показываем: ни остатка, ни семьи — семья и есть общий счёт.
+  const columns = manages ? COLUMNS : COLUMNS.filter(col => !['balance', 'family'].includes(col.key))
 
   const fetchData = async (force = false) => {
     setLoadError('')
@@ -115,16 +120,18 @@ export default function Clients() {
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
 
-      const [cs, les, ls, gs] = await Promise.all([
+      const [cs, les, ls, gs, fam] = await Promise.all([
         readCollection('clients', { force }),
         readCollection('legalEntities', { force }),
         readCollection('lessons', { force }),
         readCollection('groups', { force }),
+        readCollection('families', { force }),
       ])
       setClients(cs)
       setLegalEntities(les)
       setLessons(ls)
       setGroups(gs)
+      setFamilies(fam)
 
       // Педагогу списки учеников нужны (состав, аллергии, телефон родителя),
       // а деньги — нет: правила Firestore ему их и не отдадут.
@@ -152,8 +159,29 @@ export default function Clients() {
   useLiveRefresh(fetchData)
 
   // Один проход по всем операциям вместо пересчёта на каждого клиента.
-  const balances = useMemo(() => clientBalances(transactions, charges), [transactions, charges])
+  // Личные балансы считаются как раньше, но в списке показывается баланс
+  // кошелька: у детей одной семьи деньги общие, и число у них одно и то же.
+  // Складывать такие строки глазами не нужно — итог считается по кошелькам.
+  const ownBalances = useMemo(() => clientBalances(transactions, charges), [transactions, charges])
+  const balances = useMemo(
+    () => effectiveBalances(ownBalances, clients), [ownBalances, clients])
+  const totals = useMemo(() => debtAndPrepaid(ownBalances, clients), [ownBalances, clients])
   const getBalance = (clientId) => balances.get(clientId) || 0
+
+  const familyName = useMemo(() => {
+    const byId = new Map(families.map(f => [f.id, f.name]))
+    return (client) => (client.familyId ? (byId.get(client.familyId) || 'Семья') : '')
+  }, [families])
+
+  // Сколько детей делят кошелёк — этим подписана сумма в строке.
+  const familySize = (client) => (client.familyId ? siblings(client, clients).length + 1 : 1)
+
+  // Долг считается «сколько последних занятий не покрыто деньгами». Деньги
+  // у семьи общие, поэтому и занятия для счёта берём общие: иначе у ребёнка,
+  // за которого платил брат, долг посчитался бы по его собственным урокам.
+  const chargesOf = (client) => (client.familyId
+    ? walletCharges(client, clients, charges)
+    : (chargesBy.get(client.id) || []))
 
   const chargesBy = useMemo(() => {
     const map = new Map()
@@ -164,10 +192,11 @@ export default function Clients() {
     return map
   }, [charges])
 
-  const handleAddClient = async (data) => {
+  const handleAddClient = async (data, options) => {
     setSaving(true)
     try {
-      await addDoc(collection(db, 'clients'), { ...data, createdAt: new Date() })
+      const withFamily = await ensureFamilyId(data, options)
+      await addDoc(collection(db, 'clients'), { ...withFamily, createdAt: new Date() })
       setShowAddClient(false)
       await fetchData(true)
     } catch (e) {
@@ -263,7 +292,8 @@ export default function Clients() {
   })
   // Лиды держат карточку, но учениками не считаются.
   const clientsCount = clients.filter(c => (c.status || 'active') !== 'lead').length
-  const filtered = sortClients(matching, sortKey, sortDir, { balance: getBalance })
+  const filtered = sortClients(matching, sortKey, sortDir,
+    { balance: getBalance, family: familyName })
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, pageCount)
@@ -322,6 +352,7 @@ export default function Clients() {
         <ClientForm
           saving={saving}
           legalEntities={legalEntities}
+          families={families}
           onSubmit={handleAddClient}
           onCancel={() => setShowAddClient(false)}
         />
@@ -396,6 +427,27 @@ export default function Clients() {
       />
       )}
 
+     {/* Итоги считает CRM, а не глаз. Это важно именно из-за семей: у брата
+          и сестры в строках стоит одно и то же число, и сложение по строкам
+          насчитало бы лишнего. Здесь общий кошелёк учтён ровно один раз. */}
+     {manages && (
+        <div style={{
+          display: 'flex', gap: '18px', flexWrap: 'wrap', alignItems: 'baseline',
+          background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '12px',
+          padding: '10px 14px', marginBottom: '12px', fontSize: '13px', color: '#4b5563',
+        }}>
+          <span>
+            Должны нам <b style={{ color: '#dc2626' }}>{totals.debt.toLocaleString()} сум</b>
+          </span>
+          <span>
+            Предоплат <b style={{ color: '#059669' }}>{totals.prepaid.toLocaleString()} сум</b>
+          </span>
+          <span style={{ fontSize: '12px', color: '#6b7280' }}>
+            по всей базе, общий счёт семьи посчитан один раз
+          </span>
+        </div>
+      )}
+
       {/* Таблица */}
       {filtered.length === 0 ? (
         <div style={{
@@ -412,7 +464,7 @@ export default function Clients() {
           {visible.map(c => {
             const balance = getBalance(c.id)
             const status = statusInfo(c)
-            const left = lessonsLeft(subscriptions, c.id, balance, chargesBy.get(c.id) || [], c)
+            const left = lessonsLeft(subscriptions, c.id, balance, chargesOf(c), c)
             const phone = contactRows(c).flatMap(r => r.phones)[0]
             const age = getAge(c)
 
@@ -455,6 +507,9 @@ export default function Clients() {
                     <div style={{ fontSize: '11px', color: left < 0 ? '#dc2626' : '#9ca3af' }}>
                       {lessonsLabel(left)}
                     </div>
+                   {familySize(c) > 1 && (
+                      <div style={{ fontSize: '10px', color: '#6b7280' }}>{sharedNote(familySize(c))}</div>
+                    )}
                   </div>
                 )}
               </div>
@@ -523,11 +578,22 @@ export default function Clients() {
                       </span>
                       {(() => {
                         // Минус — за столько занятий ученик ещё не заплатил.
-                        const left = lessonsLeft(subscriptions, c.id, balance, chargesBy.get(c.id) || [], c)
+                        const left = lessonsLeft(subscriptions, c.id, balance, chargesOf(c), c)
                         return (
                           <span style={{ color: left < 0 ? '#dc2626' : '#9ca3af' }}> / {lessonsLabel(left)}</span>
                         )
                       })()}
+                     {/* Почему у брата и сестры одно и то же число: кошелёк один.
+                          Складывать эти строки не надо — итог стоит над таблицей. */}
+                     {familySize(c) > 1 && (
+                        <div style={{ fontSize: '10px', color: '#6b7280' }}>{sharedNote(familySize(c))}</div>
+                      )}
+                    </td>
+                    )}
+
+                   {manages && (
+                    <td style={{ ...td(isLast), fontSize: '11px', color: '#4b5563', whiteSpace: 'nowrap' }}>
+                     {familyName(c) || <span style={{ color: '#d1d5db' }}>—</span>}
                     </td>
                     )}
 

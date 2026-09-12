@@ -26,7 +26,9 @@ import { KIND_INCOME, toJsDate, inPeriod as inMonth, availableYears, YEAR_ALL } 
 import { readCollection, readClientMoney, invalidate } from '../lib/store'
 import { useLiveRefresh } from '../lib/useLiveRefresh'
 import { categoriesForKind } from '../lib/transaction'
-import { clientBalance } from '../lib/balance'
+import { clientBalance, clientBalances, effectiveBalances } from '../lib/balance'
+import { siblings, walletCharges } from '../lib/family'
+import { ensureFamilyId } from '../lib/family-run'
 import { sortItems, getDirectory } from '../lib/directories'
 
 const panel = {
@@ -133,6 +135,14 @@ function SubscriptionRow({ sub, archived, onEdit, onArchive, onRestore, onDelete
       <div style={{ fontSize: '12px', color: '#6b7280' }}>
        {lessonsLabel(sub.lessonsTotal)}
        {perLesson !== null && ` · ${perLesson.toLocaleString()} сум за урок`}
+       {/* Общий пакет стоит в карточке каждого ребёнка семьи — по значку видно,
+            что он один на всех, а не выдан этому ребёнку отдельно. */}
+       {sub.familyId && (
+          <span style={{
+            marginLeft: '6px', padding: '1px 6px', borderRadius: '6px',
+            background: '#ede9fe', color: '#7c3aed', fontSize: '11px',
+          }}>общий на семью</span>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '3px', flexWrap: 'wrap' }}>
@@ -164,6 +174,11 @@ export default function ClientCard() {
   const [groups, setGroups] = useState([])
   const [teachers, setTeachers] = useState([])
   const [allClients, setAllClients] = useState([])
+  const [families, setFamilies] = useState([])
+  // Деньги всей базы нужны ради одного числа — общего счёта семьи. Своя лента
+  // ученика по-прежнему собирается из отфильтрованных `transactions`/`charges`.
+  const [allTransactions, setAllTransactions] = useState([])
+  const [allCharges, setAllCharges] = useState([])
   const [subscriptions, setSubscriptions] = useState([])
   const [packages, setPackages] = useState([])
   const [issuing, setIssuing] = useState(false)
@@ -194,13 +209,14 @@ export default function ClientCard() {
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
 
-      const [snap, les, ls, gs, ts, cs] = await Promise.all([
+      const [snap, les, ls, gs, ts, cs, fam] = await Promise.all([
         withTimeout(getDoc(doc(db, 'clients', id))),
         readCollection('legalEntities', { force }),
         readCollection('lessons', { force }),
         readCollection('groups', { force }),
         readCollection('teachers', { force }),
         readCollection('clients', { force }),
+        readCollection('families', { force }),
       ])
       setClient(snap.exists() ? { id: snap.id, ...snap.data() } : null)
       setLegalEntities(les)
@@ -208,6 +224,7 @@ export default function ClientCard() {
       setGroups(gs)
       setTeachers(ts)
       setAllClients(cs)
+      setFamilies(fam)
 
       // Педагогу карточка нужна ради возраста, аллергий и телефона родителя.
       // Деньги — оплаты, начисления, абонементы, кассы — ему не отдаются вовсе.
@@ -223,7 +240,13 @@ export default function ClientCard() {
       ])
       setTransactions(tx.filter(t => t.clientId === id))
       setCharges(ch.filter(c => c.clientId === id))
-      setSubscriptions(ss.filter(x => x.clientId === id))
+      setAllTransactions(tx)
+      setAllCharges(ch)
+      // Общий пакет семьи принадлежит не одному ребёнку: он задаёт цену занятия
+      // всем её детям, поэтому в карточке он должен быть виден у каждого.
+      const familyId = snap.exists() ? (snap.data().familyId || '') : ''
+      setSubscriptions(ss.filter(x =>
+        x.clientId === id || (x.familyId && familyId && x.familyId === familyId)))
       setPackages(pk)
       setAccounts(sortItems(getDirectory('accounts'), acc))
       setCategories(sortItems(getDirectory('categories'), cat))
@@ -246,7 +269,15 @@ export default function ClientCard() {
     ...charges.map(c => ({ ...c, _charge: true })),
   ].sort((a, b) => (toJsDate(b.date)?.getTime() || 0) - (toJsDate(a.date)?.getTime() || 0))
 
-  const balance = clientBalance(transactions, charges, id)
+  // Личный баланс ребёнка и баланс его кошелька. У семьи деньги общие: пакет
+  // на двоих не делится заранее, а тратится по факту занятий. Поэтому показываем
+  // счёт семьи, а свои списания ребёнка видно ниже, в ленте.
+  const ownBalance = clientBalance(transactions, charges, id)
+  const family = client?.familyId ? siblings(client, allClients) : []
+  const balance = family.length > 0
+    ? (effectiveBalances(clientBalances(allTransactions, allCharges), allClients).get(id) || 0)
+    : ownBalance
+  const familyName = families.find(f => f.id === client?.familyId)?.name || ''
   const periodEntries = entries.filter(e => inMonth(e, filterMonth, filterYear))
   const incomeCount = transactions.filter(t => t.kind === KIND_INCOME).length
   const lessonsDone = charges.reduce((sum, c) => sum + (c.lessons || 0), 0)
@@ -295,10 +326,10 @@ export default function ClientCard() {
     }
   }
 
-  const handleUpdate = async (data) => {
+  const handleUpdate = async (data, options) => {
     setSaving(true)
     try {
-      await updateDoc(doc(db, 'clients', id), data)
+      await updateDoc(doc(db, 'clients', id), await ensureFamilyId(data, options))
       setEditing(false)
       await fetchData(true)
     } catch (e) {
@@ -440,7 +471,7 @@ export default function ClientCard() {
       const now = new Date()
       const batch = writeBatch(db)
       batch.set(doc(collection(db, 'subscriptions')), {
-        ...formToSubscriptionDoc(form, pkg, id),
+        ...formToSubscriptionDoc(form, pkg, id, form.shared ? client.familyId : ''),
         createdAt: now,
       })
       batch.set(doc(collection(db, 'transactions')),
@@ -465,7 +496,7 @@ export default function ClientCard() {
     setSaving(true)
     try {
       await updateDoc(doc(db, 'subscriptions', editingSub.id), {
-        ...formToSubscriptionDoc(form, pkg, id),
+        ...formToSubscriptionDoc(form, pkg, id, form.shared ? client.familyId : ''),
         status: editingSub.status || 'active',
       })
       setEditingSub(null)
@@ -572,6 +603,7 @@ export default function ClientCard() {
           initial={clientToForm(client)}
           saving={saving}
           legalEntities={legalEntities}
+          families={families}
           onSubmit={handleUpdate}
           onCancel={() => setEditing(false)}
         />
@@ -590,7 +622,8 @@ export default function ClientCard() {
   const contacts = contactRows(client)
   const isPaid = balance >= 0
   // Плюс — предоплаченные занятия, минус — неоплаченные проведённые.
-  const lessonsInStock = lessonsLeft(subscriptions, id, balance, charges, client)
+  const lessonsInStock = lessonsLeft(subscriptions, id, balance,
+    family.length > 0 ? walletCharges(client, allClients, allCharges) : charges, client)
   const { current: currentSubs, archived: archivedSubs } = splitSubscriptions(subscriptions)
   const periodLabel = filterYear === YEAR_ALL
     ? 'за всё время'
@@ -900,6 +933,28 @@ export default function ClientCard() {
             </div>
           </div>
 
+         {/* Открыв второго ребёнка, менеджер должен увидеть те же деньги, а не
+              ноль: кошелёк один. Поэтому строка стоит в карточке каждого. */}
+         {family.length > 0 && (
+            <div style={{
+              background: '#f7f8fa', border: '1px solid #f3f4f6', borderRadius: '10px',
+              padding: '8px 10px', marginTop: '8px', fontSize: '12px', color: '#4b5563',
+            }}>
+              Общий счёт{familyName ? ` семьи ${familyName}` : ''}: вместе с{' '}
+             {family.map((sibling, i) => (
+                <span key={sibling.id}>
+                 {i > 0 && ', '}
+                  <Link to={`/clients/${sibling.id}`} style={{ color: '#7c3aed', textDecoration: 'none' }}>
+                   {sibling.childName}
+                  </Link>
+                </span>
+              ))}
+              <div style={{ marginTop: '4px', color: '#6b7280' }}>
+                Деньги общие, занятия у каждого свои. Ниже — списания {client.childName}.
+              </div>
+            </div>
+          )}
+
           <div style={{ borderTop: '1px solid #f3f4f6', marginTop: '9px', paddingTop: '2px' }}>
             <SummaryRow label="ID">#{client.id.slice(0, 6)}</SummaryRow>
             <SummaryRow label="Платежи">{incomeCount} шт</SummaryRow>
@@ -962,7 +1017,7 @@ export default function ClientCard() {
            {currentSubs.map(sub => (
               editingSub?.id === sub.id ? (
                 <SubscriptionForm key={sub.id} initial={subscriptionToForm(sub)}
-                  packages={packages} saving={saving}
+                  packages={packages} saving={saving} family={family}
                   onSubmit={handleEditSubscription} onCancel={() => setEditingSub(null)} />
               ) : (
                 <SubscriptionRow key={sub.id} sub={sub}
@@ -973,7 +1028,7 @@ export default function ClientCard() {
             ))}
 
            {issuing && (
-              <SubscriptionForm packages={packages} saving={saving}
+              <SubscriptionForm packages={packages} saving={saving} family={family}
                 accounts={accounts} incomeCategories={incomeCategories}
                 onSubmit={handleIssueSubscription} onCancel={() => setIssuing(false)} />
             )}
@@ -992,7 +1047,7 @@ export default function ClientCard() {
                {showArchivedSubs && archivedSubs.map(sub => (
                   editingSub?.id === sub.id ? (
                     <SubscriptionForm key={sub.id} initial={subscriptionToForm(sub)}
-                      packages={packages} saving={saving}
+                      packages={packages} saving={saving} family={family}
                       onSubmit={handleEditSubscription} onCancel={() => setEditingSub(null)} />
                   ) : (
                     <SubscriptionRow key={sub.id} sub={sub} archived

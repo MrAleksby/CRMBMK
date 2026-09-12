@@ -75,6 +75,19 @@ service cloud.firestore {
         && request.resource.data.childName.size() <= 200;
     }
 
+    // --- families: общий кошелёк нескольких детей ---
+    // Семья — это только название; деньги лежат в transactions и charges,
+    // связь даёт поле familyId в карточке ребёнка. Заводит её менеджер прямо
+    // в карточке, поэтому здесь canManage, а не isAdmin, как у справочников.
+    match /families/{id} {
+      allow read: if isAllowed();
+      allow delete: if canManage();
+      allow create, update: if canManage()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 200;
+    }
+
     // --- leads: воронка до конверсии в ученика ---
     // Денег у лида нет. clientId непустой означает «стал клиентом»,
     // archived без clientId — отказ. Этап ограничен списком, иначе карточка

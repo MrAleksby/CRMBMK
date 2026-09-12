@@ -358,7 +358,9 @@ export default function Finance() {
 
   // Балансы — по всей истории: долг не «за июль», он просто есть.
   const balances = useMemo(() => clientBalances(transactions, charges), [transactions, charges])
-  const { debt, prepaid } = useMemo(() => debtAndPrepaid(balances), [balances])
+  // Со списком учеников итог считается по кошелькам: у детей одной семьи деньги
+  // общие, и без этого один и тот же долг вошёл бы в метрику дважды.
+  const { debt, prepaid } = useMemo(() => debtAndPrepaid(balances, clients), [balances, clients])
 
   const accountsReport = useMemo(() => accountTotals(transactions, accounts), [transactions, accounts])
   const categoriesReport = useMemo(() => categoryTotals(periodTx, categories), [periodTx, categories])

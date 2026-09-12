@@ -31,15 +31,25 @@ export function subscriptionStatus(sub, today = todayISO()) {
   return SUBSCRIPTION_STATUSES.active
 }
 
-export const clientSubscriptions = (subs, clientId) =>
-  subs.filter(s => s.clientId === clientId)
+// Абонементы ученика. Общий пакет семьи (`familyId`) виден каждому её ребёнку:
+// «Пакет 8 на двоих» покупается один раз и задаёт цену занятия обоим.
+export const clientSubscriptions = (subs, clientId, client = null) =>
+  subs.filter(s => s.clientId === clientId
+    || (s.familyId && client?.familyId && s.familyId === client.familyId))
 
 // Действующий абонемент ученика: тот, что кончается раньше остальных.
 // По его цене и считается остаток уроков.
-export function activeSubscription(subs, clientId, today = todayISO()) {
-  return clientSubscriptions(subs, clientId)
+//
+// Личный абонемент важнее общего: если ребёнку выдали свой пакет (другой
+// возраст, своя цена), семейный тариф его не перебивает.
+export function activeSubscription(subs, clientId, today = todayISO(), client = null) {
+  return clientSubscriptions(subs, clientId, client)
     .filter(s => isUsable(s, today))
-    .sort((a, b) => String(a.endDate || '9999').localeCompare(String(b.endDate || '9999')))[0] || null
+    .sort((a, b) => {
+      const own = (sub) => (sub.clientId === clientId ? 0 : 1)
+      if (own(a) !== own(b)) return own(a) - own(b)
+      return String(a.endDate || '9999').localeCompare(String(b.endDate || '9999'))
+    })[0] || null
 }
 
 // Цена одного занятия по абонементу ученика.
@@ -62,7 +72,7 @@ const byDateDesc = (a, b) => dateValue(b) - dateValue(a)
 // Цена будущего занятия: абонемент → персональная цена ребёнка →
 // последняя фактическая сумма, которую менеджер вписал в журнал.
 export function expectedPrice(subs, clientId, client, clientCharges = [], today = todayISO()) {
-  const byPackage = subscriptionPerLesson(activeSubscription(subs, clientId, today))
+  const byPackage = subscriptionPerLesson(activeSubscription(subs, clientId, today, client))
   if (byPackage) return byPackage
   if (Number.isFinite(client?.lessonPrice) && client.lessonPrice > 0) return client.lessonPrice
 
@@ -159,6 +169,9 @@ export function weeksBetween(startDate, endDate) {
 // не участвуют — деньги уже проведены, второй раз их заводить нельзя.
 export const emptySubscriptionForm = () => ({
   packageId: '',
+  // Общий пакет семьи: один абонемент на брата с сестрой. Задаёт цену занятия
+  // обоим; делить пакет заранее не нужно — деньги тратятся по факту занятий.
+  shared: false,
   startDate: todayISO(),
   endDate: '',
   weeks: '',
@@ -173,6 +186,7 @@ export function subscriptionToForm(sub) {
   return {
     ...emptySubscriptionForm(),
     packageId: sub.packageId || '',
+    shared: Boolean(sub.familyId),
     startDate: sub.startDate || todayISO(),
     endDate: sub.endDate || '',
     weeks: String(weeksBetween(sub.startDate, sub.endDate) || ''),
@@ -213,9 +227,12 @@ export function paymentFromForm(form, clientId, clientName, packageName) {
   }
 }
 
-export function formToSubscriptionDoc(form, pkg, clientId) {
+export function formToSubscriptionDoc(form, pkg, clientId, familyId = '') {
   return {
     clientId,
+    // Общий пакет семьи: цена занятия действует на всех её детей. Пусто —
+    // абонемент личный. clientId остаётся у обоих: видно, кому его выдали.
+    familyId: familyId || '',
     packageId: pkg.id,
     name: pkg.name,
     // lessonsTotal и price — снимок тарифа на момент выдачи. Подорожает пакет —

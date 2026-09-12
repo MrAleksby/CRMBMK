@@ -15,6 +15,7 @@ import ErrorBanner from '../components/ErrorBanner'
 import Icon from '../components/Icon'
 import LeadForm from '../components/LeadForm'
 import ClientForm from '../components/ClientForm'
+import { ensureFamilyId } from '../lib/family-run'
 import {
   emptyClientForm, formToDoc, telegramUrl, instagramUrl, phoneUrl, sourceInfo, getAge, ageLabel,
 } from '../lib/client'
@@ -397,6 +398,9 @@ export default function Leads() {
   const [leads, setLeads] = useState([])
   const [staff, setStaff] = useState([])
   const [legalEntities, setLegalEntities] = useState([])
+  // Семьи нужны при конверсии: второй ребёнок той же семьи заводится сразу
+  // с общим кошельком, а не «потом не забыть привязать».
+  const [families, setFamilies] = useState([])
   const [accounts, setAccounts] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
@@ -418,16 +422,18 @@ export default function Leads() {
     if (force) invalidate()
     try {
       if (auth.currentUser) await withTimeout(auth.currentUser.getIdToken())
-      const [ls, ts, les, acc, cat] = await Promise.all([
+      const [ls, ts, les, acc, cat, fam] = await Promise.all([
         readCollection('leads', { force }),
         readCollection('teachers', { force }),
         readCollection('legalEntities', { force }),
         readCollection('accounts', { force }),
         readCollection('categories', { force }),
+        readCollection('families', { force }),
       ])
       setLeads(ls)
       setStaff(ts.filter(s => s.active !== false))
       setLegalEntities(les)
+      setFamilies(fam)
       setAccounts(acc.filter(a => a.active !== false))
       setCategories(cat.filter(c => c.kind === 'income' && c.active !== false))
     } catch (e) {
@@ -598,7 +604,8 @@ export default function Leads() {
   // Сделать клиентом. Если карточка уже заведена (лид ходил на пробное, платил) —
   // просто снимаем статус «лид», история остаётся на том же ученике. Если карточки
   // ещё нет — создаём ученика из формы, как раньше.
-  const handleConvert = (clientData) => run(async () => {
+  const handleConvert = (data, options) => run(async () => {
+    const clientData = await ensureFamilyId(data, options)
     const existing = await liveClientId(open)
     const batch = writeBatch(db)
     if (existing) {
@@ -928,6 +935,7 @@ export default function Leads() {
               initial={clientFormFromLead(open, emptyClientForm())}
               saving={saving}
               legalEntities={legalEntities}
+              families={families}
               onSubmit={handleConvert}
               onCancel={() => setMode('view')}
             />
