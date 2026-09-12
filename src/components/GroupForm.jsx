@@ -65,8 +65,8 @@ export default function GroupForm({ initial, clients, teachers, saving, schedule
     onSubmit(form)
   }
 
-  const dates = scheduleLocked ? [] : generateDates(form)
-  const rebuilding = editing && !scheduleLocked
+  const dates = generateDates(form)
+  const rebuilding = editing
 
   const query = studentSearch.trim().toLowerCase()
   const visibleClients = query
@@ -99,15 +99,20 @@ export default function GroupForm({ initial, clients, teachers, saving, schedule
         </div>
       </div>
 
-     {scheduleLocked ? (
+     {/* Расписание правится всегда, даже когда занятия уже проведены.
+          Раньше оно замораживалось целиком, и группу, которая больше
+          не ведётся, нельзя было закрыть датой: занятия отменяли по одному.
+          Проведённые при этом не трогаются — за ними стоят списания. */}
+     {scheduleLocked && (
         <div style={{ ...section, background: '#fffbeb', border: '1px solid #fde68a' }}>
           <p style={{ fontSize: '13px', color: '#92400e', margin: 0 }}>
-            Расписание менять нельзя: в группе есть проведённые занятия, за ними стоят списания.
-            Здесь правятся название, педагог и состав — изменения перейдут только
-            в <b>запланированные</b> занятия.
+            В группе есть проведённые занятия — они не изменятся: за ними стоят
+            списания. Правка расписания и периода коснётся только
+            <b> запланированных</b> занятий.
           </p>
         </div>
-      ) : (
+      )}
+      <div>
         <div style={section}>
           <p style={sectionTitle}> Расписание</p>
 
@@ -178,12 +183,13 @@ export default function GroupForm({ initial, clients, teachers, saving, schedule
               fontSize: '12px', color: '#92400e', background: '#fffbeb',
               border: '1px solid #fde68a', borderRadius: '10px', padding: '8px 10px', marginTop: '10px',
             }}>
-              Проведённых занятий в группе нет, поэтому расписание можно менять свободно.
-              Старые запланированные занятия будут удалены и созданы заново по новым дням.
+              Занятия по новым дням будут пересозданы. Тронутся только
+              запланированные: совпавшие останутся на месте, лишние удалятся,
+              недостающие появятся.
             </p>
           )}
         </div>
-      )}
+      </div>
 
       <div style={section}>
         <p style={sectionTitle}> Ученики ({form.studentIds.length})</p>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { collection, doc, writeBatch } from 'firebase/firestore'
+import { collection, doc, deleteDoc, writeBatch } from 'firebase/firestore'
 import { db, auth } from '../firebase'
 import { withTimeout, describeError } from '../lib/withTimeout'
 import { readCollection, invalidate } from '../lib/store'
@@ -12,7 +12,7 @@ import Icon from '../components/Icon'
 import GroupForm from '../components/GroupForm'
 import {
   LESSON_STATUSES, emptyGroupForm, groupToForm, formToGroupDoc,
-  generateDates, scheduleLabel, periodLabel, todayISO,
+  generateDates, scheduleLabel, periodLabel, todayISO, planScheduleChange,
 } from '../lib/group'
 
 const panel = {
@@ -136,56 +136,69 @@ export default function Groups() {
   const hasConducted = (groupId) =>
     lessons.some(l => l.groupId === groupId && l.status === 'conducted')
 
-  // Правка группы. Состав и педагог переносятся только в запланированные занятия:
-  // у проведённых менять состав нельзя — поедут балансы.
+  // Правка группы.
+  //
+  // Проведённые занятия не трогаются никогда: за ними стоят списания, и правка
+  // задним числом сдвинула бы балансы учеников. Всё остальное — название,
+  // педагог, состав, расписание и период — правится свободно, а изменения
+  // применяются к запланированным занятиям.
+  //
+  // Раньше расписание замораживалось целиком, стоило провести одно занятие.
+  // Из-за этого группу, которая больше не ведётся, нельзя было закрыть датой,
+  // и её занятия отменяли по одному — календарь пестрел перечёркнутыми плитками.
   const handleUpdate = async (groupId, form) => {
-    const scheduleLocked = hasConducted(groupId)
     const data = formToGroupDoc(form)
-    const planned = lessons.filter(l => l.groupId === groupId && l.status === 'planned')
+    const own = groupLessons(groupId)
+    const plan = planScheduleChange(own, generateDates(form))
 
-    // Расписание открыто — пересоздаём запланированные занятия по новым дням.
-    if (!scheduleLocked) {
-      const dates = generateDates(form)
-      const message = `Расписание изменится.\n\nЗапланированных занятий будет удалено: ${planned.length}.\nСоздано заново: ${dates.length}.`
-      if (!confirm(message)) return
+    if (plan.toDelete.length || plan.toCreate.length) {
+      const parts = []
+      if (plan.toCreate.length) parts.push(`создано: ${plan.toCreate.length}`)
+      if (plan.toDelete.length) parts.push(`удалено запланированных: ${plan.toDelete.length}`)
+      if (plan.kept) parts.push(`останется без изменений: ${plan.kept}`)
+      const conducted = own.filter(l => l.status === 'conducted').length
+      const tail = conducted
+        ? `\n\nПроведённые занятия (${conducted}) не изменятся: за ними стоят списания.`
+        : ''
+      if (!confirm(`Расписание изменится.\n\n${parts.join('\n')}.${tail}`)) return
     }
 
     setSaving(true)
     try {
       const batch = writeBatch(db)
+      batch.update(doc(db, 'groups', groupId), data)
 
-      if (scheduleLocked) {
-        batch.update(doc(db, 'groups', groupId), {
-          name: data.name,
+      // Состав и педагог переносятся во все запланированные занятия, включая
+      // те, что остались на своих датах.
+      for (const lesson of own) {
+        if (lesson.status !== 'planned') continue
+        if (plan.toDelete.some(l => l.id === lesson.id)) continue
+        batch.update(doc(db, 'lessons', lesson.id), {
+          groupName: data.name,
           teacherId: data.teacherId,
           studentIds: data.studentIds,
+          timeFrom: data.timeFrom,
+          timeTo: data.timeTo,
         })
-        for (const lesson of planned) {
-          batch.update(doc(db, 'lessons', lesson.id), {
-            groupName: data.name,
-            teacherId: data.teacherId,
-            studentIds: data.studentIds,
-          })
-        }
-      } else {
-        batch.update(doc(db, 'groups', groupId), data)
-        for (const lesson of planned) batch.delete(doc(db, 'lessons', lesson.id))
-        for (const date of generateDates(form)) {
-          batch.set(doc(collection(db, 'lessons')), {
-            groupId,
-            groupName: data.name,
-            date,
-            timeFrom: data.timeFrom,
-            timeTo: data.timeTo,
-            teacherId: data.teacherId,
-            type: 'group',
-            topic: '',
-            status: 'planned',
-            studentIds: data.studentIds,
-            attendance: [],
-            createdAt: new Date(),
-          })
-        }
+      }
+
+      for (const lesson of plan.toDelete) batch.delete(doc(db, 'lessons', lesson.id))
+
+      for (const date of plan.toCreate) {
+        batch.set(doc(collection(db, 'lessons')), {
+          groupId,
+          groupName: data.name,
+          date,
+          timeFrom: data.timeFrom,
+          timeTo: data.timeTo,
+          teacherId: data.teacherId,
+          type: 'group',
+          topic: '',
+          status: 'planned',
+          studentIds: data.studentIds,
+          attendance: [],
+          createdAt: new Date(),
+        })
       }
 
       await batch.commit()
@@ -201,14 +214,19 @@ export default function Groups() {
 
   // Удаляем группу и её будущие запланированные занятия.
   // Проведённые остаются в истории — за ними стоят деньги.
+  // Удаление группы уносит с собой все её занятия, за которыми не стоят деньги:
+  // запланированные и отменённые, включая прошедшие. Раньше удалялись только
+  // будущие, и в календаре оставались висеть занятия несуществующей группы.
+  //
+  // Проведённые остаются в истории: за ними списания, и стереть их значило бы
+  // задним числом изменить балансы учеников и доходы прошлых месяцев.
   const handleDelete = async (group) => {
     const all = groupLessons(group.id)
-    const today = todayISO()
-    const removable = all.filter(l => l.status === 'planned' && l.date >= today)
+    const removable = all.filter(l => l.status !== 'conducted')
     const kept = all.length - removable.length
 
     const message = kept > 0
-      ? `Удалить «${group.name}»?\n\nБудет удалено запланированных занятий: ${removable.length}.\nПроведённых и прошедших занятий останется в истории: ${kept}.`
+      ? `Удалить «${group.name}»?\n\nБудет удалено незавершённых занятий: ${removable.length}.\nПроведённых останется в истории: ${kept} — за ними стоят списания.`
       : `Удалить «${group.name}» и её занятий: ${removable.length}?`
     if (!confirm(message)) return
 
@@ -217,6 +235,22 @@ export default function Groups() {
       batch.delete(doc(db, 'groups', group.id))
       for (const lesson of removable) batch.delete(doc(db, 'lessons', lesson.id))
       await batch.commit()
+      await fetchData(true)
+    } catch (e) {
+      console.error(e)
+      setLoadError(describeError(e))
+    }
+  }
+
+  // Удаление одного занятия группы. Проведённое не трогаем: за ним списания,
+  // и убрать его можно только через «Уроки», вернув сначала в запланированные.
+  const handleDeleteLesson = async (lesson) => {
+    if (lesson.status === 'conducted') return
+    const when = new Date(lesson.date).toLocaleDateString('ru')
+    if (!confirm(`Удалить занятие ${when} ${lesson.timeFrom || ''}?`)) return
+
+    try {
+      await deleteDoc(doc(db, 'lessons', lesson.id))
       await fetchData(true)
     } catch (e) {
       console.error(e)
@@ -343,6 +377,16 @@ export default function Groups() {
                               <div style={{ fontSize: '11px', color: '#b45309', marginTop: '6px' }}>
                                 Забыли провести?
                               </div>
+                            )}
+                           {/* Непроведённое занятие можно удалить прямо здесь: за ним
+                                не стоит ни денег, ни истории. Бывает, что занятие
+                                назначили по ошибке, и отменять его незачем — оно
+                                тогда останется перечёркнутым в календаре. */}
+                           {manages && lesson.status !== 'conducted' && (
+                              <button onClick={() => handleDeleteLesson(lesson)} style={{
+                                background: 'transparent', border: 'none', padding: '4px 0 0',
+                                color: '#dc2626', fontSize: '12px', cursor: 'pointer',
+                              }}>Удалить</button>
                             )}
                           </div>
                         )

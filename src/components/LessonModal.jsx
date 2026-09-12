@@ -63,7 +63,7 @@ const money = (value) => toAmount(value) ?? 0
 // балансов, ни кнопок. Списание — это деньги, их вводит менеджер.
 export default function LessonModal({
   lesson, clients, teachers, balances, lessonsLeftBy = {}, subscriptions = [], saving,
-  onClose, onConduct, onReturn, onCancelLesson, onSaveStudents, readOnly = false,
+  onClose, onConduct, onReturn, onCancelLesson, onSaveStudents, onDelete, readOnly = false,
   // Бонусы кошелька ученика: поле «Бонус» появляется только у тех, у кого они есть.
   bonusLeftBy = {}, validateBonuses = () => null,
 }) {
@@ -338,6 +338,16 @@ export default function LessonModal({
               </button>
               <button onClick={() => onCancelLesson(lesson)} style={ghostBtn}>Отменить занятие</button>
             </>
+          )}
+         {/* Удалить, а не отменить. Отменённое занятие остаётся в календаре
+              перечёркнутой плиткой — это правильно, когда занятие сорвалось.
+              А когда его назначили по ошибке, следа оставаться не должно.
+              Проведённые не удаляются: за ними списания, их сначала возвращают
+              в запланированные. */}
+         {!readOnly && !conducted && !editingStudents && onDelete && (
+            <button onClick={() => onDelete(lesson)} disabled={saving} style={ghostBtn}>
+              Удалить занятие
+            </button>
           )}
          {!readOnly && conducted && (
             <button onClick={() => onReturn(lesson)} disabled={saving} style={ghostBtn}>

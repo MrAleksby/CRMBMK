@@ -108,6 +108,39 @@ export function formToGroupDoc(form) {
   }
 }
 
+// Что сделать с занятиями группы, когда поменяли её расписание или период.
+//
+// Раньше расписание замораживалось целиком, стоило провести хотя бы одно
+// занятие. Из-за этого группу, которая уже не ведётся, нельзя было закрыть
+// датой: приходилось отменять занятия по одному, и календарь пестрел
+// перечёркнутыми плитками.
+//
+// Правило простое и безопасное: **проведённые занятия не трогаем никогда**,
+// за ними стоят списания. Меняются только запланированные:
+//
+// - лишние (нет в новом расписании) удаляются, в том числе прошедшие,
+//   которые так и не провели;
+// - недостающие создаются;
+// - совпавшие остаются как есть, со своим составом и правками.
+//
+// Дата, на которую уже есть проведённое занятие, второй раз не создаётся:
+// иначе после сдвига периода в календаре появился бы дубль.
+export function planScheduleChange(lessons, dates) {
+  const wanted = new Set(dates)
+  const planned = lessons.filter(l => l.status === 'planned')
+  const busy = new Set(lessons.filter(l => l.status !== 'planned').map(l => l.date))
+
+  const keep = new Set()
+  const toDelete = []
+  for (const lesson of planned) {
+    if (wanted.has(lesson.date) && !keep.has(lesson.date)) keep.add(lesson.date)
+    else toDelete.push(lesson)
+  }
+
+  const toCreate = dates.filter(date => !keep.has(date) && !busy.has(date))
+  return { toDelete, toCreate, kept: keep.size }
+}
+
 // Занятие «трогать нельзя», если оно уже проведено или прошло:
 // правка состава задним числом сдвинула бы балансы.
 export const isEditableLesson = (lesson) =>

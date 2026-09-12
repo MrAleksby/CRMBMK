@@ -334,6 +334,13 @@ export default function Lessons() {
     await fetchData()
   }
 
+  // Удаление из окна занятия: после него окно надо закрыть, иначе оно останется
+  // висеть над календарём с уже несуществующим занятием.
+  const handleDeleteFromModal = async (lesson) => {
+    await handleDelete(lesson)
+    setModalId(null)
+  }
+
   const handleDelete = async (lesson) => {
     const related = chargesOf(lesson.id)
     if (related.length) {
@@ -567,6 +574,7 @@ export default function Lessons() {
           onConduct={handleConduct}
           onReturn={handleReturnToPlanned}
           onCancelLesson={handleCancel}
+          onDelete={handleDeleteFromModal}
           onSaveStudents={handleSaveStudents}
           readOnly={!manages}
         />
