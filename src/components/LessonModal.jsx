@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import StudentChecklist from './StudentChecklist'
 import { LESSON_STATUSES } from '../lib/group'
@@ -72,6 +72,26 @@ export default function LessonModal({
   const [students, setStudents] = useState(lesson.studentIds || [])
   const [editingStudents, setEditingStudents] = useState(false)
   const [error, setError] = useState('')
+
+  // Состав сохранили — в окне должен сразу появиться новый ученик.
+  //
+  // Раньше журнал собирался один раз, при открытии: страница перечитывала
+  // занятие, а окно продолжало показывать старый состав, и менеджеру
+  // приходилось закрывать его и открывать заново.
+  //
+  // Уже введённые суммы при этом сохраняются: берём прежнюю строку, если она
+  // была. Иначе правка состава стирала бы заполненный журнал.
+  const studentsKey = (lesson.studentIds || []).join(',')
+  useEffect(() => {
+    setStudents(lesson.studentIds || [])
+    setRows(prev => {
+      const byId = new Map(prev.map(r => [r.clientId, r]))
+      return buildJournal(lesson, clients, subscriptions).map(row => byId.get(row.clientId) || row)
+    })
+    // Пересобираем только при смене состава: от прочих полей журнал не зависит,
+    // а лишний пересчёт стёр бы подсказки цен, которые менеджер уже поправил.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [studentsKey])
 
   // Колонка бонуса нужна, только если хоть у кого-то в занятии они есть или
   // уже потрачены: иначе на планшете четыре поля в ряд ужимают суммы впустую.

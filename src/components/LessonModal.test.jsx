@@ -175,3 +175,79 @@ describe('окно занятия: проведённое', () => {
     expect(shown).toContain('Списано:320000сум')
   })
 })
+
+// Состав сохранили — новый ученик должен появиться в окне сразу.
+// 13 сентября 2026: журнал собирался один раз при открытии, и менеджеру
+// приходилось закрывать окно и открывать заново, чтобы увидеть добавленных.
+describe('окно занятия: правка состава', () => {
+  const show2 = (props) => render(
+    <MemoryRouter>
+      <LessonModal
+        lesson={lesson} clients={clients} subscriptions={[]} teachers={[]}
+        balances={{}} lessonsLeftBy={{}}
+        onClose={() => {}} onConduct={() => {}} onReturn={() => {}}
+        onCancelLesson={() => {}} onSaveStudents={() => {}}
+        {...props}
+      />
+    </MemoryRouter>,
+  )
+
+  it('добавленный ученик появляется без переоткрытия окна', () => {
+    const third = { id: 'c', childName: 'Вика' }
+    const { rerender } = show2()
+
+    expect(screen.queryByText('Вика')).toBeNull()
+
+    rerender(
+      <MemoryRouter>
+        <LessonModal
+          lesson={{ ...lesson, studentIds: ['a', 'b', 'c'] }}
+          clients={[...clients, third]} subscriptions={[]} teachers={[]}
+          balances={{}} lessonsLeftBy={{}}
+          onClose={() => {}} onConduct={() => {}} onReturn={() => {}}
+          onCancelLesson={() => {}} onSaveStudents={() => {}}
+        />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('Вика')).toBeTruthy()
+  })
+
+  it('уже введённые суммы при этом не стираются', () => {
+    const third = { id: 'c', childName: 'Вика' }
+    const { rerender } = show2()
+    fireEvent.change(fieldsOf('Боря')[0], { target: { value: '250000' } })
+
+    rerender(
+      <MemoryRouter>
+        <LessonModal
+          lesson={{ ...lesson, studentIds: ['a', 'b', 'c'] }}
+          clients={[...clients, third]} subscriptions={[]} teachers={[]}
+          balances={{}} lessonsLeftBy={{}}
+          onClose={() => {}} onConduct={() => {}} onReturn={() => {}}
+          onCancelLesson={() => {}} onSaveStudents={() => {}}
+        />
+      </MemoryRouter>,
+    )
+
+    expect(fieldsOf('Боря')[0].value).toBe('250000')
+  })
+
+  it('убранный из состава ученик исчезает', () => {
+    const { rerender } = show2()
+
+    rerender(
+      <MemoryRouter>
+        <LessonModal
+          lesson={{ ...lesson, studentIds: ['a'] }}
+          clients={clients} subscriptions={[]} teachers={[]}
+          balances={{}} lessonsLeftBy={{}}
+          onClose={() => {}} onConduct={() => {}} onReturn={() => {}}
+          onCancelLesson={() => {}} onSaveStudents={() => {}}
+        />
+      </MemoryRouter>,
+    )
+
+    expect(screen.queryByText('Боря')).toBeNull()
+  })
+})
