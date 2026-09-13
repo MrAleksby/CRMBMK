@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  WEEKDAYS, GROUP_MODES, generateDates, validateGroupForm,
+  WEEKDAYS, GROUP_MODES, generateDates, validateGroupForm, emptyPeriod,
 } from '../lib/group'
 import { isTeacher } from '../lib/directories'
 
@@ -64,6 +64,18 @@ export default function GroupForm({ initial, clients, teachers, saving, schedule
     setError('')
     onSubmit(form)
   }
+
+  const setPeriod = (index, patch) => setForm({
+    ...form,
+    periods: form.periods.map((p, i) => (i === index ? { ...p, ...patch } : p)),
+  })
+
+  const addPeriod = () => setForm({ ...form, periods: [...form.periods, emptyPeriod()] })
+
+  const removePeriod = (index) => setForm({
+    ...form,
+    periods: form.periods.filter((_, i) => i !== index),
+  })
 
   const dates = generateDates(form)
   const rebuilding = editing
@@ -155,13 +167,35 @@ export default function GroupForm({ initial, clients, teachers, saving, schedule
             </div>
           )}
 
+         {/* Периодов может быть несколько: каникулярная группа идёт окнами,
+              а между ними пауза. Возобновить группу = добавить ещё один период,
+              прошлые занятия при этом остаются нетронутыми. */}
+         {form.periods.map((period, i) => (
+            <div key={i} style={{ ...grid, marginBottom: '8px', alignItems: 'end' }}>
+              <Field label={form.mode === 'range' ? 'Первый день *' : `Начало периода ${form.periods.length > 1 ? i + 1 : ''}*`}>
+                <input required type="date" style={inputStyle} value={period.from}
+                  onChange={e => setPeriod(i, { from: e.target.value })} />
+              </Field>
+              <Field label={form.mode === 'range' ? 'Последний день *' : 'Конец периода *'}>
+                <input required type="date" style={inputStyle} value={period.to}
+                  onChange={e => setPeriod(i, { to: e.target.value })} />
+              </Field>
+             {form.periods.length > 1 && (
+                <button type="button" onClick={() => removePeriod(i)} style={{
+                  background: 'transparent', border: '1px solid #e5e7eb', borderRadius: '10px',
+                  padding: '8px 12px', color: '#6b7280', fontSize: '13px', cursor: 'pointer',
+                  height: '38px',
+                }}>Убрать</button>
+              )}
+            </div>
+          ))}
+
+          <button type="button" onClick={addPeriod} style={{
+            background: 'transparent', border: 'none', padding: 0, marginBottom: '12px',
+            color: '#7c3aed', fontSize: '13px', cursor: 'pointer',
+          }}>+ Ещё период (каникулы, возобновление)</button>
+
           <div style={grid}>
-            <Field label={form.mode === 'range' ? 'Первый день *' : 'Начало периода *'}>
-              <input required type="date" style={inputStyle} value={form.dateFrom} onChange={set('dateFrom')} />
-            </Field>
-            <Field label={form.mode === 'range' ? 'Последний день *' : 'Конец периода *'}>
-              <input required type="date" style={inputStyle} value={form.dateTo} onChange={set('dateTo')} />
-            </Field>
             <Field label="Время начала">
               <input type="time" style={inputStyle} value={form.timeFrom} onChange={set('timeFrom')} />
             </Field>

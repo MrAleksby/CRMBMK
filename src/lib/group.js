@@ -24,17 +24,38 @@ export const LESSON_STATUSES = {
   cancelled: { label: 'Отменён', color: '#6b7280', background: '#f3f4f6' },
 }
 
+// Периодов у группы может быть несколько.
+//
+// Каникулярная группа идёт окнами: лето, осенние, зимние, весенние каникулы,
+// а между ними пауза. Одним отрезком это не описать: пришлось бы либо заводить
+// новую группу на каждые каникулы (и терять историю и состав), либо растянуть
+// период на год и потом руками удалять занятия учебного времени.
+//
+// Поэтому группа хранит список отрезков, а расписание применяется внутри
+// каждого. Возобновить группу = добавить ещё один период.
+export const emptyPeriod = () => ({ from: '', to: '' })
+
 export const emptyGroupForm = () => ({
   name: '',
   teacherId: '',
   mode: 'weekly',
   weekdays: [6],
-  dateFrom: '',
-  dateTo: '',
+  periods: [emptyPeriod()],
   timeFrom: '11:00',
   timeTo: '16:00',
   studentIds: [],
 })
+
+// Периоды группы. Старые группы хранят один отрезок в dateFrom/dateTo —
+// читаем их как период, чтобы ничего не переносить в базе.
+export function groupPeriods(source) {
+  const list = Array.isArray(source?.periods) ? source.periods : []
+  const clean = list
+    .map(p => ({ from: p.from || '', to: p.to || p.from || '' }))
+    .filter(p => p.from)
+  if (clean.length) return clean
+  return source?.dateFrom ? [{ from: source.dateFrom, to: source.dateTo || source.dateFrom }] : []
+}
 
 const toDate = (iso) => {
   const [y, m, d] = String(iso).split('-').map(Number)
@@ -52,27 +73,38 @@ export const isoWeekday = (date) => date.getDay() === 0 ? 7 : date.getDay()
 
 export const todayISO = () => toISO(new Date())
 
-// Все даты серии. Для weekly — только выбранные дни недели, для range — каждый день.
+// Все даты серии: расписание применяется внутри каждого периода.
+// Для weekly — только выбранные дни недели, для range — каждый день.
+//
+// Пересекающиеся периоды не запрещаем: даты уникальны, поэтому два занятия
+// на один день не появятся, а требовать от менеджера аккуратной арифметики
+// с отрезками незачем.
 export function generateDates(form) {
-  const start = toDate(form.dateFrom)
-  const end = toDate(form.dateTo || form.dateFrom)
-  if (!start || !end || end < start) return []
+  const dates = new Set()
 
-  const dates = []
-  const cursor = new Date(start)
-  while (cursor <= end && dates.length < MAX_LESSONS_PER_GROUP) {
-    const matches = form.mode === 'range' || form.weekdays.includes(isoWeekday(cursor))
-    if (matches) dates.push(toISO(cursor))
-    cursor.setDate(cursor.getDate() + 1)
+  for (const period of groupPeriods(form)) {
+    const start = toDate(period.from)
+    const end = toDate(period.to || period.from)
+    if (!start || !end || end < start) continue
+
+    const cursor = new Date(start)
+    while (cursor <= end && dates.size < MAX_LESSONS_PER_GROUP) {
+      const matches = form.mode === 'range' || form.weekdays.includes(isoWeekday(cursor))
+      if (matches) dates.add(toISO(cursor))
+      cursor.setDate(cursor.getDate() + 1)
+    }
   }
-  return dates
+  return [...dates].sort()
 }
 
 export function validateGroupForm(form) {
   if (!form.name.trim()) return 'Укажите название группы'
-  if (!form.dateFrom) return 'Укажите дату начала'
-  if (form.mode === 'range' && !form.dateTo) return 'Укажите дату окончания интенсива'
-  if (form.dateTo && form.dateTo < form.dateFrom) return 'Дата окончания раньше даты начала'
+  const periods = groupPeriods(form)
+  if (!periods.length) return 'Укажите период занятий'
+  for (const period of periods) {
+    if (form.mode === 'range' && !period.to) return 'Укажите дату окончания интенсива'
+    if (period.to && period.to < period.from) return 'Дата окончания раньше даты начала'
+  }
   if (form.mode === 'weekly' && form.weekdays.length === 0) return 'Выберите хотя бы один день недели'
   if (form.timeTo <= form.timeFrom) return 'Время окончания должно быть позже начала'
 
@@ -85,23 +117,31 @@ export function validateGroupForm(form) {
 }
 
 export function groupToForm(group) {
+  const periods = groupPeriods(group)
   return {
     ...emptyGroupForm(),
     ...group,
     weekdays: group.weekdays ?? [],
     studentIds: group.studentIds ?? [],
-    dateTo: group.dateTo || '',
+    periods: periods.length ? periods : [emptyPeriod()],
   }
 }
 
 export function formToGroupDoc(form) {
+  const periods = groupPeriods(form)
+    .map(p => ({ from: p.from, to: p.to || p.from }))
+    .sort((a, b) => a.from.localeCompare(b.from))
+
   return {
     name: form.name.trim(),
     teacherId: form.teacherId,
     mode: form.mode,
     weekdays: form.mode === 'weekly' ? [...form.weekdays].sort((a, b) => a - b) : [],
-    dateFrom: form.dateFrom,
-    dateTo: form.dateTo || form.dateFrom,
+    periods,
+    // Границы всей серии оставляем рядом: по ним сортируют и отбирают группы,
+    // и старые записи без `periods` читаются той же парой полей.
+    dateFrom: periods[0]?.from || '',
+    dateTo: periods.reduce((last, p) => (p.to > last ? p.to : last), periods[0]?.to || ''),
     timeFrom: form.timeFrom,
     timeTo: form.timeTo,
     studentIds: form.studentIds,
@@ -158,8 +198,16 @@ export function scheduleLabel(group) {
 
 export function periodLabel(group) {
   const format = (iso) => iso ? new Date(iso).toLocaleDateString('ru') : ''
-  const from = format(group.dateFrom)
-  const to = format(group.dateTo)
-  if (!from) return ''
-  return from === to ? from : `${from} — ${to}`
+  const periods = groupPeriods(group)
+  if (!periods.length) return ''
+
+  const one = (p) => {
+    const from = format(p.from)
+    const to = format(p.to)
+    return from === to ? from : `${from} — ${to}`
+  }
+  // Больше двух отрезков в чип не влезает: у каникулярной группы их четыре
+  // за год, и строка растянула бы карточку на две строки.
+  if (periods.length <= 2) return periods.map(one).join(', ')
+  return `${one(periods[0])} и ещё ${periods.length - 1}`
 }
