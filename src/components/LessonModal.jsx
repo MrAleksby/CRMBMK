@@ -281,18 +281,28 @@ export default function LessonModal({
                                 placeholder="Питание"
                                 title="Сумма за питание"
                                 onChange={e => update(record.clientId, { amountMeal: e.target.value })} />
-                             {/* Списывают сколько нужно, а не весь остаток: в подсказке
-                                  ноль, а доступную сумму показывает всплывающая подпись. */}
+                             {/* Списывают сколько нужно, а не весь остаток. Остаток
+                                  подписан прямо под полем: во всплывающей подсказке
+                                  его никто не находил — в поле стоял ноль, и казалось,
+                                  что бонусов нет. Нажатие на подпись ставит всю сумму. */}
                              {anyBonus && (
-                                <input type="text" inputMode="decimal"
-                                  style={{ ...inputStyle, width: '100%', textAlign: 'right' }}
-                                  value={record.amountBonus}
-                                  placeholder="0"
-                                  title={bonusLeftBy[record.clientId] > 0
-                                    ? `Есть ${bonusLeftBy[record.clientId].toLocaleString()} — можно списать часть`
-                                    : 'Бонусов нет'}
-                                  disabled={!(bonusLeftBy[record.clientId] > 0)}
-                                  onChange={e => update(record.clientId, { amountBonus: e.target.value })} />
+                                <div>
+                                  <input type="text" inputMode="decimal"
+                                    style={{ ...inputStyle, width: '100%', textAlign: 'right' }}
+                                    value={record.amountBonus}
+                                    placeholder="0"
+                                    disabled={!(bonusLeftBy[record.clientId] > 0)}
+                                    onChange={e => update(record.clientId, { amountBonus: e.target.value })} />
+                                 {bonusLeftBy[record.clientId] > 0 && (
+                                    <button type="button"
+                                      onClick={() => update(record.clientId, { amountBonus: String(bonusLeftBy[record.clientId]) })}
+                                      style={{
+                                        background: 'transparent', border: 'none', padding: '2px 0 0',
+                                        color: '#7c3aed', fontSize: '11px', cursor: 'pointer', width: '100%',
+                                        textAlign: 'right',
+                                      }}>есть {bonusLeftBy[record.clientId].toLocaleString()}</button>
+                                  )}
+                                </div>
                               )}
                               <input type="text"
                                 style={{ ...inputStyle, width: '100%', fontSize: '12px' }}

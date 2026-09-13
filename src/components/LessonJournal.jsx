@@ -149,7 +149,14 @@ export default function LessonJournal({
                   уменьшается, а на счёт ученика уходит уже уменьшенная сумма. */}
              {bonusLeftBy[row.clientId] > 0 && (
                 <div>
-                  <label style={fieldLabel}>Бонус (есть {bonusLeftBy[row.clientId].toLocaleString()})</label>
+                 {/* Подпись кликабельна: нажатие ставит весь остаток, но ввести
+                      можно и часть — списывают сколько нужно. */}
+                  <button type="button" style={{
+                    ...fieldLabel, background: 'transparent', border: 'none', padding: 0,
+                    color: '#7c3aed', cursor: 'pointer', display: 'block',
+                  }} onClick={() => update(row.clientId, { amountBonus: String(bonusLeftBy[row.clientId]) })}>
+                    Бонус (есть {bonusLeftBy[row.clientId].toLocaleString()})
+                  </button>
                  {/* Списать можно любую часть остатка: сколько ввели, столько
                       и уйдёт с бонусного счёта. Пусто — бонусы не тратим. */}
                   <input type="text" inputMode="decimal" style={inputStyle}
