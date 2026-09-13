@@ -73,12 +73,20 @@ function PhoneList({ phones, onChange }) {
   )
 }
 
-export default function LeadForm({ initial, saving, staff = [], onSubmit, onCancel }) {
+export default function LeadForm({
+  initial, saving, staff = [], clients = [], onSubmit, onCancel,
+}) {
   const [form, setForm] = useState(initial || emptyLeadForm())
   const [error, setError] = useState('')
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value })
   const today = new Date().toISOString().slice(0, 10)
+
+  // Пригласить может только тот, кто уже ходит: у лида-приглашающего
+  // нет ни карточки, ни бонусного счёта.
+  const invitedOptions = clients
+    .filter(c => (c.status || 'active') !== 'lead')
+    .sort((a, b) => String(a.childName || '').localeCompare(String(b.childName || ''), 'ru'))
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -162,6 +170,15 @@ export default function LeadForm({ initial, saving, staff = [], onSubmit, onCanc
              {staff.map(s => (
                 <option key={s.id} value={s.id}>{isTeacher(s) ? '' : ''} {s.name}</option>
               ))}
+            </select>
+          </Field>
+         {/* Кто привёл. Спрашивают об этом на первом же звонке, а первое занятие
+              приглашённого почти всегда пробное — то есть проходит ещё лидом.
+              Поэтому бонус пригласившему начисляется уже за него. */}
+          <Field label="Кто пригласил">
+            <select style={inputStyle} value={form.referrerId} onChange={set('referrerId')}>
+              <option value="">Никто</option>
+             {invitedOptions.map(c => <option key={c.id} value={c.id}>{c.childName}</option>)}
             </select>
           </Field>
         </div>

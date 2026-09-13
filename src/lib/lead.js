@@ -65,6 +65,11 @@ export const emptyLeadForm = () => ({
   stage: FIRST_STAGE,
   note: '',
   responsibleId: '',
+  // Кто привёл эту семью. Спрашивают об этом на первом же звонке, а первое
+  // занятие приглашённого почти всегда пробное — то есть проходит ещё лидом.
+  // Поэтому связь заводится здесь, а не после конверсии: иначе бонус
+  // за пробное было бы некому начислить.
+  referrerId: '',
 })
 
 export function leadToForm(lead) {
@@ -84,6 +89,7 @@ export function leadToForm(lead) {
     stage: lead.stage || FIRST_STAGE,
     note: lead.note || '',
     responsibleId: lead.responsibleId || '',
+    referrerId: lead.referrerId || '',
   }
 }
 
@@ -101,6 +107,7 @@ export function leadFormToDoc(form) {
     stage: form.stage,
     note: form.note.trim(),
     responsibleId: form.responsibleId,
+    referrerId: form.referrerId || '',
   }
 }
 
@@ -141,6 +148,9 @@ export function clientFormFromLead(lead, emptyForm) {
     source: lead.source || '',
     sourceNote: lead.sourceNote || '',
     notes: lead.note || '',
+    // Пригласивший переезжает в карточку вместе с остальным: по нему считаются
+    // бонусы, и они должны работать с первого же занятия, ещё до конверсии.
+    referrerId: lead.referrerId || '',
     status: 'active',
   }
 }

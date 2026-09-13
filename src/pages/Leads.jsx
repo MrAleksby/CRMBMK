@@ -544,6 +544,14 @@ export default function Leads() {
     const patch = { ...data }
     if (data.stage !== open.stage) patch.stageChangedAt = new Date()
     await updateDoc(doc(db, 'leads', open.id), patch)
+
+    // Карточка ученика у лида могла появиться раньше, чем менеджер вспомнил,
+    // кто его привёл. Бонусы считаются по карточке, поэтому пригласившего
+    // переносим туда же — иначе за пробное начислять будет некому.
+    if (data.referrerId !== open.referrerId) {
+      const clientId = await liveClientId(open)
+      if (clientId) await updateDoc(doc(db, 'clients', clientId), { referrerId: data.referrerId || '' })
+    }
     setMode('view')
   })
 
@@ -708,7 +716,7 @@ export default function Leads() {
       </div>
 
      {adding && (
-        <LeadForm saving={saving} staff={staff}
+        <LeadForm saving={saving} staff={staff} clients={clients}
           onSubmit={handleAdd} onCancel={() => setAdding(false)} />
       )}
 
@@ -883,7 +891,7 @@ export default function Leads() {
 
      {open && mode === 'edit' && (
         <Modal onClose={() => setMode('view')}>
-          <LeadForm initial={leadToForm(open)} saving={saving} staff={staff}
+          <LeadForm initial={leadToForm(open)} saving={saving} staff={staff} clients={clients}
             onSubmit={handleEdit} onCancel={() => setMode('view')} />
         </Modal>
       )}
