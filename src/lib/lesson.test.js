@@ -469,3 +469,24 @@ describe('бонус в журнале', () => {
     expect(validateJournal([row({ amountBonus: '-5' })])).toMatch(/бонус/)
   })
 })
+
+// Бонус вычитается из введённой суммы занятия, а не подтверждает уже
+// уменьшенную. 13 сентября 2026 владелец ввела «занятие 230 000, бонус 100 000»
+// при полной цене 330 000 — и списалось 130 000 вместо 230 000.
+describe('бонус вычитается из полной цены', () => {
+  it('занятие 330 000 и бонус 100 000 дают списание 230 000', () => {
+    const row = {
+      clientId: 'a', clientName: 'Аня', status: 'present',
+      amountLesson: '330000', amountMeal: '', amountBonus: '100000', comment: '',
+    }
+    expect(rowTotal(row)).toBe(230_000)
+  })
+
+  it('уменьшенная сумма в «Занятии» вычтется ещё раз — так делать нельзя', () => {
+    const row = {
+      clientId: 'a', clientName: 'Аня', status: 'present',
+      amountLesson: '230000', amountMeal: '', amountBonus: '100000', comment: '',
+    }
+    expect(rowTotal(row)).toBe(130_000)
+  })
+})

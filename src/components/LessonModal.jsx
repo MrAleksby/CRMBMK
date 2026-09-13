@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import StudentChecklist from './StudentChecklist'
 import { LESSON_STATUSES } from '../lib/group'
-import { buildJournal, journalTotal, validateJournal, lessonTypeLabel, formatLessonDate, attendanceToRow } from '../lib/lesson'
+import { buildJournal, journalTotal, validateJournal, lessonTypeLabel, formatLessonDate, attendanceToRow, rowTotal } from '../lib/lesson'
 import { durationMinutes } from '../lib/calendar'
 import { toAmount } from '../lib/amount'
 
@@ -225,6 +225,15 @@ export default function LessonModal({
                               style={{ color: (!readOnly && balance < 0) ? '#dc2626' : '#7c3aed', textDecoration: 'none' }}>
                              {record.clientName}
                             </Link>
+                           {/* Сколько спишется с этого ученика. Без этой цифры бонус
+                                читался неверно: в «Занятие» ставили уже уменьшенную
+                                сумму, бонус вычитался ещё раз, и списывалось меньше
+                                положенного. Теперь итог по строке виден при вводе. */}
+                           {!readOnly && !conducted && rowTotal(record) > 0 && (
+                              <span style={{ fontSize: '12px', fontWeight: '600', color: '#111827' }}>
+                                → {rowTotal(record).toLocaleString()}
+                              </span>
+                            )}
                            {/* Остаток и долг — деньги: педагогу их не показываем. */}
                            {!readOnly && (
                               <span style={{ fontSize: '12px', color: balance < 0 ? '#dc2626' : '#6b7280' }}>
