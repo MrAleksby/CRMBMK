@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { planAttendanceUpdate, buildJournal, journalToAttendance, attendanceTile, attendanceToRow, journalTotal, validateJournal, rowTotal, splitFields, journalProblems, rowBonus, journalBonusTotal
+import { planAttendanceUpdate, buildJournal, journalToAttendance, attendanceTile, attendanceToRow, journalTotal, validateJournal, rowTotal, splitFields, chargeFields, journalProblems, rowBonus, journalBonusTotal
 } from './lesson'
 
 // Правка журнала проведённого занятия — самое опасное место в системе: сумма
@@ -319,6 +319,24 @@ describe('документ начисления не содержит undefined'
     const doc = chargeDoc({ clientId: 'a', clientName: 'Аня', status: 'present', amountLesson: '300000', amountMeal: '30000' })
     expect(noUndefined(doc)).toBe(true)
     expect(doc).toEqual({ amount: 330_000, amountLesson: 300_000, amountMeal: 30_000, comment: '' })
+  })
+
+  // Бонус уже вычтен из `amount`, поэтому баланс сходится и без этого поля —
+  // а отчёт по приглашениям читает именно `charges.amountBonus` и показывал ноль.
+  // Правка журнала бонус писала, первое проведение теряло: живая база пришла
+  // к начислению с разбивкой 280 000 + 50 000 при сумме 230 000 и без бонуса.
+  it('бонус едет из журнала в начисление', () => {
+    const record = journalToAttendance([{ clientId: 'a', clientName: 'Аня', status: 'present',
+      amountLesson: '280000', amountMeal: '50000', amountBonus: '100000' }])[0]
+    const doc = { amount: record.amountCharged, ...chargeFields(record), comment: '' }
+    expect(noUndefined(doc)).toBe(true)
+    expect(doc).toEqual({ amount: 230_000, amountLesson: 280_000, amountMeal: 50_000, amountBonus: 100_000, comment: '' })
+  })
+
+  it('без бонуса поля amountBonus в начислении нет, а не ноль', () => {
+    const record = journalToAttendance([{ clientId: 'a', clientName: 'Аня', status: 'present',
+      amountLesson: '300000', amountMeal: '30000' }])[0]
+    expect('amountBonus' in chargeFields(record)).toBe(false)
   })
 
   it('план правки журнала тоже не отдаёт undefined ни в создание, ни в обновление', () => {

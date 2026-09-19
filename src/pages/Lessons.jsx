@@ -15,7 +15,7 @@ import StudentChecklist from '../components/StudentChecklist'
 import LessonCalendar from '../components/LessonCalendar'
 import LessonModal from '../components/LessonModal'
 import { LESSON_STATUSES, todayISO } from '../lib/group'
-import { buildJournal, journalToAttendance, lessonTypeLabel, formatLessonDate, planAttendanceUpdate, splitFields } from '../lib/lesson'
+import { buildJournal, journalToAttendance, lessonTypeLabel, formatLessonDate, planAttendanceUpdate, chargeFields } from '../lib/lesson'
 import { activeSubscription, lessonsLeft } from '../lib/subscription'
 import { clientBalances, effectiveBalances } from '../lib/balance'
 import { walletCharges, walletKey } from '../lib/family'
@@ -174,7 +174,7 @@ export default function Lessons() {
           // На лицевом счёте лежит ИТОГ: баланс, прибыль и отчёты считают по нему
           // и о разбивке знать не обязаны. Части — справкой, ради учёта питания.
           amount: record.amountCharged,
-          ...splitFields(record),
+          ...chargeFields(record),
           comment: record.comment || '',
           lessons: 1,
           description: lesson.groupName || lessonTypeLabel(lesson.type),

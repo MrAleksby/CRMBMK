@@ -143,6 +143,18 @@ export const splitFields = (record) => (record.amountMeal === undefined ? {} : {
   amountMeal: record.amountMeal,
 })
 
+// Всё справочное, что переносится из записи журнала в документ начисления:
+// разбивка и потраченный бонус. Бонус обязан ехать вместе с ней. `amount`
+// уже уменьшен на него, поэтому баланс сходится и без этого поля, но отчёт
+// по бонусам читает именно `charges.amountBonus` (`chargesGross` и
+// `bonusExpense` в `finance.js`): без него подаренное занятие выглядит
+// как просто более дешёвое, и расход на приглашения показывает ноль.
+// Правка журнала бонус писала (`chargeParts`), а первое проведение — нет.
+export const chargeFields = (record) => ({
+  ...splitFields(record),
+  ...(record.amountBonus ? { amountBonus: record.amountBonus } : {}),
+})
+
 // Те же поля, но для начисления: на лицевом счёте лежит ИТОГ, разбивка — справкой.
 const chargeParts = (row) => ({
   amount: rowTotal(row),

@@ -174,10 +174,12 @@ for (const lesson of conducted) {
   if ((lesson.studentIds || []).length && !(lesson.attendance || []).length) emptyJournal++
 
   // Разбивка на занятие и питание обязана складываться в итог, иначе на экране
-  // одно, а на лицевом счёте другое.
+  // одно, а на лицевом счёте другое. Бонус вычитается: он не деньги, а скидка,
+  // и итог занятия уже уменьшен на него.
   for (const a of lesson.attendance || []) {
     if (a.amountMeal === undefined) continue
-    if (Math.abs((a.amountLesson || 0) + (a.amountMeal || 0) - (a.amountCharged || 0)) > 0.01) splitBroken++
+    const total = (a.amountLesson || 0) + (a.amountMeal || 0) - (a.amountBonus || 0)
+    if (Math.abs(total - (a.amountCharged || 0)) > 0.01) splitBroken++
   }
 }
 check(mismatched === 0, `суммы журнала = начисления на всех ${conducted.length} проведённых занятиях`)
@@ -185,16 +187,16 @@ check(perStudent === 0, `суммы сходятся у каждого учен�
 check(emptyJournal === 0, `нет проведённых занятий с составом, но с пустым журналом (найдено: ${emptyJournal})`)
 check(missing === 0, `нет проведённых занятий без начислений (найдено: ${missing})`)
 check(doubled === 0, `нет двойных начислений (найдено: ${doubled})`)
-check(splitBroken === 0, `занятие + питание = итог во всех журналах (расхождений: ${splitBroken})`)
+check(splitBroken === 0, `занятие + питание − бонус = итог во всех журналах (расхождений: ${splitBroken})`)
 
 const lessonIds = new Set(lessons.map(l => l.id))
 check(charges.filter(c => c.lessonId && !lessonIds.has(c.lessonId)).length === 0,
   'нет начислений на удалённые занятия')
 
 const chargeSplitBroken = charges.filter(c => c.amountMeal !== undefined
-  && Math.abs((c.amountLesson || 0) + (c.amountMeal || 0) - (c.amount || 0)) > 0.01)
+  && Math.abs((c.amountLesson || 0) + (c.amountMeal || 0) - (c.amountBonus || 0) - (c.amount || 0)) > 0.01)
 check(chargeSplitBroken.length === 0,
-  `занятие + питание = сумма во всех начислениях (расхождений: ${chargeSplitBroken.length})`)
+  `занятие + питание − бонус = сумма во всех начислениях (расхождений: ${chargeSplitBroken.length})`)
 
 // Дубль занятия: та же группа, та же дата и время. Провели оба — списали дважды.
 //
