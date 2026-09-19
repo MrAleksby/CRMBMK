@@ -36,6 +36,13 @@ export default defineConfig([
     languageOptions: { globals: globals.node },
   },
 
+  // Сквозные тесты запускает vitest под Node: они смотрят на process.env,
+  // чтобы пропустить себя, когда эмулятор не поднят.
+  {
+    files: ['src/e2e/**/*.jsx'],
+    languageOptions: { globals: { ...globals.browser, ...globals.node } },
+  },
+
   // AuthContext рядом с провайдером экспортирует хук useAuth. Разносить их
   // по файлам ради горячей перезагрузки незачем — это одна сущность.
   {
