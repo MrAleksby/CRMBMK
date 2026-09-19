@@ -112,9 +112,14 @@ export const DIRECTORIES = [
       { key: 'name', label: 'Название', type: FIELD_TEXT, required: true, placeholder: 'Наличные' },
       {
         key: 'kind', label: 'Тип', type: FIELD_SELECT, required: true,
+        // Депозит — такая же касса компании, как карта: деньги на нём никуда
+        // не делись, просто лежат и копятся. Тип нигде в расчётах не участвует,
+        // он только подписывает строку в справочнике — поэтому депозит считается
+        // в баланс компании наравне с остальными, а пополняется переводом.
         options: [
           { value: 'cash', label: 'Наличные' },
           { value: 'card', label: 'Карта' },
+          { value: 'deposit', label: 'Депозит' },
         ],
       },
       { key: 'order', label: 'Порядок в отчёте', type: FIELD_COUNT, min: 0 },
